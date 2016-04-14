@@ -14,16 +14,28 @@ def run():
     """
     Runs some unit testing on the WLC fitting
     """
-    x = np.linspace(0,600e-9,15)
-    xInterp = np.linspace(0,600e-9,100)
-    y = np.array([0,0,0,0,0,0.5,1,1.5,3,4,9,30,50,100,250]) * 1e-12
+    # set up the maximum x (distance) and y (force), in SI
+    maxX = 600e-9 
+    yUnits = 1e-12
+    # add noise
+    noiseAmplitude = yUnits*30
+    x = np.linspace(0,maxX,15)
+    xInterp = np.linspace(0,maxX,100)
+    y = np.array([0,0,0,0,0,0.5,1,1.5,3,4,9,30,50,100,250]) * yUnits
     yInterp = np.interp(xInterp,x,y)
+    yInterp += noiseAmplitude * (np.random.rand(*yInterp.shape)-0.5)
+    # get an extensible and non-extensible model
     mFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryLp=False)
     mFitNon = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryLp=True)
-    plt.plot(xInterp,yInterp,label="Extensible")
-    plt.plot(xInterp,mFit,'r-',linewidth=3.0)
-    plt.plot(xInterp,mFitNon,'b--',label="Non Extensible")
-    plt.ylim([min(yInterp),max(yInterp)])
+    # plot everything
+    toNm = 1e9
+    toPn = 1e12
+    plt.plot(xInterp*toNm,yInterp*toPn,label="Data")
+    plt.plot(xInterp*toNm,mFit*toPn,'r-',label="Extensible",linewidth=3.0)
+    plt.plot(xInterp*toNm,mFitNon*toPn,'b--',label="Non Extensible")
+    plt.ylim([min(yInterp*toPn),max(yInterp*toPn)])
+    plt.xlabel("Distance (nm)")
+    plt.ylabel("Force (pN)")
     plt.legend()
     plt.show()
 
