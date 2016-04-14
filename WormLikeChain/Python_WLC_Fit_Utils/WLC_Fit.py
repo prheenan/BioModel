@@ -7,7 +7,7 @@ import sys
 
 
 from scipy.optimize import curve_fit
-import GeneralUtil.python.GenUtilities as pGenUtil
+import FitUtils.Python.FitUtil as fitUtil
 
 class WLC_DEF:
     """
@@ -220,7 +220,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     # POST: have the functions we want
     mFittingFunc = toVary.GetFittingFunctionToCall(func,**fixed)
     # note: we use p0 as the initial guess for the parameter values
-    params,paramsStd,predicted = pGenUtil.GenFit(ext,force,mFittingFunc,p0=p0)
+    params,paramsStd,predicted = fitUtil.GenFit(ext,force,mFittingFunc,p0=p0)
     if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
         secondFunc = WlcExtensible
         rtol = WlcOptions.rtol
@@ -232,8 +232,8 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
             prev[np.where(prev<0)] =0
             fixed.update(dict(ForceGuess=prev))
             mFittingFunc = toVary.GetFittingFunctionToCall(secondFunc,**fixed)
-            params,paramsStd,predicted = pGenUtil.GenFit(ext,force,
-                                                         mFittingFunc,p0=p0)
+            params,paramsStd,predicted = fitUtil.GenFit(ext,force,
+                                                        mFittingFunc,p0=p0)
             close = np.allclose(predicted,prev, rtol=rtol, atol=0,
                                 equal_nan=False)
             if (close):
