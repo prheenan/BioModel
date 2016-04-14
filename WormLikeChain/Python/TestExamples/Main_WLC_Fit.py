@@ -24,9 +24,11 @@ def run():
     y = np.array([0,0,0,0,0,0.5,1,1.5,3,4,9,30,50,100,250]) * yUnits
     yInterp = np.interp(xInterp,x,y)
     yInterp += noiseAmplitude * (np.random.rand(*yInterp.shape)-0.5)
-    # get an extensible and non-extensible model
-    mFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryLp=False)
-    mFitNon = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryLp=True)
+    # get an extensible and non-extensible model, choose whether to varying L0
+    # and Lp
+    mFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryL0=True,VaryLp=False)
+    mFitNon = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
+                                          VaryLp=False)
     # plot everything
     toNm = 1e9
     toPn = 1e12

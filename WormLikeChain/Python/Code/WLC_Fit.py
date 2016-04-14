@@ -90,7 +90,7 @@ class WlcParamValues:
 
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
-                 ParamVals=WlcParamValues(),nIters=10,
+                 ParamVals=WlcParamValues(),nIters=30,
                  rtol=1e-2,VaryObj=WlcParamsToVary()):
         """
         Args:
@@ -229,7 +229,11 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
             # get the previous array
             prev = predicted.copy()
             # get rid of bad elements
-            prev[np.where(prev<0)] =0
+            le = np.where(prev<0)
+            idx = le[0]
+            if (idx.size > 0):
+                prev[idx[0]:] = 0
+                prev[le] = 0 
             fixed.update(dict(ForceGuess=prev))
             mFittingFunc = toVary.GetFittingFunctionToCall(secondFunc,**fixed)
             params,paramsStd,predicted = fitUtil.GenFit(ext,force,
@@ -263,7 +267,7 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     return WlcFit(ext,force,mInfo)
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                     nIters=10,rtol=1e-2,**kwargs):
+                     nIters=30,rtol=1e-2,**kwargs):
     """
     extensible version of the WLC fit. By default, varies the contour length
     to get the fit. Uses Bouichat, 1999 (see aboce) , by default
