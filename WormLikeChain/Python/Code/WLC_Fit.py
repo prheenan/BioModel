@@ -230,10 +230,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
             prev = predicted.copy()
             # get rid of bad elements
             le = np.where(prev<0)
-            idx = le[0]
-            if (idx.size > 0):
-                prev[idx[0]:] = 0
-                prev[le] = 0 
+            prev[le] = 0 
             fixed.update(dict(ForceGuess=prev))
             mFittingFunc = toVary.GetFittingFunctionToCall(secondFunc,**fixed)
             params,paramsStd,predicted = fitUtil.GenFit(ext,force,
