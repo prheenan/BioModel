@@ -26,7 +26,7 @@ def run():
     yInterp += noiseAmplitude * (np.random.rand(*yInterp.shape)-0.5)
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
-    mFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryL0=True,VaryLp=True)
+    mFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryL0=True,VaryLp=False)
     mFitNon = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
                                           VaryLp=False)
     # plot everything

@@ -90,7 +90,7 @@ class WlcParamValues:
 
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
-                 ParamVals=WlcParamValues(),nIters=30,
+                 ParamVals=WlcParamValues(),nIters=500,
                  rtol=1e-2,VaryObj=WlcParamsToVary()):
         """
         Args:
@@ -225,24 +225,21 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
         secondFunc = WlcExtensible
         rtol = WlcOptions.rtol
         nIters = WlcOptions.nIters
+        # set up options for stopping
         closeOpt = dict(rtol=rtol,atol=0,equal_nan=False)
         for i in range(nIters):
             # get the previous array
             prev = predicted.copy()
-            # get rid of bad elements
-            le = np.where(prev<0)
-            prev[le] = 0 
             fixed.update(dict(ForceGuess=prev))
             mFittingFunc = toVary.GetFittingFunctionToCall(secondFunc,**fixed)
             params,paramsStd,predicted = fitUtil.GenFit(ext,force,
                                                         mFittingFunc,p0=p0)
             # fix the predicted values...
-            le = np.where(predicted<0)
-            predicted[le] = 0 
             close1 = np.allclose(predicted,prev, **closeOpt)
             close2 = np.allclose(prev,predicted, **closeOpt)
             if (close1 or close2):
                 # then we are close enough to our final result!
+                print(nIters)
                 break
     return predicted
 
@@ -268,7 +265,7 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     return WlcFit(ext,force,mInfo)
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                     nIters=30,rtol=1e-2,**kwargs):
+                     nIters=30,rtol=1e-3,**kwargs):
     """
     extensible version of the WLC fit. By default, varies the contour length
     to get the fit. Uses Bouichat, 1999 (see aboce) , by default
