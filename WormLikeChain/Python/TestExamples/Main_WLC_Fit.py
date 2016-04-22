@@ -27,10 +27,12 @@ def run():
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
     extensibleFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
-                                             VaryLp=True,VaryK0=False)
-    print(extensibleFit)
+                                             VaryLp=False,VaryK0=False)
     nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
                                                    VaryLp=False)
+    print("Extensible Parameters")
+    print(extensibleFit)
+    print("Non-extensible Parameters")
     print(nonExtensibleFit)
     mFit = extensibleFit.Prediction
     mFitNon = nonExtensibleFit.Prediction

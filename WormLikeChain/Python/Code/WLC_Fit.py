@@ -296,8 +296,6 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
             close1 = np.allclose(predicted,prev, **closeOpt)
             close2 = np.allclose(prev,predicted, **closeOpt)
             if (close1 or close2):
-                print("close")
-                print(nIters)
                 # then we are close enough to our final result!
                 break
     # all done!
