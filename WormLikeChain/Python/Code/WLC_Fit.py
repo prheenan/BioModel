@@ -225,6 +225,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
         secondFunc = WlcExtensible
         rtol = WlcOptions.rtol
         nIters = WlcOptions.nIters
+        closeOpt = dict(rtol=rtol,atol=0,equal_nan=False)
         for i in range(nIters):
             # get the previous array
             prev = predicted.copy()
@@ -235,9 +236,12 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
             mFittingFunc = toVary.GetFittingFunctionToCall(secondFunc,**fixed)
             params,paramsStd,predicted = fitUtil.GenFit(ext,force,
                                                         mFittingFunc,p0=p0)
-            close = np.allclose(predicted,prev, rtol=rtol, atol=0,
-                                equal_nan=False)
-            if (close):
+            # fix the predicted values...
+            le = np.where(predicted<0)
+            predicted[le] = 0 
+            close1 = np.allclose(predicted,prev, **closeOpt)
+            close2 = np.allclose(prev,predicted, **closeOpt)
+            if (close1 or close2):
                 # then we are close enough to our final result!
                 break
     return predicted
