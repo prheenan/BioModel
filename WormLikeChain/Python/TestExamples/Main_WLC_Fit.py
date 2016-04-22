@@ -15,7 +15,7 @@ def run():
     Runs some unit testing on the WLC fitting
     """
     # set up the maximum x (distance) and y (force), in SI
-    maxX = 600e-9 
+    maxX = 601e-9 
     yUnits = 1e-12
     # add noise
     noiseAmplitude = yUnits*30
@@ -26,9 +26,14 @@ def run():
     yInterp += noiseAmplitude * (np.random.rand(*yInterp.shape)-0.5)
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
-    mFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryL0=True,VaryLp=False)
-    mFitNon = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
-                                          VaryLp=False)
+    extensibleFit = WLC_Fit.ExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
+                                             VaryLp=True,VaryK0=False)
+    print(extensibleFit)
+    nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(xInterp,yInterp,VaryL0=True,
+                                                   VaryLp=False)
+    print(nonExtensibleFit)
+    mFit = extensibleFit.Prediction
+    mFitNon = nonExtensibleFit.Prediction
     # plot everything
     toNm = 1e9
     toPn = 1e12

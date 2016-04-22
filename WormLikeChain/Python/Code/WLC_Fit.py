@@ -5,9 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-
+import copy
 from scipy.optimize import curve_fit
 import FitUtils.Python.FitUtil as fitUtil
+from collections import OrderedDict
 
 class WLC_DEF:
     """
@@ -42,46 +43,58 @@ class WlcParamsToVary:
         self.VaryL0 = VaryL0
         self.VaryLp = VaryLp
         self.VaryK0 = VaryK0
-    def GetFittingFunctionToCall(self,ToCall,**kwargs):
-        """
-        Gets the functions to use for fitting
-        
-        Args: 
-           function to call. must follow signature of WlcNonExtensible
-        """
-        # XXX could make this more efficient ? ...
-        if (self.VaryL0 and self.VaryLp and self.VaryK0):
-            return lambda x,L0,Lp,K0 : ToCall(ext=x,L0=L0,Lp=Lp,K0=K0,**kwargs)
-        elif (self.VaryL0 and self.VaryLp):
-            return lambda x,L0,Lp : ToCall(ext=x,L0=L0,Lp=Lp,**kwargs)
-        elif (self.VaryL0 and self.VaryK0):
-            return lambda x,L0,K0 : ToCall(ext=x,L0=L0,K0=K0,**kwargs)
-        elif (self.VaryLp and self.VaryK0):
-            return lambda x,Lp,K0 : ToCall(ext=x,Lp=L0,K0=K0,**kwargs)
-        elif (self.VaryLp):
-            return lambda x,Lp : ToCall(ext=x,Lp=Lp,**kwargs)
-        elif (self.VaryL0):
-            return lambda x,L0 : ToCall(ext=x,L0=L0,**kwargs)
-        elif (self.VaryK0):
-            return lambda x,K0 : ToCall(ext=x,K0=K0,**kwargs)
     
 class WlcParamValues:
     """
     Class to record parameter values given to a fit or gotten from the same
     """
+    class Param:
+        def __init__(self,Value,Stdev=None):
+            self.Value = Value
+            self.Stdev = Stdev
+        def __str__(self):
+            stdevStr = "+/-{:5.2g}".format(self.Stdev) \
+                       if self.Stdev is not None else ""
+            return "{:5.3g}{:s}".format(self.Value,stdevStr)
     def __init__(self,kbT=WLC_DEF.kbT,
                  L0=WLC_DEF.L0,Lp=WLC_DEF.Lp,K0=WLC_DEF.K0):
-                 
         """
         Args:
             kbT,Lp,L0 : see WlcPolyCorrect. Initial guesses
             K0: see WlcExtensible. Note this is ignored for non-extensible 
             models
         """
-        self.L0 = L0
-        self.Lp = Lp
-        self.K0 = K0
-        self.kbT = kbT
+        self.SetParamValues(L0,Lp,K0,kbT)
+    def SetParamValues(self,L0,Lp,K0,kbT):
+        """
+        Sets the parameter values
+
+        Args:
+            kbT,Lp,L0,K0: See Init
+        """
+        self.L0 = WlcParamValues.Param(L0)
+        self.Lp = WlcParamValues.Param(Lp)
+        self.K0 = WlcParamValues.Param(K0)
+        self.kbT = WlcParamValues.Param(kbT)
+    def GetParamDict(self):
+        """
+        Returns: in-order dictionary of the parameters
+        """
+        return OrderedDict(L0=self.L0,Lp=self.Lp,K0=self.K0,kbT=self.kbT)
+    def SetParamStdevs(self,L0,Lp,K0,kbT):
+        """
+        Sets the parameter stdevs
+
+        Args:
+            See SetParamValues, except all standard deviations
+        """
+        attr = [(self.L0,L0),
+                (self.Lp,Lp),
+                (self.K0,K0),
+                (self.kbT,kbT)]
+        for a,stdev in attr:
+            a.Stdev = stdev
+        
     def GetParamsInOrder(self):
         """
         Conveniene function, gets the parameters in the conventional order
@@ -109,7 +122,52 @@ class WlcFitInfo:
         self.ParamsVaried = VaryObj
         self.nIters = nIters
         self.rtol = rtol
-    
+    def AddParamsGen(self,condition=lambda x: x):
+        toRet = OrderedDict()
+        # assume we never vary temperature
+        toVary = self.ParamsVaried
+        vals = self.ParamVals
+        addToDict = lambda **kwargs: toRet.update(dict(kwargs))
+        if (condition(toVary.VaryL0)):
+            addToDict(L0=vals.L0.Value)
+        if (condition(toVary.VaryLp)):
+            addToDict(Lp=vals.Lp.Value)
+        if (condition(toVary.VaryK0)):
+            addToDict(K0=vals.K0.Value)
+        return toRet
+    def GetVaryingParamDict(self):
+        """
+        Gets the dictionary of varying parameters
+        """
+        toRet= self.AddParamsGen(condition=lambda x : x)
+        return toRet
+    def GetFixedParamDict(self):
+        """
+        Gets the dictionary of fixed parameters (assumes temperature is amoung
+        """
+        # temperature comes first in the ordering
+        toRet = OrderedDict(kbT=self.ParamVals.kbT.Value)
+        allButTemp = self.AddParamsGen(condition=lambda x : not x)
+        toRet.update(allButTemp)
+        return toRet
+    def GetFullDictionary(self,ParamNamesToVary,ParamsFixedDict,*args):
+        mapV = lambda key,vals: OrderedDict([(k,v) for k,v in zip(key,vals)])
+        return OrderedDict(mapV(ParamNamesToVary,args),**ParamsFixedDict)
+    def GetFunctionCall(self,func,ParamNamesToVary,ParamsFixedDict):
+        return lambda ext,*args : func(ext,\
+                 **self.GetFullDictionary(ParamNamesToVary,
+                                          ParamsFixedDict,*args))
+    def __str__(self):
+        return "\n".join("{:10s}\t{:s}".format(k,v) for k,v in
+                         self.ParamVals.GetParamDict().items())
+        
+class FitReturnInfo:
+    def __init__(self,WlcFitInfo,PredictedData):
+        self.Info = WlcFitInfo
+        self.Prediction = PredictedData
+    def __str__(self):
+        return str(self.Info)
+        
 def WlcPolyCorrect(kbT,Lp,l):
     """
     From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
@@ -142,7 +200,8 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # note: a0 and a1 are zero, including them for easy of use of polyval.
     # see especially equation 13
     polyValCoeffs = [a7,a6,a5,a4,a3,a2,a1,a0]
-    inner = 1/(4*(1-l)**2) -1/4 + l + np.polyval(polyValCoeffs,l)
+    denom = (1-l)**2
+    inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
     return kbT/Lp * inner
 
 def WlcNonExtensible(ext,kbT,Lp,L0,*args,**kwargs):
@@ -175,6 +234,11 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess):
     # get the non-extensible model
     return WlcPolyCorrect(kbT,Lp,ext/L0-ForceGuess/K0)
 
+def FixInfsAndNegs(ToFix):
+    ToFix[np.where(~np.isfinite(ToFix))] = 0
+    ToFix[np.where(ToFix) < 0] = 0
+    return ToFix
+    
 def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     """
     General fiting function.
@@ -194,22 +258,8 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     model = WlcOptions.Model
     kbT,L0,Lp,K0 = WlcOptions.ParamVals.GetParamsInOrder()
     # p0 record our initial guesses; what does the user want use to fit?
-    p0 = []
-    fixed = dict(kbT=kbT)
-    toVary = WlcOptions.ParamsVaried
-    # determing what to vary
-    if (toVary.VaryL0):
-        p0.append(L0)
-    else:
-        fixed.update(dict(L0=L0))
-    if (toVary.VaryLp):
-        p0.append(Lp)
-    else:
-        fixed.update(dict(Lp=Lp))
-    if (toVary.VaryK0):
-        p0.append(K0)
-    else:
-        fixed.update(dict(K0=K0))
+    varyDict = WlcOptions.GetVaryingParamDict()
+    fixed = WlcOptions.GetFixedParamDict()
     # figure out what the model is
     if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
         # initially, use non-extensible for extensible model, as a first guess
@@ -218,31 +268,51 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
         func = WlcNonExtensible
     else:
         raise TypeError("Didnt recognize model {:s}".format(model))
-    # POST: have the functions we want
-    mFittingFunc = toVary.GetFittingFunctionToCall(func,**fixed)
+    # XXX add in bounds
+    fixedNames = fixed.keys()
+    varyNames = varyDict.keys()
+    varyGuesses = varyDict.values()
+    mFittingFunc = WlcOptions.GetFunctionCall(func,varyNames,fixed)
     # note: we use p0 as the initial guess for the parameter values
-    params,paramsStd,predicted = fitUtil.GenFit(ext,force,mFittingFunc,p0=p0)
+    params,paramsStd,predicted = fitUtil.GenFit(ext,force,mFittingFunc,
+                                                p0=varyGuesses)
     if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
         secondFunc = WlcExtensible
         rtol = WlcOptions.rtol
         nIters = WlcOptions.nIters
         # set up options for stopping
         closeOpt = dict(rtol=rtol,atol=0,equal_nan=False)
+        fixedExtensible = copy.deepcopy(fixed)
         for i in range(nIters):
             # get the previous array
             prev = predicted.copy()
-            fixed.update(dict(ForceGuess=prev))
-            mFittingFunc = toVary.GetFittingFunctionToCall(secondFunc,**fixed)
+            fixedExtensible.update(dict(ForceGuess=prev))
+            mFittingFunc =WlcOptions.GetFunctionCall(secondFunc,varyNames,
+                                                     fixedExtensible)
             params,paramsStd,predicted = fitUtil.GenFit(ext,force,
-                                                        mFittingFunc,p0=p0)
+                                                        mFittingFunc,
+                                                        p0=varyGuesses)
             # fix the predicted values...
             close1 = np.allclose(predicted,prev, **closeOpt)
             close2 = np.allclose(prev,predicted, **closeOpt)
             if (close1 or close2):
-                # then we are close enough to our final result!
+                print("close")
                 print(nIters)
+                # then we are close enough to our final result!
                 break
-    return predicted
+    # all done!
+    # make a copy of the information object
+    finalInfo = copy.deepcopy(WlcOptions)
+    # update the final parameter values
+    finalVals = WlcOptions.GetFullDictionary(varyNames,fixed,*params)
+    # the fixed parameters have No stdev, by the fitting
+    fixedStdDict = dict((name,None) for name in fixedNames)
+    finalStdevs = WlcOptions.GetFullDictionary(varyNames,fixedStdDict,
+                                               *paramsStd)
+    finalInfo.ParamVals.SetParamValues(**finalVals)
+    finalInfo.ParamVals.SetParamStdevs(**finalStdevs)
+    # update the actual values and parameters.
+    return FitReturnInfo(finalInfo,predicted)
 
 
 def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
@@ -266,7 +336,7 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     return WlcFit(ext,force,mInfo)
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                     nIters=30,rtol=1e-3,**kwargs):
+                     nIters=500,rtol=1e-5,**kwargs):
     """
     extensible version of the WLC fit. By default, varies the contour length
     to get the fit. Uses Bouichat, 1999 (see aboce) , by default
