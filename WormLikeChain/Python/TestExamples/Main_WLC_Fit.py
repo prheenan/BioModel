@@ -123,11 +123,13 @@ def run():
     """
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
-    StepNm = [ 0.05,0.1,0.5,1,2,5]
-    for step in StepNm:
-        DataObj = GetBouichatData()
-        CheckDataObj(DataObj,OutName=DataObj.name + \
-                     "DeltaX={:.2f}".format(step))
+    StepNm = [ 0.05,0.1,0.5,1,2]
+    toTest =  [ [StepNm,GetBouichatData]]
+    for steps,Function in toTest:
+        for step in steps:
+            DataObj = Function(step)
+            CheckDataObj(DataObj,OutName=DataObj.name + \
+                         "DeltaX={:.2f}".format(step))
 
 if __name__ == "__main__":
     run()
