@@ -10,6 +10,8 @@ from scipy.optimize import curve_fit
 import FitUtils.Python.FitUtil as fitUtil
 from collections import OrderedDict
 
+from scipy.interpolate import interp1d
+
 MACHINE_EPSILON = np.finfo(float).eps
 
 class WLC_DEF:
@@ -251,7 +253,6 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # see especially equation 13
     polyValCoeffs = [a7,a6,a5,a4,a3,a2,a1,a0]
     denom = (1-l)**2
-    denom = np.maximum(denom,MACHINE_EPSILON)
     inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
     return (kbT/Lp) * inner
 
@@ -270,7 +271,7 @@ def WlcNonExtensible(ext,kbT,Lp,L0,*args,**kwargs):
     """
     return WlcPolyCorrect(kbT,Lp,ext/L0)
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess):
+def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
     """
     Fits to the (recursively defined) extensible model. Note this will need to
     be called several times to converge properly
@@ -285,6 +286,46 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess):
     # get the non-extensible model
     l = ext/L0-ForceGuess/K0
     return WlcPolyCorrect(kbT,Lp,l)
+
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
+    """
+    Fits to the (recursively defined) extensible model. 
+
+    Args: 
+        kbT,Lp,L0,ext,K0,ForceGuess:  See WlcExtensible_Helper
+    Returns:
+        see WlcPolyCorrect
+    """
+    if (ForceGuess is None):
+        n = ext.size
+        maxFractionOfL0 = 0.90
+        highestX = maxFractionOfL0 * L0
+        if (max(ext) > highestX):
+            maxIdx = np.argmin(np.abs(highestX-ext))
+        else:
+            maxIdx = n
+        sliceV = slice(0,maxIdx,1)
+        xToFit= ext[sliceV]
+        y = WlcNonExtensible(xToFit,kbT,Lp,L0)
+        # extrapolate the y back
+        nLeft = (n-maxIdx+1)
+        deltaX = np.mean(np.diff(ext))
+        nToAdd = max(1,int(Lp/(5*deltaX)))
+        print(nToAdd,n)
+        for i in range(n-maxIdx+1):
+            f = interp1d(xToFit,y,kind='linear',bounds_error=False,
+                         fill_value='extrapolate')
+            sliceV = slice(0,maxIdx+nToAdd*i,1)
+            xToFit = ext[sliceV]
+            prev = f(xToFit)
+            y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,prev)
+            if (y.size == n):
+                break
+        prev = y
+    else:
+        prev = ForceGuess
+    return WlcExtensible_Helper(ext,kbT,Lp,L0,K0,prev)
+
 
 def FixInfsAndNegs(ToFix,MaxVal=None):
     """
