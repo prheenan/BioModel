@@ -253,7 +253,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     denom = (1-l)**2
     denom = np.maximum(denom,MACHINE_EPSILON)
     inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
-    return kbT/Lp * inner
+    return (kbT/Lp) * inner
 
 def WlcNonExtensible(ext,kbT,Lp,L0,*args,**kwargs):
     """
@@ -283,7 +283,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess):
         see WlcPolyCorrect
     """
     # get the non-extensible model
-    return WlcPolyCorrect(kbT,Lp,ext/L0-ForceGuess/K0)
+    l = ext/L0-ForceGuess/K0
+    return WlcPolyCorrect(kbT,Lp,l)
 
 def FixInfsAndNegs(ToFix,MaxVal=None):
     """

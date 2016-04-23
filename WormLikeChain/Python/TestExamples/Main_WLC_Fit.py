@@ -23,38 +23,42 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     Returns:
         tuple of <z,F> in SI units
     """
-    x = np.arange(0,1375,1) * 1e-9
+    x = np.arange(0,1320,1) * 1e-9
     # write down their parameter values, figure 1 inset
     kbT = 4.11e-21
     L0 = 1317.52e-9
     Lp =  40.6e-9
-    K0 = 1318e-12
+    K0 = 1318.e-12
     # for the non-extensible model, really only want to fit up to
     # some high percentage of the contour length
     offset = x[0]
     n = x.size
-    if (max(x) > L0):
-        maxIdx = np.argmin(np.abs(L0*0.95-x))
-        sliceV = slice(0,maxIdx,1)
+    maxFractionOfL0 = 0.90
+    highestX = maxFractionOfL0 * L0
+    if (max(x) > highestX):
+        maxIdx = np.argmin(np.abs(highestX-x))
     else:
-        sliceV = slice(0,n,1)
+        maxIdx = n
+    sliceV = slice(0,maxIdx,1)
     xToFit= x[sliceV]
     yPartial = WLC_Fit.WlcNonExtensible(xToFit,kbT,Lp,L0)
     # extrapolate the y back
+    nIters = 500
     f = interp1d(xToFit,yPartial,kind='linear',bounds_error=False,
                  fill_value='extrapolate')
-    nIters = 500
-    for i in range(nIters):
-        sliceV = slice(0,n,1)
+    y = f(xToFit)
+    for i in range(n-maxIdx+1):
+        f = interp1d(xToFit,y,kind='linear',bounds_error=False,
+                     fill_value='extrapolate')
+        sliceV = slice(0,maxIdx+i,1)
         xToFit = x[sliceV]
-        y = f(xToFit)
-        prev = y.copy()
-        plt.plot(yPartial)
-        plt.plot(y,'r--')
-        plt.show()
+        prev = f(xToFit)
         y = WLC_Fit.WlcExtensible(xToFit,kbT,Lp,L0,K0,prev)
-    plt.plot(x*1e9,y*1e12)
+    plt.plot(yPartial)
+    plt.plot(y,linewidth=3,linestyle='--')
     plt.show()
+    prev = y
+    y = WLC_Fit.WlcExtensible(xToFit,kbT,Lp,L0,K0,prev)
     return x,y
 
 def run():
