@@ -102,8 +102,6 @@ class WlcParamValues:
         """
         myVals = self.GetParamValsInOrder()
         otherVals = other.GetParamValsInOrder()
-        print(myVals)
-        print(otherVals)
         return np.allclose(myVals,otherVals,rtol=rtol,atol=atol)
     def SetBounds(self,L0,Lp,K0=None,kbT=None):
         self.L0.Bounds = L0
@@ -318,7 +316,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         n = ext.size
         ## XXX move these into parameters?
         maxFractionOfL0 = 0.85
-        factor = 5
+        factor = 20
         highestX = maxFractionOfL0 * L0
         if (max(ext) > highestX):
             maxIdx = np.argmin(np.abs(highestX-ext))
@@ -330,7 +328,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         deltaX = np.mean(np.diff(ext))
-        nToAdd = max(1,int(Lp/(factor*deltaX)))
+        nToAdd = max(1,int(nLeft/factor))
         for i in range(n-maxIdx+1):
             f = interp1d(xToFit,y,kind='linear',bounds_error=False,
                          fill_value='extrapolate')

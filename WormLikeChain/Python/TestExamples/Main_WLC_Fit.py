@@ -14,7 +14,7 @@ class ModelData:
     """
     Class to keep track of a (generated) unit test data set 
     """
-    def __init__(self,ext,force,params,noise,name):
+    def __init__(self,ext,force,params,noise,name,ylim):
         """
         Initialize a new model object
 
@@ -30,8 +30,9 @@ class ModelData:
         self.params = params
         self.noise = noise
         self.name = name
+        self.ylim = ylim
 
-def GetBouichatData():
+def GetBouichatData(StepInNm=0.05):
     """
     Returns samples from data from Figure 1
     From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
@@ -44,7 +45,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
         tuple of <z,F> in SI units
     """
     # upper and lower bound is taken from Figure 1, note nm scale
-    x = np.arange(0,1335,0.5) * 1e-9
+    x = np.arange(0,1335,StepInNm) * 1e-9
     # write down their parameter values, figure 1 inset
     params = WLC_Fit.WlcParamValues(kbT = 4.11e-21,L0 = 1317.52e-9,
                                     Lp =  40.6e-9,K0 = 1318.e-12)
@@ -55,7 +56,9 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     noiseAmplitude = 2e-12
-    return ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1")
+    # make the limits based on their plot
+    ylim = np.array([-3e-12,50e-12])
+    return ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
 
 def CheckDataObj(DataObj,OutName=None):
     """
@@ -72,6 +75,7 @@ def CheckDataObj(DataObj,OutName=None):
     noiseAmplitude = DataObj.noise
     name = DataObj.name
     yPure = y.copy()
+    ylim = DataObj.ylim
     y += noiseAmplitude * (np.random.rand(*y.shape)-0.5)*2
     print("Fitting Data From {:s}...".format(name))
     # get an extensible and non-extensible model, choose whether to varying L0
@@ -93,18 +97,20 @@ def CheckDataObj(DataObj,OutName=None):
         toNm = 1e9
         toPn = 1e12
         fig = plt.figure()
+        ylimPn = lambda: plt.ylim(toPn * ylim)
         plt.subplot(2,1,1)
         plt.plot(x*toNm,yPure*toPn,color='b',
                  label="Data, {:s} (No Noise)".format(name))
         plt.xlabel("Distance (nm)")
         plt.ylabel("Force (pN)")
+        ylimPn()
         plt.legend(loc='upper left')
         plt.title("Extensible WLC better approximates FEC at high force")
         plt.subplot(2,1,2)
-        plt.plot(x*toNm,y*toPn,label="Data,With Noise")
+        plt.plot(x*toNm,y*toPn,color='k',alpha=0.3,label="Data,With Noise")
         plt.plot(x*toNm,mFit*toPn,'r-',label="Extensible",linewidth=2.0)
         plt.plot(x*toNm,mFitNon*toPn,'b--',label="Non Extensible")
-        plt.ylim([min(y*toPn),max(y*toPn)])
+        ylimPn()
         plt.xlabel("Distance (nm)")
         plt.ylabel("Force (pN)")
         plt.legend(loc='upper left')
@@ -115,8 +121,13 @@ def run():
     """
     Runs some unit testing on the WLC fitting
     """
-    DataObj = GetBouichatData()
-    CheckDataObj(DataObj,OutName=DataObj.name)    
+    # really, the only thing we have control over is how much we interpolate
+    # over the given literature values
+    StepNm = [ 0.05,0.1,0.5,1,2,5]
+    for step in StepNm:
+        DataObj = GetBouichatData()
+        CheckDataObj(DataObj,OutName=DataObj.name + \
+                     "DeltaX={:.2f}".format(step))
 
 if __name__ == "__main__":
     run()
