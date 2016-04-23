@@ -10,15 +10,21 @@ from scipy.optimize import curve_fit
 import FitUtils.Python.FitUtil as fitUtil
 from collections import OrderedDict
 
+MACHINE_EPSILON = np.finfo(float).eps
+
 class WLC_DEF:
     """
     Class defining defaults for inputs. 
 
+    From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
+    C. Bouchiat, M.D. Wang, et al.
+    Biophysical Journal Volume 76, Issue 1, January 1999, Pages 409-413
+
     See Wang, 1997.
     """
-    L0 = 650e-9 # meters
-    Lp = 50e-9 # meters
-    K0 = 1200e-12 # Newtons
+    L0 = 137.52e-9 # meters
+    Lp = 43e-9 # meters
+    K0 = 1318e-12 # Newtons
     kbT = 4.1e-21 # 4.1 pN * nm = 4.1e-21 N*m
 
 class WLC_MODELS:
@@ -49,9 +55,20 @@ class WlcParamValues:
     Class to record parameter values given to a fit or gotten from the same
     """
     class Param:
+        """
+        Subclass to keep track of parameters.
+        """
         def __init__(self,Value,Stdev=None):
             self.Value = Value
             self.Stdev = Stdev
+        def Scale(self,scale):
+            """
+            Scale the parameter (and standard deviation) to scale,
+            ie: just divides through by scale
+            """
+            self.Value /= scale
+            if (self.Stdev is not None):
+                self.Stdev /= scale
         def __str__(self):
             stdevStr = "+/-{:5.2g}".format(self.Stdev) \
                        if self.Stdev is not None else ""
@@ -100,6 +117,39 @@ class WlcParamValues:
         Conveniene function, gets the parameters in the conventional order
         """
         return self.kbT,self.L0,self.Lp,self.K0
+    def ScaleGen(self,xScale,ForceScale):
+        """
+        Scales the data to an x and y scale given by xScale and ForceScale.
+        
+        In other words, x -> x/xScale, etc
+
+        Args:
+            xScale: What to divide the distance parts by
+            yScale: What to divide the force parts by
+        """
+        # lengths are distances
+        self.L0.Scale(xScale)
+        self.Lp.Scale(xScale)
+        # K0 is a force
+        self.K0.Scale(ForceScale)
+        # note: kbT is an energy = force * distance
+        self.kbT.Scale(ForceScale*xScale)
+    def NormalizeParams(self,xScale,ForceScale):
+        """
+        Normalize the given parameters
+
+        Args:
+           xScale/yScale: see ScaleGen
+        """
+        self.ScaleGen(xScale,ForceScale)
+    def DenormalizeParams(self,xScale,ForceScale):
+        """
+        De-Normalize the given parameters
+
+        Args:
+           xScale/yScale: see ScaleGen
+        """
+        self.ScaleGen(1./xScale,1./ForceScale)
 
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
@@ -201,6 +251,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # see especially equation 13
     polyValCoeffs = [a7,a6,a5,a4,a3,a2,a1,a0]
     denom = (1-l)**2
+    denom = np.maximum(denom,MACHINE_EPSILON)
     inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
     return kbT/Lp * inner
 
@@ -234,10 +285,17 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess):
     # get the non-extensible model
     return WlcPolyCorrect(kbT,Lp,ext/L0-ForceGuess/K0)
 
-def FixInfsAndNegs(ToFix):
-    ToFix[np.where(~np.isfinite(ToFix))] = 0
-    ToFix[np.where(ToFix) < 0] = 0
-    return ToFix
+def FixInfsAndNegs(ToFix,MaxVal=None):
+    """
+    In-place, fixes the infinities and negative values in ToFix
+    """
+    setVal = 0 if MaxVal is None else MaxVal
+    if (MaxVal is not None):
+        WhereAbove = np.where(ToFix > MaxVal)[0]
+        if (WhereAbove.size > 0):
+            ToFix[WhereAbove[0]:] = MaxVal
+    ToFix[np.where(~np.isfinite(ToFix))] = setVal
+    ToFix[np.where(ToFix) < 0] = setVal
     
 def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     """
@@ -256,7 +314,16 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
        XXX The fitted values
     """
     model = WlcOptions.Model
-    kbT,L0,Lp,K0 = WlcOptions.ParamVals.GetParamsInOrder()
+    # scale everything to avoid convergence problems
+    ext = ext.copy()
+    force = force.copy()
+    xScale = max(ext)
+    ForceScale = max(force)
+    ext /= xScale
+    force /= ForceScale
+    # get and scale the actual parameters
+    Params = WlcOptions.ParamVals
+    Params.NormalizeParams(xScale,ForceScale)
     # p0 record our initial guesses; what does the user want use to fit?
     varyDict = WlcOptions.GetVaryingParamDict()
     fixed = WlcOptions.GetFixedParamDict()
@@ -272,10 +339,19 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     fixedNames = fixed.keys()
     varyNames = varyDict.keys()
     varyGuesses = varyDict.values()
+    # force all parameters to be positive
+    bounds = (0,np.inf)
+    fitOpt = dict(gtol=0,
+                  xtol=0,
+                  ftol=0,
+                  method='trf',
+                  jac='3-point',
+                  bounds=bounds)
     mFittingFunc = WlcOptions.GetFunctionCall(func,varyNames,fixed)
     # note: we use p0 as the initial guess for the parameter values
     params,paramsStd,predicted = fitUtil.GenFit(ext,force,mFittingFunc,
-                                                p0=varyGuesses)
+                                                p0=varyGuesses,
+                                                **fitOpt)
     if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
         secondFunc = WlcExtensible
         rtol = WlcOptions.rtol
@@ -291,7 +367,8 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                                                      fixedExtensible)
             params,paramsStd,predicted = fitUtil.GenFit(ext,force,
                                                         mFittingFunc,
-                                                        p0=varyGuesses)
+                                                        p0=params,
+                                                        **fitOpt)
             # fix the predicted values...
             close1 = np.allclose(predicted,prev, **closeOpt)
             close2 = np.allclose(prev,predicted, **closeOpt)
@@ -299,18 +376,20 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                 # then we are close enough to our final result!
                 break
     # all done!
-    # make a copy of the information object
+    # make a copy of the information object; we will return a new one
     finalInfo = copy.deepcopy(WlcOptions)
     # update the final parameter values
     finalVals = WlcOptions.GetFullDictionary(varyNames,fixed,*params)
-    # the fixed parameters have No stdev, by the fitting
+    # the fixed parameters have no stdev, by the fitting
     fixedStdDict = dict((name,None) for name in fixedNames)
     finalStdevs = WlcOptions.GetFullDictionary(varyNames,fixedStdDict,
                                                *paramsStd)
+    # set the values, their standard deviations, then denomalize everything
     finalInfo.ParamVals.SetParamValues(**finalVals)
     finalInfo.ParamVals.SetParamStdevs(**finalStdevs)
-    # update the actual values and parameters.
-    return FitReturnInfo(finalInfo,predicted)
+    finalInfo.ParamVals.DenormalizeParams(xScale,ForceScale)
+    # update the actual values and parameters; update the prediction scale
+    return FitReturnInfo(finalInfo,predicted*ForceScale)
 
 
 def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
@@ -334,7 +413,7 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     return WlcFit(ext,force,mInfo)
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                     nIters=500,rtol=1e-5,**kwargs):
+                     nIters=500,rtol=1e-100,**kwargs):
     """
     extensible version of the WLC fit. By default, varies the contour length
     to get the fit. Uses Bouichat, 1999 (see aboce) , by default
