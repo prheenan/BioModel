@@ -116,6 +116,13 @@ def CheckDataObj(DataObj,OutName=None):
         plt.legend(loc='upper left')
         plt.tight_layout()
         fig.savefig(OutName + ".png")
+
+def TestDataWithSteps(Steps,DataFunction):
+    for step in Steps:
+        DataObj = DataFunction(step)
+        CheckDataObj(DataObj,OutName=DataObj.name + \
+                     "DeltaX={:.2f}".format(step))
+
     
 def run():
     """
@@ -125,11 +132,8 @@ def run():
     # over the given literature values
     StepNm = [ 0.05,0.1,0.5,1,2]
     toTest =  [ [StepNm,GetBouichatData]]
-    for steps,Function in toTest:
-        for step in steps:
-            DataObj = Function(step)
-            CheckDataObj(DataObj,OutName=DataObj.name + \
-                         "DeltaX={:.2f}".format(step))
+    for Steps,Function in toTest:
+        TestDataWithSteps(Steps,Function)
 
 if __name__ == "__main__":
     run()
