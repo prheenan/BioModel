@@ -23,7 +23,8 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     Returns:
         tuple of <z,F> in SI units
     """
-    x = np.arange(0,1320,1) * 1e-9
+    x = np.arange(0,1335,0.5) * 1e-9
+    print(x)
     # write down their parameter values, figure 1 inset
     kbT = 4.11e-21
     L0 = 1317.52e-9
@@ -47,18 +48,22 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     f = interp1d(xToFit,yPartial,kind='linear',bounds_error=False,
                  fill_value='extrapolate')
     y = f(xToFit)
+    nLeft = (n-maxIdx+1)
+    nToAdd = max(1,int(nLeft/20))
     for i in range(n-maxIdx+1):
         f = interp1d(xToFit,y,kind='linear',bounds_error=False,
                      fill_value='extrapolate')
-        sliceV = slice(0,maxIdx+i,1)
+        sliceV = slice(0,maxIdx+nToAdd*i,1)
         xToFit = x[sliceV]
         prev = f(xToFit)
         y = WLC_Fit.WlcExtensible(xToFit,kbT,Lp,L0,K0,prev)
-    plt.plot(yPartial)
-    plt.plot(y,linewidth=3,linestyle='--')
-    plt.show()
+        if (y.size == n):
+            break
     prev = y
-    y = WLC_Fit.WlcExtensible(xToFit,kbT,Lp,L0,K0,prev)
+    y = WLC_Fit.WlcExtensible(x,kbT,Lp,L0,K0,prev)
+    plt.plot(yPartial,linewidth=3,linestyle='--')
+    plt.plot(y,linewidth=3)
+    plt.show()
     return x,y
 
 def run():
