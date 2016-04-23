@@ -24,10 +24,10 @@ class WLC_DEF:
 
     See Wang, 1997.
     """
-    L0 = 137.52e-9 # meters
-    Lp = 43e-9 # meters
+    L0 = 1317.52e-9 # meters
+    Lp = 40.6e-9 # meters
     K0 = 1318e-12 # Newtons
-    kbT = 4.1e-21 # 4.1 pN * nm = 4.1e-21 N*m
+    kbT = 4.11e-21 # 4.1 pN * nm = 4.1e-21 N*m
 
 class WLC_MODELS:
     """
@@ -60,9 +60,10 @@ class WlcParamValues:
         """
         Subclass to keep track of parameters.
         """
-        def __init__(self,Value,Stdev=None):
+        def __init__(self,Value,Stdev=None,Bounds=None):
             self.Value = Value
             self.Stdev = Stdev
+            self.Bounds = None
         def Scale(self,scale):
             """
             Scale the parameter (and standard deviation) to scale,
@@ -74,7 +75,7 @@ class WlcParamValues:
         def __str__(self):
             stdevStr = "+/-{:5.2g}".format(self.Stdev) \
                        if self.Stdev is not None else ""
-            return "{:5.3g}{:s}".format(self.Value,stdevStr)
+            return "{:5.4g}{:s}".format(self.Value,stdevStr)
     def __init__(self,kbT=WLC_DEF.kbT,
                  L0=WLC_DEF.L0,Lp=WLC_DEF.Lp,K0=WLC_DEF.K0):
         """
@@ -95,6 +96,20 @@ class WlcParamValues:
         self.Lp = WlcParamValues.Param(Lp)
         self.K0 = WlcParamValues.Param(K0)
         self.kbT = WlcParamValues.Param(kbT)
+    def CloseTo(self,other,rtol=1e-1,atol=0):
+        """
+        Returns true of the 
+        """
+        myVals = self.GetParamValsInOrder()
+        otherVals = other.GetParamValsInOrder()
+        print(myVals)
+        print(otherVals)
+        return np.allclose(myVals,otherVals,rtol=rtol,atol=atol)
+    def SetBounds(self,L0,Lp,K0=None,kbT=None):
+        self.L0.Bounds = L0
+        self.Lp.Bounds = Lp
+        self.K0.Bounds = K0
+        self.kbT.Bounds = kbT
     def GetParamDict(self):
         """
         Returns: in-order dictionary of the parameters
@@ -113,12 +128,13 @@ class WlcParamValues:
                 (self.kbT,kbT)]
         for a,stdev in attr:
             a.Stdev = stdev
-        
+    def GetParamValsInOrder(self):
+        return [v.Value for v in self.GetParamsInOrder()]
     def GetParamsInOrder(self):
         """
         Conveniene function, gets the parameters in the conventional order
         """
-        return self.kbT,self.L0,self.Lp,self.K0
+        return self.GetParamDict().values()
     def ScaleGen(self,xScale,ForceScale):
         """
         Scales the data to an x and y scale given by xScale and ForceScale.
@@ -284,7 +300,9 @@ def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
         see WlcPolyCorrect
     """
     # get the non-extensible model
-    l = ext/L0-ForceGuess/K0
+    xNorm = ext/L0
+    yNorm = ForceGuess/K0
+    l = xNorm-yNorm
     return WlcPolyCorrect(kbT,Lp,l)
 
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
@@ -298,7 +316,9 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
     """
     if (ForceGuess is None):
         n = ext.size
-        maxFractionOfL0 = 0.90
+        ## XXX move these into parameters?
+        maxFractionOfL0 = 0.85
+        factor = 5
         highestX = maxFractionOfL0 * L0
         if (max(ext) > highestX):
             maxIdx = np.argmin(np.abs(highestX-ext))
@@ -310,8 +330,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         deltaX = np.mean(np.diff(ext))
-        nToAdd = max(1,int(Lp/(5*deltaX)))
-        print(nToAdd,n)
+        nToAdd = max(1,int(Lp/(factor*deltaX)))
         for i in range(n-maxIdx+1):
             f = interp1d(xToFit,y,kind='linear',bounds_error=False,
                          fill_value='extrapolate')
@@ -321,10 +340,9 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
             y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,prev)
             if (y.size == n):
                 break
-        prev = y
+        return y
     else:
-        prev = ForceGuess
-    return WlcExtensible_Helper(ext,kbT,Lp,L0,K0,prev)
+        return WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
 
 
 def FixInfsAndNegs(ToFix,MaxVal=None):
@@ -372,7 +390,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     # figure out what the model is
     if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
         # initially, use non-extensible for extensible model, as a first guess
-        func = WlcNonExtensible
+        func = WlcExtensible
     elif (model == WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999):
         func = WlcNonExtensible
     else:
@@ -382,10 +400,10 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     varyNames = varyDict.keys()
     varyGuesses = varyDict.values()
     # force all parameters to be positive
-    bounds = (0,np.inf)
-    fitOpt = dict(gtol=0,
-                  xtol=0,
-                  ftol=0,
+    bounds = (0,1.0)
+    fitOpt = dict(gtol=1e-12,
+                  xtol=1e-12,
+                  ftol=1e-12,
                   method='trf',
                   jac='3-point',
                   bounds=bounds)
@@ -394,29 +412,6 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     params,paramsStd,predicted = fitUtil.GenFit(ext,force,mFittingFunc,
                                                 p0=varyGuesses,
                                                 **fitOpt)
-    if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
-        secondFunc = WlcExtensible
-        rtol = WlcOptions.rtol
-        nIters = WlcOptions.nIters
-        # set up options for stopping
-        closeOpt = dict(rtol=rtol,atol=0,equal_nan=False)
-        fixedExtensible = copy.deepcopy(fixed)
-        for i in range(nIters):
-            # get the previous array
-            prev = predicted.copy()
-            fixedExtensible.update(dict(ForceGuess=prev))
-            mFittingFunc =WlcOptions.GetFunctionCall(secondFunc,varyNames,
-                                                     fixedExtensible)
-            params,paramsStd,predicted = fitUtil.GenFit(ext,force,
-                                                        mFittingFunc,
-                                                        p0=params,
-                                                        **fitOpt)
-            # fix the predicted values...
-            close1 = np.allclose(predicted,prev, **closeOpt)
-            close2 = np.allclose(prev,predicted, **closeOpt)
-            if (close1 or close2):
-                # then we are close enough to our final result!
-                break
     # all done!
     # make a copy of the information object; we will return a new one
     finalInfo = copy.deepcopy(WlcOptions)
