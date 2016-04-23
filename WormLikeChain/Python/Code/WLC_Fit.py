@@ -316,7 +316,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         n = ext.size
         ## XXX move these into parameters?
         maxFractionOfL0 = 0.85
-        factor = 20
+        factor = 7
         highestX = maxFractionOfL0 * L0
         if (max(ext) > highestX):
             maxIdx = np.argmin(np.abs(highestX-ext))
@@ -328,8 +328,9 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         deltaX = np.mean(np.diff(ext))
-        nToAdd = max(1,int(nLeft/factor))
-        for i in range(n-maxIdx+1):
+        nToAdd = max(1,int(np.ceil(nLeft/factor)))
+        # depending on rounding, may need to go factor+1 out
+        for i in range(factor+1):
             f = interp1d(xToFit,y,kind='linear',bounds_error=False,
                          fill_value='extrapolate')
             sliceV = slice(0,maxIdx+nToAdd*i,1)
@@ -338,10 +339,10 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
             y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,prev)
             if (y.size == n):
                 break
-        return y
+        toRet = y
     else:
-        return WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
-
+        toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
+    return toRet
 
 def FixInfsAndNegs(ToFix,MaxVal=None):
     """
