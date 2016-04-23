@@ -55,7 +55,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     noiseAmplitude = 2e-12
-    return ModelData(x,y,params,noiseAmplitude,"Bouchiat 1999")
+    return ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1")
 
 def CheckDataObj(DataObj,OutName=None):
     """
@@ -99,7 +99,7 @@ def CheckDataObj(DataObj,OutName=None):
         plt.xlabel("Distance (nm)")
         plt.ylabel("Force (pN)")
         plt.legend(loc='upper left')
-        plt.title("Extensible WLC better approximates DNA data")
+        plt.title("Extensible WLC better approximates FEC at high force")
         plt.subplot(2,1,2)
         plt.plot(x*toNm,y*toPn,label="Data,With Noise")
         plt.plot(x*toNm,mFit*toPn,'r-',label="Extensible",linewidth=2.0)
