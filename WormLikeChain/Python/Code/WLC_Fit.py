@@ -331,7 +331,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         # depending on rounding, may need to go factor+1 out
         factor = int(np.ceil(SplitBeyondL0*( (maxX/L0)-maxFractionOfL0)))
         nToAdd = int(np.ceil(nLeft/factor))
-        degree=2
+        degree=3
         for i in range(factor+1):
             # make a spline interpolator of degree 2
             f = spline(xToFit,y,ext='extrapolate',k=degree,

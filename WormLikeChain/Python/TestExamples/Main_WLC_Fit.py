@@ -45,7 +45,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
         tuple of <z,F> in SI units
     """
     # upper and lower bound is taken from Figure 1, note nm scale
-    x = np.arange(0,1325,StepInNm) * 1e-9
+    x = np.arange(0,1320,StepInNm) * 1e-9
     # write down their parameter values, figure 1 inset
     params = WLC_Fit.WlcParamValues(kbT = 4.11e-21,L0 = 1317.52e-9,
                                     Lp =  40.6e-9,K0 = 1318.e-12)
@@ -57,7 +57,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # bound on the error we have everywhere
     noiseAmplitude = 2e-12
     # make the limits based on their plot
-    ylim = np.array([-3e-12,55e-12])
+    ylim = np.array([-3e-12,52e-12])
     return ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
 
 def CheckDataObj(DataObj,OutName=None):
