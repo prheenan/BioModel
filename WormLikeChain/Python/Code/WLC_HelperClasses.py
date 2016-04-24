@@ -211,43 +211,6 @@ class WlcFitInfo:
         allButTemp = self.AddParamsGen(condition=lambda x : not x)
         toRet.update(allButTemp)
         return toRet
-    def GetFullDictionary(self,ParamNamesToVary,ParamsFixedDict,*args):
-        """
-        Given names of parmeters to vary, a dictionary of fixed parameters,
-        And the actual argumennts, gets a dictionry of all name:value
-        arguments (bot varying and fixed)
-
-        Useful if we want to 'dynamically' change what we vary. This is probably
-        used in a lambda function or similar, which gives *args (see 
-        GetFunctionCall)
-
-        Args:
-            ParamNamesToVary; see GetFunctionCall
-            ParamsFixedDict: ee GetFunctionCall
-            *args: the values of the actual arguments
-        Returns:
-            Unambiguous dictionary of all arguments
-        """
-        mapV = lambda key,vals: OrderedDict([(k,v) for k,v in zip(key,vals)])
-        return OrderedDict(mapV(ParamNamesToVary,args),**ParamsFixedDict)
-    def GetFunctionCall(self,func,ParamNamesToVary,ParamsFixedDict):
-        """
-        Method to get a function call, given which parameters we vary and
-        which we keep fixed
-
-        Args:
-             func: the (fitting) function, assumed to have a signature like
-             func(extension,<parameters in customary order>)
-
-             ParamNamesToVary: The names of the parameters we will vary
-             ParamsFixedDict: The names of the parameters which are fixed
-        Returns:
-             lambda function like func(extension,arg1,arg2,...), where arg1,
-             arg2, etc are the function to varu
-        """
-        return lambda ext,*args : func(ext,\
-                 **self.GetFullDictionary(ParamNamesToVary,
-                                          ParamsFixedDict,*args))
     def __str__(self):
         return "\n".join("{:10s}\t{:s}".format(k,v) for k,v in
                          self.ParamVals.GetParamDict().items())
@@ -295,3 +258,42 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
             -38.87607,
             39.49949,
             -14.17718]
+
+
+def GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args):
+    """
+    Given names of parmeters to vary, a dictionary of fixed parameters,
+    And the actual argumennts, gets a dictionry of all name:value
+    arguments (bot varying and fixed)
+
+    Useful if we want to 'dynamically' change what we vary. This is probably
+    used in a lambda function or similar, which gives *args (see 
+    GetFunctionCall)
+
+    Args:
+        ParamNamesToVary; see GetFunctionCall
+        ParamsFixedDict: ee GetFunctionCall
+        *args: the values of the actual arguments
+    Returns:
+        Unambiguous dictionary of all arguments
+    """
+    mapV = lambda key,vals: OrderedDict([(k,v) for k,v in zip(key,vals)])
+    return OrderedDict(mapV(ParamNamesToVary,args),**ParamsFixedDict)
+
+def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
+    """
+    Method to get a function call, given which parameters we vary and
+    which we keep fixed
+
+    Args:
+         func: the (fitting) function, assumed to have a signature like
+         func(extension,<parameters in customary order>)
+
+         ParamNamesToVary: The names of the parameters we will vary
+         ParamsFixedDict: The names of the parameters which are fixed
+    Returns:
+         lambda function like func(extension,arg1,arg2,...), where arg1,
+         arg2, etc are the function to varu
+    """
+    return lambda ext,*args : func(ext,\
+             **GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args))

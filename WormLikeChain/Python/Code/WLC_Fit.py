@@ -10,7 +10,7 @@ import FitUtils.Python.FitUtil as FitUtil
 
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
-    FitReturnInfo,BouchiatPolyCoeffs
+    FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF
 
 def WlcPolyCorrect(kbT,Lp,l):
@@ -219,7 +219,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                   bounds=bounds,
                   max_nfev=nEval,
                   verbose=0)
-    mFittingFunc = WlcOptions.GetFunctionCall(func,varyNames,fixed)
+    mFittingFunc = GetFunctionCall(func,varyNames,fixed)
     # note: we use p0 as the initial guess for the parameter values
     params,paramsStd,predicted = FitUtil.GenFit(ext,force,mFittingFunc,
                                                 p0=varyGuesses,
@@ -228,11 +228,11 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     # make a copy of the information object; we will return a new one
     finalInfo = copy.deepcopy(WlcOptions)
     # update the final parameter values
-    finalVals = WlcOptions.GetFullDictionary(varyNames,fixed,*params)
+    finalVals = GetFullDictionary(varyNames,fixed,*params)
     # the fixed parameters have no stdev, by the fitting
     fixedStdDict = dict((name,None) for name in fixedNames)
-    finalStdevs = WlcOptions.GetFullDictionary(varyNames,fixedStdDict,
-                                               *paramsStd)
+    finalStdevs = GetFullDictionary(varyNames,fixedStdDict,
+                                    *paramsStd)
     # set the values, their standard deviations, then denomalize everything
     finalInfo.ParamVals.SetParamValues(**finalVals)
     finalInfo.ParamVals.SetParamStdevs(**finalStdevs)
