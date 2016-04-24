@@ -95,12 +95,26 @@ class WlcParamValues:
         self.kbT = WlcParamValues.Param(kbT)
     def CloseTo(self,other,rtol=1e-1,atol=0):
         """
-        Returns true of the 
+        Returns true if the other set of parameters is the 'same' as this
+
+        Args:
+            other: other WlcParamValues object 
+            rtol: relative tolerance, see np.allclose
+            atol: absolute tolerance, see allclose
+        Returns:
+            True/False if the condition holds
         """
         myVals = self.GetParamValsInOrder()
         otherVals = other.GetParamValsInOrder()
         return np.allclose(myVals,otherVals,rtol=rtol,atol=atol)
-    def SetBounds(self,L0,Lp,K0=None,kbT=None):
+    def SetBounds(self,L0,Lp,K0,kbT):
+        """
+        Sets the bounds for each Parameter. See __init__
+
+        Args:
+           L0,Lp,K0,kbT: each should be a tuple of [start,end]. e.g.
+           (0,np.inf) for only positive numbers
+        """
         self.L0.Bounds = L0
         self.Lp.Bounds = Lp
         self.K0.Bounds = K0
@@ -124,6 +138,11 @@ class WlcParamValues:
         for a,stdev in attr:
             a.Stdev = stdev
     def GetParamValsInOrder(self):
+        """
+        Returns:
+            a list of the in-order parameters (ie: the conventional order
+            I use, see any fitting function)
+        """
         return [v.Value for v in self.GetParamsInOrder()]
     def GetParamsInOrder(self):
         """
@@ -186,6 +205,15 @@ class WlcFitInfo:
         self.nIters = nIters
         self.rtol = rtol
     def AddParamsGen(self,condition=lambda x: x):
+        """
+        General function to add paraters to a list we return.
+
+        Args: 
+            condition: function taking in a flag if we should vary the object,
+            and returning true/false if it should be added to the lisst
+        Returns:
+            list of elememnts we added by condition
+        """
         toRet = OrderedDict()
         # assume we never vary temperature
         toVary = self.ParamsVaried
