@@ -96,7 +96,7 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext):
     plt.xlim([minV-fudge,maxV+fudge])
     plt.show()
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -127,7 +127,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
         xToFit= ext[sliceV]
         y = WlcNonExtensible(xToFit,kbT,Lp,L0)
         yOrig = y.copy()
-        xOrig = xToFit.copy()
+        extOrig = xToFit.copy()
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         deltaX = np.mean(np.diff(ext))
@@ -146,6 +146,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
             y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,prev)
             if (y.size == n):
                 break
+        if (Debug):
+            DebugExtensibleConvergence(extOrig,yOrig,xToFit,prev,ext)
         toRet = y
     else:
         # already have a guess, go with that

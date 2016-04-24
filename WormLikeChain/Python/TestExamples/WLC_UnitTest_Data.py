@@ -48,7 +48,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
         tuple of <z,F> in SI units
     """
     # upper and lower bound is taken from Figure 1, note nm scale
-    x = np.arange(0,1320,StepInNm) * 1e-9
+    x = np.arange(0,1335,StepInNm) * 1e-9
     # write down their parameter values, figure 1 inset
     params = WLC_Fit.WlcParamValues(kbT = 4.11e-21,L0 = 1317.52e-9,
                                     Lp =  40.6e-9,K0 = 1318.e-12)
@@ -61,5 +61,15 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     noiseAmplitude = 2e-12
     # make the limits based on their plot
     ylim = np.array([-3e-12,52e-12])
-    return ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
+    toRet = ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
+    # the expected maximum fitted force is also from figure 1
+    expectedMax = 48e-12
+    actualMax = np.max(toRet.force)
+    # make sure that the actual maximum force is within what we'd expect
+    # we have to have a fairly high relative error, due to step sizes
+    # causing a change in force (not exactly clear how big their steps are...)
+    
+    # Note that this is a test on WlcExtensible, more or less.
+    np.testing.assert_allclose(actualMax,expectedMax,atol=0,rtol=0.15)
+    return toRet
 
