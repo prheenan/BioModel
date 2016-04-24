@@ -10,7 +10,7 @@ import FitUtils.Python.FitUtil as FitUtil
 
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
-    FitReturnInfo
+    FitReturnInfo,BouchiatPolyCoeffs
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF
 
 def WlcPolyCorrect(kbT,Lp,l):
