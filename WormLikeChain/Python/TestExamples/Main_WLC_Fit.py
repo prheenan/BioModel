@@ -108,7 +108,7 @@ def CheckDataObj(DataObj,OutName=None):
         plt.title("Extensible WLC better approximates FEC at high force")
         plt.subplot(2,1,2)
         plt.plot(x*toNm,y*toPn,color='k',alpha=0.3,label="Data,With Noise")
-        plt.plot(x*toNm,mFit*toPn,'r-',label="Extensible",linewidth=2.0)
+        plt.plot(x*toNm,mFit*toPn,'r-',label="Extensible",linewidth=1.5)
         plt.plot(x*toNm,mFitNon*toPn,'b--',label="Non Extensible")
         ylimPn()
         plt.xlabel("Distance (nm)")

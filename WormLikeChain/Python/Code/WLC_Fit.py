@@ -314,8 +314,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
     if (ForceGuess is None):
         n = ext.size
         ## XXX move these into parameters?
-        maxFractionOfL0 = 0.85
-        factor = 7
+        maxFractionOfL0 = 0.75
+        factor = 10
         highestX = maxFractionOfL0 * L0
         if (max(ext) > highestX):
             maxIdx = np.argmin(np.abs(highestX-ext))
@@ -331,7 +331,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         # depending on rounding, may need to go factor+1 out
         degree=2
         for i in range(factor+1):
-            f = spline(xToFit,y,ext=0,k=degree,
+            # make a spline interpolator of degree 2
+            f = spline(xToFit,y,ext='extrapolate',k=degree,
                        bbox=[min(ext),max(ext)])
             sliceV = slice(0,maxIdx+nToAdd*i,1)
             xToFit = ext[sliceV]
@@ -400,9 +401,9 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     varyGuesses = varyDict.values()
     # force all parameters to be positive
     bounds = (0,1.0)
-    fitOpt = dict(gtol=1e-12,
-                  xtol=1e-12,
-                  ftol=1e-12,
+    fitOpt = dict(gtol=1e-9,
+                  xtol=1e-9,
+                  ftol=1e-9,
                   method='trf',
                   jac='3-point',
                   bounds=bounds)
