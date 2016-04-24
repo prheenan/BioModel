@@ -136,7 +136,39 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
         toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
     return toRet
 
-def L0Gradient(param,x,y,_,VaryNames=None,FixedDictionary=None):
+def Power(x,y):
+    return x**y
+
+def ContourOrModulusGradient(kbT,Lp,l,x,L0,coeffs,sign):
+    """
+    Calculates the gradient of the WLC force WRT the contour length
+    or the bulk modulus, depending on the variables it is given
+
+    Note that if a non-extensible model is desired, use the contour length
+    inputs and set F=0 (see below)
+
+    Args:
+        kbT: always kbT
+        Lp: always Lp
+        l: always x/L0 - F/K0
+        x: for {Contour length,Modulus} this is {extension,Force}
+        L0: for {Contour length,Modulus} this is {L0,K0}
+        coeffs: the in-order Bouchiat coefficients, assumed formatted like 
+        output of BouchiatPolyCoeffs
+
+        sign: for {Contour length,Modulus} this is {+1,-1}
+    """
+    # get the coefficient sum (see mathematica). We use L0 as the default
+    # (hence the minus sign)
+    n=7
+    coeffSum = sum([(-i*(l**(i-1))*x*coeffs[i]/L0**2) for i in range(2,n+1)])
+    cbp = kbT/Lp
+    grad = sign*cbp*(-(x/Power(L0,2)) - x/(2.*Power(1 - l,3)*Power(L0,2)) + \
+                     coeffSum)
+    return np.reshape(grad,(grad.size,1))
+
+
+def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
     """
     Args:
         params: the values of the parameters to set
@@ -149,18 +181,27 @@ def L0Gradient(param,x,y,_,VaryNames=None,FixedDictionary=None):
     """
     # Get the fixed and variable stuff -- probably need to pass in something
     # in kwargs to suss this out
-    plt.plot(x,y)
-    plt.show()
-    # XXX Move get ful ditionary out of options
-    # XXX get the extensible force using params...
-    # XXX Get the gradient
-    # Use the X and the variables to get the extensible force
-    F = WlcExtensible(ext,**params)
-    # Use the variables to calculate the gradients
+    # get all the arguments using the fixed and varible names
     AllArgs = GetFullDictionary(VaryNames,FixedDictionary,*params)
-    
-    print(args)
-    print('lol')
+    # Use the X and the variables to get the extensible force
+    F = WlcExtensible(ext,**AllArgs)
+    # Use the variables to calculate the gradients
+    ParamsByName = WlcParamValues(**AllArgs)
+    # Get the named parameters
+    L0,Lp,K0,kbT = ParamsByName.GetParamValsInOrder()
+    # Get the different values used...
+    l = ext/L0 - F/K0
+    # constant infront of the force
+    cbp = kbT/Lp
+    # get all the bouchiat coefficients
+    coeffs = BouchiatPolyCoeffs()
+    # get the gradient
+    l = ext/L0-F/K0
+    x = ext
+    sign = 1 # for contour length
+    grad = ContourOrModulusGradient(kbT,Lp,l,x,L0,coeffs,sign)
+    return grad
+
     
 
 def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
@@ -209,13 +250,16 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     bounds = (0,1.0)
     # number of evaluations should depend on the number of things we are fitting
     nEval = 500*varyNames
-    jacFunc = lambda *args: L0Gradient(*args,VaryNames=varyNames,
-                                       FixedDictionary=fixed)
+    if ((len(varyNames) == 1) and (WlcOptions.ParamsVaried.VaryL0)):
+        jacFunc = lambda *args: L0Gradient(*args,VaryNames=varyNames,
+                                           FixedDictionary=fixed)
+    else:
+        jacFunc = '3-point'
     fitOpt = dict(gtol=1e-15,
                   xtol=1e-15,
                   ftol=1e-15,
                   method='trf',
-                  jac='3-point',
+                  jac=jacFunc,
                   bounds=bounds,
                   max_nfev=nEval,
                   verbose=0)
