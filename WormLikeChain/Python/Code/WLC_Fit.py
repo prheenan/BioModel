@@ -7,11 +7,13 @@ import sys
 
 import copy
 import FitUtils.Python.FitUtil as FitUtil
-
+from scipy.optimize import basinhopping
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
     FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF
+from collections import OrderedDict
+
 
 def WlcPolyCorrect(kbT,Lp,l):
     """
@@ -82,6 +84,18 @@ def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
     l = xNorm-yNorm
     return WlcPolyCorrect(kbT,Lp,l)
 
+def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext):
+    plt.plot(extOrig,yOrig,'k--')
+    plt.plot(extNow,yNow,'b-')
+    plt.xlabel("Extension")
+    plt.ylabel("Force")
+    minV = min(ext)
+    maxV = max(ext)
+    rangeV = maxV-minV
+    fudge = rangeV/100
+    plt.xlim([minV-fudge,maxV+fudge])
+    plt.show()
+
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
@@ -101,7 +115,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
         # SplitBeyondL0: related to how we divide the system into extensible
         # and non-extensible
         maxFractionOfL0 = 0.85 
-        SplitBeyondL0 = 40
+        SplitBeyondL0 = int(5*np.ceil(L0/Lp))
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
         # check where we stop fitting the non-extensible
@@ -112,6 +126,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
         sliceV = slice(0,maxIdx,1)
         xToFit= ext[sliceV]
         y = WlcNonExtensible(xToFit,kbT,Lp,L0)
+        yOrig = y.copy()
+        xOrig = xToFit.copy()
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         deltaX = np.mean(np.diff(ext))
@@ -250,11 +266,14 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     bounds = (0,1.0)
     # number of evaluations should depend on the number of things we are fitting
     nEval = 500*varyNames
+    """
     if ((len(varyNames) == 1) and (WlcOptions.ParamsVaried.VaryL0)):
         jacFunc = lambda *args: L0Gradient(*args,VaryNames=varyNames,
                                            FixedDictionary=fixed)
     else:
         jacFunc = '3-point'
+    """
+    jacFunc = '3-point'
     fitOpt = dict(gtol=1e-15,
                   xtol=1e-15,
                   ftol=1e-15,
@@ -264,6 +283,12 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                   max_nfev=nEval,
                   verbose=0)
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
+    """
+    minimizer_kwargs = OrderedDict(method="BFGS",bounds=bounds,tol=1e-9)
+    # use basin-hopping to get a solid guess of where we should actually start
+    obj = basinhopping(mFittingFunc,x0=varyGuesses,disp=True)
+    print(obj)
+    """
     # note: we use p0 as the initial guess for the parameter values
     params,paramsStd,predicted = FitUtil.GenFit(ext,force,mFittingFunc,
                                                 p0=varyGuesses,

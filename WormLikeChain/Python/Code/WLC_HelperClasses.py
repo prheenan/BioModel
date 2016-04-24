@@ -289,7 +289,9 @@ def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
          func: the (fitting) function, assumed to have a signature like
          func(extension,<parameters in customary order>)
 
-         ParamNamesToVary: The names of the parameters we will vary
+         ParamNamesToVary: The names of the parameters we will vary, in the
+         proper order
+
          ParamsFixedDict: The names of the parameters which are fixed
     Returns:
          lambda function like func(extension,arg1,arg2,...), where arg1,
