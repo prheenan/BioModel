@@ -283,7 +283,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                   jac=jacFunc,
                   bounds=bounds,
                   max_nfev=nEval,
-                  verbose=0)
+                  verbose=2)
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
     """
     minimizer_kwargs = OrderedDict(method="BFGS",bounds=bounds,tol=1e-9)

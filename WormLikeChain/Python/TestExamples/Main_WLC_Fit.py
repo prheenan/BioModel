@@ -60,7 +60,7 @@ def run():
     saving multiple plots in this directory
     """
     RunExample = True
-    RunTests = True
+    RunTests = False
     if (RunExample):
         RunWLCExample()
     if (RunTests):

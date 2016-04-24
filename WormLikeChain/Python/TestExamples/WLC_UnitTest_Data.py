@@ -35,7 +35,7 @@ class ModelData:
         return self.force + (2*np.random.rand(self.n)-1) * self.noise
         
 
-def GetBouichatData(StepInNm=0.05):
+def GetBouichatData(StepInNm=0.5):
     """
     Returns samples from data from Figure 1
     From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
