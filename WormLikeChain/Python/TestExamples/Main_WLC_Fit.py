@@ -26,6 +26,10 @@ def RunBouchiatDataTests():
         TestDataWithSteps(Steps,Function)
 
 def RunWLCExample():
+    """
+    Simple example of how the WLC stuff works. Start here to get a feel
+    for how this works!
+    """
     # get the (example) data
     Data = GetBouichatData()
     # get the force and extension (both in SI units, Newtons and meters)
