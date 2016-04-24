@@ -7,7 +7,7 @@ import sys
 
 import copy
 from scipy.optimize import curve_fit
-import FitUtils.Python.FitUtil as fitUtil
+import FitUtils.Python.FitUtil as FitUtil
 from collections import OrderedDict
 
 from scipy.interpolate import interp1d
@@ -408,7 +408,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                   bounds=bounds)
     mFittingFunc = WlcOptions.GetFunctionCall(func,varyNames,fixed)
     # note: we use p0 as the initial guess for the parameter values
-    params,paramsStd,predicted = fitUtil.GenFit(ext,force,mFittingFunc,
+    params,paramsStd,predicted = FitUtil.GenFit(ext,force,mFittingFunc,
                                                 p0=varyGuesses,
                                                 **fitOpt)
     # all done!
