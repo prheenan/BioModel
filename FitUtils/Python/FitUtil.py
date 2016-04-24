@@ -72,3 +72,18 @@ def fitInfo(x,y,units=['',''],model=linModel,varStr=['a','b'],
     else:
         return predicted,modelStr
 
+
+def TaylorSeries(x,y,deg=1,ZeroX=False,ZeroY=False,**kwargs):
+    """
+    Args:
+        x: x to fit
+        y: y to fit
+        deg: degree of the fit
+        ZeroX: if true, offsets the series so that x[0] -> 0
+        ZeroY: if true, offsets the series so that y[0] -> 0
+    Returns:
+        return of polyfit
+    """
+    offsetX = x[0] if ZeroX else 0
+    offsetY = y[0] if ZeroY else 0
+    return np.polyfit(x-offsetX,y-offsetY,deg=deg)
