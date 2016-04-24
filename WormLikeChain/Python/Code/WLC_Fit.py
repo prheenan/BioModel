@@ -314,10 +314,11 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
     if (ForceGuess is None):
         n = ext.size
         ## XXX move these into parameters?
-        maxFractionOfL0 = 0.75
-        factor = 10
+        maxFractionOfL0 = 0.85 
+        SplitBeyondL0 = 40
         highestX = maxFractionOfL0 * L0
-        if (max(ext) > highestX):
+        maxX = max(ext)
+        if (maxX > highestX):
             maxIdx = np.argmin(np.abs(highestX-ext))
         else:
             maxIdx = n
@@ -327,8 +328,9 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         deltaX = np.mean(np.diff(ext))
-        nToAdd = max(1,int(np.ceil(nLeft/factor)))
         # depending on rounding, may need to go factor+1 out
+        factor = int(np.ceil(SplitBeyondL0*( (maxX/L0)-maxFractionOfL0)))
+        nToAdd = int(np.ceil(nLeft/factor))
         degree=2
         for i in range(factor+1):
             # make a spline interpolator of degree 2
