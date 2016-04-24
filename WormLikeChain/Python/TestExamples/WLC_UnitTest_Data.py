@@ -55,7 +55,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # for the non-extensible model, really only want to fit up to
     # some high percentage of the contour length
     values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
-    y = WLC_Fit.WlcExtensible(x,**values)
+    y = WLC_Fit.WlcExtensible(x,FixNans=True,**values)
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     noiseAmplitude = 2e-12

@@ -11,11 +11,11 @@ from scipy.optimize import basinhopping
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
     FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary
-from WLC_HelperClasses import WLC_MODELS,WLC_DEF
+from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
 from collections import OrderedDict
 
 
-def WlcPolyCorrect(kbT,Lp,l):
+def WlcPolyCorrect(kbT,Lp,lRaw):
     """
     From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
     C. Bouchiat, M.D. Wang, et al.
@@ -26,13 +26,14 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     Args:
         kbT : the thermal energy in units of [ForceOutput]/Lp
         Lp  : the persisence length, sensible units of length
-        l   : is either extension/Contour=z/L0 Length (inextensible) or   
+        lRaw   : is either extension/Contour=z/L0 Length (inextensible) or   
         z/L0 - F/K0, where f is the force and K0 is the bulk modulus. See 
         Bouchiat, 1999 equation 13
     Returns:
         Model-predicted value for the force
     """
     # parameters taken from paper cited above
+    l = lRaw.copy()
     a0=0 
     a1=0
     a2=-.5164228
@@ -47,9 +48,11 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # note: a0 and a1 are zero, including them for easy of use of polyval.
     # see especially equation 13. Note we reverse the Bouchiat Coefficients...
     polyValCoeffs = BouchiatPolyCoeffs()[::-1]
+    
     denom = (1-l)**2
     inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
-    return (kbT/Lp) * inner
+    toRet = (kbT/Lp) * inner
+    return toRet
 
 def WlcNonExtensible(ext,kbT,Lp,L0,*args,**kwargs):
     """
@@ -99,12 +102,10 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext):
       
         ext: the actual extension, in its full glory (not truncated)
     """
-    toPico = lambda x: x*1e12
-    toNano = lambda x: x*1e9
     plt.plot(extOrig,yOrig,'k--',linewidth=2.5)
     plt.plot(extNow,yNow,'b-')
-    plt.xlabel("Extension (nanoX)")
-    plt.ylabel("Force (picoX)")
+    plt.xlabel("Extension (au)")
+    plt.ylabel("Force (au)")
     # make a sensible range for the plotting
     minV = min(ext)
     maxV = max(ext)
@@ -119,14 +120,22 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext):
     plt.ylim([-fudgeY,maxY+fudgeY])
     plt.show()
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,**kwargs):
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
+                  DebugConvergence=False,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
+    If we are given NAN for the parameters, we return K0, as a maximum
+
     Args: 
         kbT,Lp,L0,ext,K0,ForceGuess:  See WlcExtensible_Helper. Note if 
-        ForceGuess is None, then we use the non-extensible model to 'bootstrap'
+        ForceGuess: if None, then we use the non-extensible model to 'bootstrap'
         ourselves
+    
+        Debug: if true, then we plot the 'final' WLC plot
+        DebugConvergence: if true, then we plot the convergence 'as we go',
+        in addition to the final (ie: Can just set DebugConvergence, does Debug 
+        too)
     Returns:
         see WlcPolyCorrect
     """
@@ -135,10 +144,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,**kwargs):
         ## XXX move these into parameters? essentially, how slowly we
         # move from extensible to non-extensible
         # maxFractionOfL0: determines the maximum extension we fit to
-        # SplitBeyondL0: related to how we divide the system into extensible
         # and non-extensible
         maxFractionOfL0 = 0.85
-        SplitBeyondL0 = int(5*np.ceil(L0/Lp))
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
         # check where we stop fitting the non-extensible
@@ -153,11 +160,13 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,**kwargs):
         extOrig = xToFit.copy()
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
-        deltaX = np.mean(np.diff(ext))
+        pastMaxExt = maxX-highestX
+        degree=3
+        # figure out roughly how
+        nLengths = (pastMaxExt/Lp)*(L0/Lp)
+        factor = int(np.ceil(nLengths/5))
         # depending on rounding, may need to go factor+1 out
-        factor = int(np.ceil(SplitBeyondL0*( (maxX/L0)-maxFractionOfL0)))
-        nToAdd = int(np.ceil(nLeft/factor))
-        degree=min(nToAdd,3)
+        nToAdd = max(3,int(np.ceil(nLeft/factor)))
         for i in range(factor+1):
             # make a spline interpolator of degree 2
             f = spline(xToFit,y,ext='extrapolate',k=degree,
@@ -166,10 +175,12 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,**kwargs):
             sliceV = slice(0,maxIdx+nToAdd*i,1)
             xToFit = ext[sliceV]
             prev = f(xToFit)
+            if (DebugConvergence):
+                DebugExtensibleConvergence(extOrig,yOrig,xToFit,prev,ext)
             y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,prev)
             if (y.size == n):
                 break
-        if (Debug):
+        if (Debug or DebugConvergence):
             DebugExtensibleConvergence(extOrig,yOrig,xToFit,prev,ext)
         toRet = y
     else:
@@ -245,7 +256,7 @@ def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
 
     
 
-def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
+def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     """
     General fiting function.
 
@@ -263,12 +274,10 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     """
     model = WlcOptions.Model
     # scale everything to avoid convergence problems
-    ExtScale = extRaw.copy()
-    ForceScale = forceRaw.copy()
-    xNormalization = max(ExtScale)
-    forceNormalization = max(ForceScale)
-    ExtScale /= xNormalization
-    ForceScale /= forceNormalization
+    xNormalization = max(extRaw)
+    forceNormalization = max(forceRaw)
+    ExtScaled = extRaw.copy()/xNormalization
+    ForceScaled = forceRaw.copy()/forceNormalization
     # get and scale the actual parameters
     Params = WlcOptions.ParamVals
     Params.NormalizeParams(xNormalization,forceNormalization)
@@ -288,38 +297,43 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     varyNames = varyDict.keys()
     varyGuesses = varyDict.values()
     # force all parameters to be positive
-    bounds = [(0.75,None)]
     # number of evaluations should depend on the number of things we are fitting
     nEval = 500*varyNames
-    """
-    if ((len(varyNames) == 1) and (WlcOptions.ParamsVaried.VaryL0)):
-        jacFunc = lambda *args: L0Gradient(*args,VaryNames=varyNames,
-                                           FixedDictionary=fixed)
-    else:
-        jacFunc = '3-point'
-    """
+    mFittingFunc = GetFunctionCall(func,varyNames,fixed)
+    if (UseBasin):
+        # XXX change the bounds funciton?
+        bounds = [(0.75,None)]
+        # basin hopping funciton actually keeps x fixed, so we just pass it in
+        basinHoppingFunc = lambda *params : mFittingFunc(ExtScaled,*params)
+        #  minimize sum of the residuals/N. Since the scales are normalized,
+        # this should be at most between 0 and 1, so normalizing by N
+        # means this will (usually) be bettween 0 and 1 (for any reasonable fit)
+        nPoints = ExtScaled.size
+        minimizeFunc = lambda *params: sum(np.abs(basinHoppingFunc(*params)-\
+                                                  ForceScaled))/nPoints
+        # the minimizer itself (for each 'basin') takes keywords
+        minimizer_kwargs = OrderedDict(method="TNC",bounds=bounds,
+                                       options=dict(ftol=1e-3,
+                                                    xtol=1e-3,gtol=1e-3))
+        # use basin-hopping to get a solid guess of where we should  start
+        obj = basinhopping(minimizeFunc,x0=varyGuesses,disp=True,T=0.5,
+                           stepsize=0.01,minimizer_kwargs=minimizer_kwargs,
+                           niter_success=10,interval=10,niter=20)
+        varyGuesses = obj.x
+    # now, set up a slightly better-quality fit, based on the local minima
+    # that the basin-hopping founs
     jacFunc = '3-point'
     fitOpt = dict(gtol=1e-15,
                   xtol=1e-15,
                   ftol=1e-15,
                   method='trf',
                   jac=jacFunc,
-                  bounds=bounds,
+                  # XXX kind of a kludge...
+                  bounds=(0,1),
                   max_nfev=nEval,
-                  verbose=2)
-    mFittingFunc = GetFunctionCall(func,varyNames,fixed)
-    basinHoppingFunc = lambda *params : mFittingFunc(ExtScale,*params)
-    minimizeFunc = lambda *params: sum(np.abs(basinHoppingFunc(*params)-\
-                                              ForceScale))
-    minimizer_kwargs = OrderedDict(method="TNC",bounds=bounds,
-                                   options=dict(ftol=1e-6,
-                                                xtol=1e-6,gtol=1e-6))
-    # use basin-hopping to get a solid guess of where we should actually start
-    obj = basinhopping(minimizeFunc,x0=varyGuesses,disp=True,T=0.3,
-                       stepsize=0.01,minimizer_kwargs=minimizer_kwargs,
-                       niter_success=50)
+                  verbose=0)
     # note: we use p0 as the initial guess for the parameter values
-    params,paramsStd,predicted = FitUtil.GenFit(ExtScale,ForceScale,
+    params,paramsStd,predicted = FitUtil.GenFit(ExtScaled,ForceScaled,
                                                 mFittingFunc,p0=varyGuesses,
                                                 **fitOpt)
     # all done!
@@ -334,9 +348,10 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     # set the values, their standard deviations, then denomalize everything
     finalInfo.ParamVals.SetParamValues(**finalVals)
     finalInfo.ParamVals.SetParamStdevs(**finalStdevs)
-    finalInfo.ParamVals.DenormalizeParams(xScale,ForceScale)
+    finalInfo.ParamVals.DenormalizeParams(xNormalization,
+                                          forceNormalization)
     # update the actual values and parameters; update the prediction scale
-    return FitReturnInfo(finalInfo,predicted*ForceScale)
+    return FitReturnInfo(finalInfo,predicted*forceNormalization)
 
 
 def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):

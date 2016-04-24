@@ -40,7 +40,7 @@ def RunWLCExample():
     #Set up initial guesses for the params
     # (see 'WLC_UnitTest_Data.GetBouichatData' for where these are coming from)
     InitialGuesses = dict(kbT=4.11e-21, # pN * nm (Room Temp)
-                          L0 =1300e-09, # nm
+                          L0 =1310e-09, # nm
                           Lp =40.6e-09, # nm  , again 
                           K0 =1318e-12) # pN
     extensibleFit = WLC_Fit.ExtensibleWlcFit(Extension,Force,VaryL0=True,
@@ -60,7 +60,7 @@ def run():
     saving multiple plots in this directory
     """
     RunExample = True
-    RunTests = False
+    RunTests = True
     if (RunExample):
         RunWLCExample()
     if (RunTests):
