@@ -10,8 +10,7 @@ from scipy.optimize import curve_fit
 import FitUtils.Python.FitUtil as FitUtil
 from collections import OrderedDict
 
-from scipy.interpolate import interp1d
-
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 MACHINE_EPSILON = np.finfo(float).eps
 
 class WLC_DEF:
@@ -330,9 +329,10 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         deltaX = np.mean(np.diff(ext))
         nToAdd = max(1,int(np.ceil(nLeft/factor)))
         # depending on rounding, may need to go factor+1 out
+        degree=2
         for i in range(factor+1):
-            f = interp1d(xToFit,y,kind='linear',bounds_error=False,
-                         fill_value='extrapolate')
+            f = spline(xToFit,y,ext=0,k=degree,
+                       bbox=[min(ext),max(ext)])
             sliceV = slice(0,maxIdx+nToAdd*i,1)
             xToFit = ext[sliceV]
             prev = f(xToFit)
