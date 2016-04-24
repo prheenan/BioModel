@@ -405,12 +405,16 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     varyGuesses = varyDict.values()
     # force all parameters to be positive
     bounds = (0,1.0)
-    fitOpt = dict(gtol=1e-9,
-                  xtol=1e-9,
-                  ftol=1e-9,
+    # number of evaluations should depend on the number of things we are fitting
+    nEval = 500*varyNames
+    fitOpt = dict(gtol=1e-15,
+                  xtol=1e-15,
+                  ftol=1e-15,
                   method='trf',
                   jac='3-point',
-                  bounds=bounds)
+                  bounds=bounds,
+                  max_nfev=nEval,
+                  verbose=0)
     mFittingFunc = WlcOptions.GetFunctionCall(func,varyNames,fixed)
     # note: we use p0 as the initial guess for the parameter values
     params,paramsStd,predicted = FitUtil.GenFit(ext,force,mFittingFunc,
