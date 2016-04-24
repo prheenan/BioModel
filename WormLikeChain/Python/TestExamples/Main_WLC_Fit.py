@@ -52,13 +52,17 @@ def RunWLCExample():
 
 def run():
     """
-    Runs some unit testing on the WLC fitting
+    Runs some unit testing on the WLC fitting. Some booleans here:
+
+    RunExample: If true, pops up a plot showing a simple fit
+
+    RunTests: If true, runs unit testing using known data/parameters,
+    saving multiple plots in this directory
     """
     RunExample = True
     RunTests = True
     if (RunExample):
         RunWLCExample()
-        exit(1)
     if (RunTests):
         RunBouchiatDataTests()
 

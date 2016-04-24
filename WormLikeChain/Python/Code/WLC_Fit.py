@@ -225,10 +225,23 @@ class WlcFitInfo:
     def __str__(self):
         return "\n".join("{:10s}\t{:s}".format(k,v) for k,v in
                          self.ParamVals.GetParamDict().items())
-        
+
+            
 class FitReturnInfo:
-    def __init__(self,WlcFitInfo,PredictedData):
-        self.Info = WlcFitInfo
+    """
+    Class to return when we are done fitting
+    """
+    def __init__(self,inf,PredictedData):
+        """
+        Initialize the fit object
+
+        Args:
+            inf: WlcFitInfo object from the model fitting, updated with the
+            parameter values we found
+
+            PredictedData: the prediction made by the model
+        """
+        self.Info = inf
         self.Prediction = PredictedData
     def __str__(self):
         return str(self.Info)
@@ -347,17 +360,6 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
     return toRet
 
-def FixInfsAndNegs(ToFix,MaxVal=None):
-    """
-    In-place, fixes the infinities and negative values in ToFix
-    """
-    setVal = 0 if MaxVal is None else MaxVal
-    if (MaxVal is not None):
-        WhereAbove = np.where(ToFix > MaxVal)[0]
-        if (WhereAbove.size > 0):
-            ToFix[WhereAbove[0]:] = MaxVal
-    ToFix[np.where(~np.isfinite(ToFix))] = setVal
-    ToFix[np.where(ToFix) < 0] = setVal
     
 def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     """

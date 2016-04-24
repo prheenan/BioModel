@@ -9,11 +9,22 @@ import Code.WLC_Fit as WLC_Fit
 
 
 def PlotWLCFit(DataObj,fit):
+    """
+    Makes a fairly simple plot of the given Data and WLC fit
+
+    Args:
+         DataObj: The WLC_UnitTest_Data.ModelData of the data
+         fit : the return from a fitting function; expecting 
+         WLC_Fit.FitReturnInfo obj
+    Returns:
+         Figure reference
+    """
     ylim = DataObj.ylim
     mFit = fit.Prediction
     name = DataObj.name
     x = DataObj.ext
     y = DataObj.ForceWithNoise
+    name = DataObj.name
     yPure = DataObj.force
     # plot everything
     toNm = 1e9
@@ -36,6 +47,7 @@ def PlotWLCFit(DataObj,fit):
     plt.ylabel("Force (pN)")
     plt.legend(loc='upper left')
     plt.tight_layout()
+    return fig
 
 def CheckDataObj(DataObj,OutName=None):
     """
@@ -50,7 +62,7 @@ def CheckDataObj(DataObj,OutName=None):
     y = DataObj.force
     params = DataObj.params
     y = DataObj.ForceWithNoise
-    print("Fitting Data From {:s}...".format(name))
+    print("Fitting Data From {:s}...".format(DataObj.name))
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
     extensibleFit = WLC_Fit.ExtensibleWlcFit(x,y,VaryL0=True,
@@ -65,9 +77,11 @@ def CheckDataObj(DataObj,OutName=None):
     print(nonExtensibleFit)
     mFitNon = nonExtensibleFit.Prediction
     if (OutName is not None):
-            
+        toPn = 1e12
+        toNm = 1e9
+        fig = PlotWLCFit(DataObj,extensibleFit)
+        # add the extensible model to the end
         plt.plot(x*toNm,mFitNon*toPn,'b--',label="Non Extensible")
-
         fig.savefig(OutName + ".png")
 
 def TestDataWithSteps(Steps,DataFunction):
