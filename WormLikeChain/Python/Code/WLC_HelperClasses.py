@@ -71,6 +71,8 @@ class WlcParamValues:
             stdevStr = "+/-{:5.2g}".format(self.Stdev) \
                        if self.Stdev is not None else ""
             return "{:5.4g}{:s}".format(self.Value,stdevStr)
+        def __repr__(self):
+            return str(self)
     def __init__(self,kbT=WLC_DEF.kbT,
                  L0=WLC_DEF.L0,Lp=WLC_DEF.Lp,K0=WLC_DEF.K0):
         """

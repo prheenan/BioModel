@@ -85,18 +85,41 @@ def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
     return WlcPolyCorrect(kbT,Lp,l)
 
 def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext):
-    plt.plot(extOrig,yOrig,'k--')
+    """
+    Useful for plotting the convergence of the extensible model
+
+    Args:
+        extOrig; original extension used for non-extensible WLC
+        yOrig; original force, from non-extensible WLC
+        extNow: the (presummmably longer) extension used with the extensible 
+        model
+
+        yNow: the (presummmably longer) force used with the extensible 
+        model
+      
+        ext: the actual extension, in its full glory (not truncated)
+    """
+    toPico = lambda x: x*1e12
+    toNano = lambda x: x*1e9
+    plt.plot(extOrig,yOrig,'k--',linewidth=2.5)
     plt.plot(extNow,yNow,'b-')
-    plt.xlabel("Extension")
-    plt.ylabel("Force")
+    plt.xlabel("Extension (nanoX)")
+    plt.ylabel("Force (picoX)")
+    # make a sensible range for the plotting
     minV = min(ext)
     maxV = max(ext)
     rangeV = maxV-minV
     fudge = rangeV/100
     plt.xlim([minV-fudge,maxV+fudge])
+    # do the same s
+    minY = min(yNow)
+    maxY = max(yNow)
+    rangeY = maxY-minY
+    fudgeY = rangeY/100
+    plt.ylim([-fudgeY,maxY+fudgeY])
     plt.show()
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,**kwargs):
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -114,7 +137,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,**kwargs):
         # maxFractionOfL0: determines the maximum extension we fit to
         # SplitBeyondL0: related to how we divide the system into extensible
         # and non-extensible
-        maxFractionOfL0 = 0.85 
+        maxFractionOfL0 = 0.85
         SplitBeyondL0 = int(5*np.ceil(L0/Lp))
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
@@ -134,7 +157,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,**kwargs):
         # depending on rounding, may need to go factor+1 out
         factor = int(np.ceil(SplitBeyondL0*( (maxX/L0)-maxFractionOfL0)))
         nToAdd = int(np.ceil(nLeft/factor))
-        degree=3
+        degree=min(nToAdd,3)
         for i in range(factor+1):
             # make a spline interpolator of degree 2
             f = spline(xToFit,y,ext='extrapolate',k=degree,
@@ -222,7 +245,7 @@ def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
 
     
 
-def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
+def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     """
     General fiting function.
 
@@ -240,15 +263,15 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     """
     model = WlcOptions.Model
     # scale everything to avoid convergence problems
-    ext = ext.copy()
-    force = force.copy()
-    xScale = max(ext)
-    ForceScale = max(force)
-    ext /= xScale
-    force /= ForceScale
+    ExtScale = extRaw.copy()
+    ForceScale = forceRaw.copy()
+    xNormalization = max(ExtScale)
+    forceNormalization = max(ForceScale)
+    ExtScale /= xNormalization
+    ForceScale /= forceNormalization
     # get and scale the actual parameters
     Params = WlcOptions.ParamVals
-    Params.NormalizeParams(xScale,ForceScale)
+    Params.NormalizeParams(xNormalization,forceNormalization)
     # p0 record our initial guesses; what does the user want use to fit?
     varyDict = WlcOptions.GetVaryingParamDict()
     fixed = WlcOptions.GetFixedParamDict()
@@ -265,7 +288,7 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     varyNames = varyDict.keys()
     varyGuesses = varyDict.values()
     # force all parameters to be positive
-    bounds = (0,1.0)
+    bounds = [(0.75,None)]
     # number of evaluations should depend on the number of things we are fitting
     nEval = 500*varyNames
     """
@@ -285,15 +308,19 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
                   max_nfev=nEval,
                   verbose=2)
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
-    """
-    minimizer_kwargs = OrderedDict(method="BFGS",bounds=bounds,tol=1e-9)
+    basinHoppingFunc = lambda *params : mFittingFunc(ExtScale,*params)
+    minimizeFunc = lambda *params: sum(np.abs(basinHoppingFunc(*params)-\
+                                              ForceScale))
+    minimizer_kwargs = OrderedDict(method="TNC",bounds=bounds,
+                                   options=dict(ftol=1e-6,
+                                                xtol=1e-6,gtol=1e-6))
     # use basin-hopping to get a solid guess of where we should actually start
-    obj = basinhopping(mFittingFunc,x0=varyGuesses,disp=True)
-    print(obj)
-    """
+    obj = basinhopping(minimizeFunc,x0=varyGuesses,disp=True,T=0.3,
+                       stepsize=0.01,minimizer_kwargs=minimizer_kwargs,
+                       niter_success=50)
     # note: we use p0 as the initial guess for the parameter values
-    params,paramsStd,predicted = FitUtil.GenFit(ext,force,mFittingFunc,
-                                                p0=varyGuesses,
+    params,paramsStd,predicted = FitUtil.GenFit(ExtScale,ForceScale,
+                                                mFittingFunc,p0=varyGuesses,
                                                 **fitOpt)
     # all done!
     # make a copy of the information object; we will return a new one
