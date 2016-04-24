@@ -82,7 +82,7 @@ def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
     l = xNorm-yNorm
     return WlcPolyCorrect(kbT,Lp,l)
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -136,7 +136,33 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None):
         toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
     return toRet
 
+def L0Gradient(param,x,y,_,VaryNames=None,FixedDictionary=None):
+    """
+    Args:
+        params: the values of the parameters to set
+        ext: the extension values
+        force: the force values
+        VaryNames: the names of the varying parameters.
+        See WlcOptions.GetFullDictionary
+
+        FixedDictionary: the fixed dictionary. See WlcOptions.GetFullDictionary
+    """
+    # Get the fixed and variable stuff -- probably need to pass in something
+    # in kwargs to suss this out
+    plt.plot(x,y)
+    plt.show()
+    # XXX Move get ful ditionary out of options
+    # XXX get the extensible force using params...
+    # XXX Get the gradient
+    # Use the X and the variables to get the extensible force
+    F = WlcExtensible(ext,**params)
+    # Use the variables to calculate the gradients
+    AllArgs = GetFullDictionary(VaryNames,FixedDictionary,*params)
     
+    print(args)
+    print('lol')
+    
+
 def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     """
     General fiting function.
@@ -183,6 +209,8 @@ def WlcFit(ext,force,WlcOptions=WlcFitInfo()):
     bounds = (0,1.0)
     # number of evaluations should depend on the number of things we are fitting
     nEval = 500*varyNames
+    jacFunc = lambda *args: L0Gradient(*args,VaryNames=varyNames,
+                                       FixedDictionary=fixed)
     fitOpt = dict(gtol=1e-15,
                   xtol=1e-15,
                   ftol=1e-15,
