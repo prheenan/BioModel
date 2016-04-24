@@ -7,7 +7,7 @@ To see examples of how a particular function works, see the "TestExamples" SubFo
 
 For example, see WormLikeChain/Python/TestExamples/Main_WLC_Fit.py for how to run the extensible worm-like chain model.
 
-# Contents
+# Description of contents
 =======
 
 ##WormLikeChain
