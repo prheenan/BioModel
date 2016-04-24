@@ -43,8 +43,8 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     #If p is of length N, this function returns the value:a
     # p[0]*x**(N-1) + p[1]*x**(N-2) + ... + p[N-2]*x + p[N-1]
     # note: a0 and a1 are zero, including them for easy of use of polyval.
-    # see especially equation 13
-    polyValCoeffs = [a7,a6,a5,a4,a3,a2,a1,a0]
+    # see especially equation 13. Note we reverse the Bouchiat Coefficients...
+    polyValCoeffs = BouchiatPolyCoeffs()[::-1]
     denom = (1-l)**2
     inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
     return (kbT/Lp) * inner

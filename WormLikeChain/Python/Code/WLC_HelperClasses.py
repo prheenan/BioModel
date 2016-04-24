@@ -7,7 +7,6 @@ import sys
 
 
 from collections import OrderedDict
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
 MACHINE_EPSILON = np.finfo(float).eps
 
 class WLC_DEF:
@@ -242,3 +241,27 @@ class FitReturnInfo:
         self.Prediction = PredictedData
     def __str__(self):
         return str(self.Info)
+
+
+def BouchiatPolyCoeffs():
+    """
+    Gives the polynomial correction coefficients
+
+    See 
+    "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
+    C. Bouchiat, M.D. Wang, et al.
+    Biophysical Journal Volume 76, Issue 1, January 1999, Pages 409-413
+web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
+
+    Returns:
+       list of coefficients; element [i] is the coefficient of term x^(i) in the
+       correction listed above
+    """
+    return [0,
+            0,
+            -.5164228,
+            -2.737418,
+            16.07497,
+            -38.87607,
+            39.49949,
+            -14.17718]
