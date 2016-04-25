@@ -13,6 +13,7 @@ from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
     FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
 from collections import OrderedDict
+from scipy.interpolate import dfitpack
 
 
 def WlcPolyCorrect(kbT,Lp,lRaw):
@@ -149,10 +150,12 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
         # check where we stop fitting the non-extensible
+        degree=3
         if (maxX > highestX):
             maxIdx = np.argmin(np.abs(highestX-ext))
         else:
             maxIdx = n
+        maxIdx = max(degree,maxIdx)
         sliceV = slice(0,maxIdx,1)
         xToFit= ext[sliceV]
         y = WlcNonExtensible(xToFit,kbT,Lp,L0)
@@ -161,15 +164,15 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         # extrapolate the y back
         nLeft = (n-maxIdx+1)
         pastMaxExt = maxX-highestX
-        degree=3
-        # figure out roughly how
+        # figure out roughly how screwed we are to get out to where we want to
+        # go
         nLengths = (pastMaxExt/Lp)*(L0/Lp)
-        factor = int(np.ceil(nLengths/5))
+        factor = max(1,int(np.ceil(nLengths/5)))
         # depending on rounding, may need to go factor+1 out
         nToAdd = max(3,int(np.ceil(nLeft/factor)))
         for i in range(factor+1):
-            # make a spline interpolator of degree 2
-            f = spline(xToFit,y,ext='extrapolate',k=degree,
+            # make a spline interpolator of degree k=degree
+            f = spline(xToFit,y,ext='extrapolate',k=degree,\
                        bbox=[min(ext),max(ext)])
             # extrapolate the previous fit out just a smidge
             sliceV = slice(0,maxIdx+nToAdd*i,1)
@@ -254,6 +257,14 @@ def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
     grad = ContourOrModulusGradient(kbT,Lp,l,x,L0,coeffs,sign)
     return grad
 
+
+def SafeMinimize(n,func,*params):
+    try:
+        naive = func(*params)
+        naive[np.where(~np.isfinite(naive))] = n
+    except OverflowError as e:
+        naive = n**2
+    return naive
     
 
 def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
@@ -302,23 +313,27 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
     if (UseBasin):
         # XXX change the bounds funciton?
-        bounds = [(0.75,None)]
+        bounds = [(0.,1)]
         # basin hopping funciton actually keeps x fixed, so we just pass it in
         basinHoppingFunc = lambda *params : mFittingFunc(ExtScaled,*params)
         #  minimize sum of the residuals/N. Since the scales are normalized,
         # this should be at most between 0 and 1, so normalizing by N
         # means this will (usually) be bettween 0 and 1 (for any reasonable fit)
         nPoints = ExtScaled.size
-        minimizeFunc = lambda *params: sum(np.abs(basinHoppingFunc(*params)-\
+        basinSafe = lambda *params: SafeMinimize(nPoints,basinHoppingFunc,
+                                                 *params)
+        minimizeFunc = lambda *params: sum(np.abs(basinSafe(*params)-\
                                                   ForceScaled))/nPoints
         # the minimizer itself (for each 'basin') takes keywords
+        # here, we are a little less 'picky' about the function tolerances
+        # than before
         minimizer_kwargs = OrderedDict(method="TNC",bounds=bounds,
                                        options=dict(ftol=1e-3,
                                                     xtol=1e-3,gtol=1e-3))
         # use basin-hopping to get a solid guess of where we should  start
-        obj = basinhopping(minimizeFunc,x0=varyGuesses,disp=True,T=0.5,
-                           stepsize=0.01,minimizer_kwargs=minimizer_kwargs,
-                           niter_success=10,interval=10,niter=20)
+        obj = basinhopping(minimizeFunc,x0=varyGuesses,disp=False,T=1,
+                           stepsize=0.001,minimizer_kwargs=minimizer_kwargs,
+                           niter_success=10,interval=10,niter=30)
         varyGuesses = obj.x
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping founs

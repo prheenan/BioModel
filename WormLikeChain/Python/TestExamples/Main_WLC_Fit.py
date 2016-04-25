@@ -20,7 +20,8 @@ def RunBouchiatDataTests():
     """
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
-    StepNm = [ 0.05,0.1,0.5,1,2]
+    # note we reverse it so we 'fail fast'
+    StepNm = [ 0.05,0.1,0.5,1,2][::-1]
     toTest =  [ [StepNm,GetBouichatData]]
     for Steps,Function in toTest:
         TestDataWithSteps(Steps,Function)
@@ -44,7 +45,7 @@ def RunWLCExample():
                           Lp =40.6e-09, # nm  , again 
                           K0 =1318e-12) # pN
     extensibleFit = WLC_Fit.ExtensibleWlcFit(Extension,Force,VaryL0=True,
-                                             VaryLp=False,VaryK0=False,
+                                             VaryLp=True,VaryK0=False,
                                              **InitialGuesses)
     # what we have is the fit object; we can get/print the parameters
     PlotWLCFit(Data,extensibleFit)
