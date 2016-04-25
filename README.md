@@ -12,4 +12,4 @@ For example, see WormLikeChain/Python/TestExamples/Main_WLC_Fit.py for how to ru
 
 ##WormLikeChain
 
-Contains models for Worm-Like-Chain Force extension curves, including an option for an extensible model (which accounts for the bulk-modulus of the DNA)
+Contains models for Worm-Like-Chain Force extension curves, including an option for an extensible model (which accounts for the bulk-modulus of whatever is being stretched)
