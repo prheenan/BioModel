@@ -312,7 +312,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     forceNormalization = max(forceRaw)
     ExtScaled = extRaw.copy()/xNormalization
     ForceScaled = forceRaw.copy()/forceNormalization
-    # get and scale the actual parameters
+    # get and scale the actual parameters (note this also scales the bounds!)
     Params = WlcOptions.ParamVals
     Params.NormalizeParams(xNormalization,forceNormalization)
     # varyDict record our initial guesses; what does the user want use to fit?
@@ -365,12 +365,12 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
                            niter_success=10,interval=10,niter=30)
         varyGuesses = obj.x
     # now, set up a slightly better-quality fit, based on the local minima
-    # that the basin-hopping founs
+    # that the basin-hopping function
     jacFunc = '3-point'
     fitOpt = dict(gtol=1e-15,
                   xtol=1e-15,
                   ftol=1e-15,
-                  method='trf',
+                  method='trf', # trf support bounds, which is good!
                   jac=jacFunc,
                   # XXX kind of a kludge...
                   bounds=boundsCurvefit,
