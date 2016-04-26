@@ -443,6 +443,37 @@ def GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args):
     mapV = lambda key,vals: OrderedDict([(k,v) for k,v in zip(key,vals)])
     return OrderedDict(mapV(ParamNamesToVary,args),**ParamsFixedDict)
 
+def GetReasonableBounds(ext,force,
+                        c_L0_lower=0.5,c_L0_upper=2.,
+                        c_Lp_lower=0.0,c_Lp_upper=0.5,
+                        c_K0_lower=10,c_Lp_upper=1e4)
+    """
+    Returns a reasonable (ordered) dictionary of bounds, given extensions and 
+    force
+
+    Args:
+        ext: the extesions we are interested in
+        force: the force we are interestd in 
+        c_<xx>_lower: lower bound, in terms of the max of ext/force (depending
+        on which constant, K0 is Force, Lp and L0 are length)
+
+        c_<xx>_upper: upper bound, in terms of the max of ext/force (depending
+        on which constant, K0 is Force, Lp and L0 are length)
+    Returns:
+        Dictionary of <Parameter Name : Bounds> Pairs
+    """
+    MaxX = max(ext)
+    MaxForce = max(force)
+    TupleL0 = np.array(c_L0_lower,c_L0_upper) * MaxX
+    TupleLp = np.array(c_Lp_lower,c_Lp_upper) * MaxX
+    TupleK0 = np.array(c_K0_lower,c_K0_upper) * MaxForce
+    return OrderedDict(L0=BoundsObj(TupleL0),
+                       Lp=BoundsObj(TupleLp),
+                       K0=BoundsObj(TupleL0),
+                       # Note that we typically dont fit temperature,
+                       # really no way to know.
+                       kbT=BoundsObj(0,np.inf))
+
 def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
     """
     Method to get a function call, given which parameters we vary and
