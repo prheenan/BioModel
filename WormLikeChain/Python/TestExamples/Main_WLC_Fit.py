@@ -46,7 +46,7 @@ def RunWLCExample():
                           K0 =1318e-12) # pN
     extensibleFit = WLC_Fit.ExtensibleWlcFit(Extension,Force,VaryL0=True,
                                              VaryLp=True,VaryK0=False,
-                                             **InitialGuesses)
+                                             Values=InitialGuesses)
     # what we have is the fit object; we can get/print the parameters
     PlotWLCFit(Data,extensibleFit)
     plt.show()

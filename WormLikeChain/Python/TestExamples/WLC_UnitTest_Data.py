@@ -50,8 +50,9 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # upper and lower bound is taken from Figure 1, note nm scale
     x = np.arange(0,1335,StepInNm) * 1e-9
     # write down their parameter values, figure 1 inset
-    params = WLC_Fit.WlcParamValues(kbT = 4.11e-21,L0 = 1317.52e-9,
-                                    Lp =  40.6e-9,K0 = 1318.e-12)
+    ParamValues = dict(kbT = 4.11e-21,L0 = 1317.52e-9,
+                       Lp =  40.6e-9,K0 = 1318.e-12)
+    params = WLC_Fit.WlcParamValues(Values=ParamValues)
     # for the non-extensible model, really only want to fit up to
     # some high percentage of the contour length
     values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])

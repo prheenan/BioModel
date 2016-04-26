@@ -9,6 +9,29 @@ import sys
 from collections import OrderedDict
 MACHINE_EPSILON = np.finfo(float).eps
 
+
+class BoundsObj:
+    """
+    Class to keep track of bounds
+    """
+    def SantizeBounds(self,bound):
+        # we will by default assume that an unlimited bounds is None
+        if (np.isnan(bound) or bound is None):
+            return None
+    def __init__(self,lower,upper):
+        self.upper = upper
+        self.lower = lower
+    def scale(self,scale):
+        if (self.upper is not None):
+            self.upper /= scale
+        if (self.upper is not None):
+            self.lower /= scale
+    def tuple(self,returnInf=None):
+        dealWithUnbounded = lambda x: x if (x is not None) else returnInf
+        upper = dealWithUnbounded(upper)
+        lower = dealWithUnbounded(lower)
+        return lower,upper
+
 class WLC_DEF:
     """
     Class defining defaults for inputs. 
@@ -19,10 +42,17 @@ class WLC_DEF:
 
     See Wang, 1997.
     """
-    L0 = 1317.52e-9 # meters
-    Lp = 40.6e-9 # meters
-    K0 = 1318e-12 # Newtons
-    kbT = 4.11e-21 # 4.1 pN * nm = 4.1e-21 N*m
+    # Default Dictionary
+    ValueDictionary = OrderedDict(L0 = 1317.52e-9, # meters
+                                  Lp = 40.6e-9, # meters
+                                  K0 = 1318e-12, # Newtons
+                                  kbT = 4.11e-21) # 4.1 pN * nm = 4.1e-21 N*m
+    # write down the default bounds; just positive values parameter
+    BoundsDictionary = OrderedDict(L0=BoundsObj(0,None),
+                                   Lp=BoundsObj(0,None),
+                                   K0=BoundsObj(0,None),
+                                   kbT=BoundsObj(0,None))
+    
 
 class WLC_MODELS:
     """
@@ -46,7 +76,8 @@ class WlcParamsToVary:
         self.VaryL0 = VaryL0
         self.VaryLp = VaryLp
         self.VaryK0 = VaryK0
-    
+
+
 class WlcParamValues:
     """
     Class to record parameter values given to a fit or gotten from the same
@@ -55,7 +86,7 @@ class WlcParamValues:
         """
         Subclass to keep track of parameters.
         """
-        def __init__(self,Value,Stdev=None,Bounds=None):
+        def __init__(self,Value=0,Stdev=None,Bounds=None):
             self.Value = Value
             self.Stdev = Stdev
             self.Bounds = None
@@ -67,32 +98,44 @@ class WlcParamValues:
             self.Value /= scale
             if (self.Stdev is not None):
                 self.Stdev /= scale
+            self.Bounds.scale(scale)
         def __str__(self):
             stdevStr = "+/-{:5.2g}".format(self.Stdev) \
                        if self.Stdev is not None else ""
             return "{:5.4g}{:s}".format(self.Value,stdevStr)
         def __repr__(self):
             return str(self)
-    def __init__(self,kbT=WLC_DEF.kbT,
-                 L0=WLC_DEF.L0,Lp=WLC_DEF.Lp,K0=WLC_DEF.K0):
+    def __init__(self,
+                 Values=WLC_DEF.ValueDictionary,
+                 Bounds=WLC_DEF.BoundsDictionary):
         """
         Args:
             kbT,Lp,L0 : see WlcPolyCorrect. Initial guesses
             K0: see WlcExtensible. Note this is ignored for non-extensible 
             models
         """
-        self.SetParamValues(L0,Lp,K0,kbT)
+        self._InitParams()
+        self.SetParamValues(**Values)
+        self.SetBounds(**Bounds)
+    def _InitParams(self):
+        """
+        Initiliaze parameters...
+        """
+        self.L0 = WlcParamValues.Param()
+        self.Lp = WlcParamValues.Param()
+        self.K0 = WlcParamValues.Param()
+        self.kbT = WlcParamValues.Param()
     def SetParamValues(self,L0,Lp,K0,kbT):
         """
-        Sets the parameter values
+        Sets the parameter values, initializing new objects
 
         Args:
             kbT,Lp,L0,K0: See Init
         """
-        self.L0 = WlcParamValues.Param(L0)
-        self.Lp = WlcParamValues.Param(Lp)
-        self.K0 = WlcParamValues.Param(K0)
-        self.kbT = WlcParamValues.Param(kbT)
+        self.L0.Value = L0
+        self.Lp.Value = Lp
+        self.K0.Value = K0
+        self.kbT.Value = kbT
     def CloseTo(self,other,rtol=1e-1,atol=0):
         """
         Returns true if the other set of parameters is the 'same' as this
@@ -137,13 +180,24 @@ class WlcParamValues:
                 (self.kbT,kbT)]
         for a,stdev in attr:
             a.Stdev = stdev
+    def _GenGetInOrder(self,func):
+        """
+        Reutrns some transform on each inorder parameter
+
+        Args:
+           func: takes in a parameter, returns whatever we want from it
+        """
+        return [func(v) for v in self.GetParamsInOrder()]
     def GetParamValsInOrder(self):
         """
         Returns:
             a list of the in-order parameters (ie: the conventional order
             I use, see any fitting function)
         """
-        return [v.Value for v in self.GetParamsInOrder()]
+        return self._GenGetInOrder(lambda x: x.Value)
+    def GetParamBoundsInOrder(self):
+
+        return self._GenGetInOrder(lambda x: x.Bounds)
     def GetParamsInOrder(self):
         """
         Conveniene function, gets the parameters in the conventional order
@@ -185,25 +239,19 @@ class WlcParamValues:
 
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
-                 ParamVals=WlcParamValues(),nIters=500,
-                 rtol=1e-2,VaryObj=WlcParamsToVary()):
+                 ParamVals=WlcParamValues(),
+                 VaryObj=WlcParamsToVary()):
         """
         Args:
         Model: which model, from WLC_MODELS, to use
         ParamValues: values of the parameters for the fit (e.g. initial guesses,
         or final resuts )
 
-        rTol: for extensible models, the relative tolerance between sucessive
-        fits before quitting
-
-        nIters: for extensible models, the maximum number of iterations.
         VaryObj: which parameters should be varied for the 
         """
         self.Model = Model
         self.ParamVals = ParamVals
         self.ParamsVaried = VaryObj
-        self.nIters = nIters
-        self.rtol = rtol
     def AddParamsGen(self,condition=lambda x: x):
         """
         General function to add paraters to a list we return.

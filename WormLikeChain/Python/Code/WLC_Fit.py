@@ -292,7 +292,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     # get and scale the actual parameters
     Params = WlcOptions.ParamVals
     Params.NormalizeParams(xNormalization,forceNormalization)
-    # p0 record our initial guesses; what does the user want use to fit?
+    # varyDict record our initial guesses; what does the user want use to fit?
     varyDict = WlcOptions.GetVaryingParamDict()
     fixed = WlcOptions.GetFixedParamDict()
     # figure out what the model is
@@ -390,7 +390,7 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     return WlcFit(ext,force,mInfo)
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                     nIters=500,rtol=1e-100,**kwargs):
+                     **kwargs):
     """
     extensible version of the WLC fit. By default, varies the contour length
     to get the fit. Uses Bouichat, 1999 (see aboce) , by default
@@ -398,10 +398,6 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     Args:
         ext,force : see WlcFit
         VaryL0,VaryLp : see WlcParamsToVary, boolean if we should vary
-        nIters: number of iterations for the recursively defined function,
-        before breaking
-
-        rtol: the relative tolerance
         **kwargs: passed directly to WlcParamValues (ie: initial guesses)
     Returns:
         see WlcFit
@@ -409,7 +405,6 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     model = WLC_MODELS.EXTENSIBLE_WANG_1997
     mVals = WlcParamValues(**kwargs)
     toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary,
-                       nIters=nIters,rtol=rtol)
+    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary)
     return WlcFit(ext,force,mInfo)
         
