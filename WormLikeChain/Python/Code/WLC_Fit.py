@@ -231,6 +231,9 @@ def ContourOrModulusGradient(kbT,Lp,l,x,L0,coeffs,sign):
 
 def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
     """
+    XXX in development; the gradient of the contour length (useful for, e.g.
+    Jacobian calculations)
+
     Args:
         params: the values of the parameters to set
         ext: the extension values

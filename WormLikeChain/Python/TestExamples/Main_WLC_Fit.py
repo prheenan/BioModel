@@ -51,6 +51,7 @@ def RunWLCExample():
     PlotWLCFit(Data,extensibleFit)
     plt.show()
 
+
 def run():
     """
     Runs some unit testing on the WLC fitting. Some booleans here:
