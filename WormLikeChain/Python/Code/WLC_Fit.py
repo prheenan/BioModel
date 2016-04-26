@@ -10,7 +10,7 @@ import FitUtils.Python.FitUtil as FitUtil
 from scipy.optimize import basinhopping
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
-    FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary
+    FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary,BoundsObj
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
 from collections import OrderedDict
 from scipy.interpolate import dfitpack
@@ -172,8 +172,14 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         nToAdd = max(3,int(np.ceil(nLeft/factor)))
         for i in range(factor+1):
             # make a spline interpolator of degree k=degree
-            f = spline(xToFit,y,ext='extrapolate',k=degree,\
-                       bbox=[min(ext),max(ext)])
+            # this can throw an error with badly conditioned data.
+            try:
+                f = spline(xToFit,y,ext='extrapolate',k=degree,\
+                           bbox=[min(ext),max(ext)])
+            except Exception as e:
+                # if that didnt work for some reason, then use a lower degree
+                f = spline(xToFit,y,ext='extrapolate',k=degree-1,\
+                           bbox=[min(ext),max(ext)])
             # extrapolate the previous fit out just a smidge
             sliceV = slice(0,maxIdx+nToAdd*i,1)
             xToFit = ext[sliceV]
@@ -258,12 +264,28 @@ def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
     return grad
 
 
-def SafeMinimize(n,func,*params):
+def SafeMinimize(n,func,*params,**kwargs):
+    """
+    Minimized a function. in the case of infinities at a certain location, or
+    if we couldt minimize, we give the point a score of n (so the typical errors
+    should be much less than one, guarenteed if the function is normalized to
+    between 0 and 1)
+
+    Args:
+        n: the size of whatever we are tryign to minimize
+        func: the function we will be minimizing. If it throws and overflow.
+        We assume that the function is normalized between 0 and 1, n >1.
+
+        error, we assume that the output was ridiculous, and give a score of
+        n**2
+    """
+    pArray = params[0]
     try:
-        naive = func(*params)
+        naive = func(*pArray,**kwargs)
         naive[np.where(~np.isfinite(naive))] = n
     except OverflowError as e:
-        naive = n**2
+        # each point (n!) had 
+        naive = np.ones(n) * n
     return naive
     
 
@@ -281,7 +303,8 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
        force: the (experimental) force, 1D array of size N 
        Options: WlcFitInfo Object, giving the options for the fit
     Returns: 
-       XXX The fitted values
+       WlcFitInfo, with updated parmaeters and standard deviations associated
+       with the fit.
     """
     model = WlcOptions.Model
     # scale everything to avoid convergence problems
@@ -295,6 +318,13 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     # varyDict record our initial guesses; what does the user want use to fit?
     varyDict = WlcOptions.GetVaryingParamDict()
     fixed = WlcOptions.GetFixedParamDict()
+    # get the bounds, convert to CurveFit's conventions
+    boundsRaw = WlcOptions.DictToValues(WlcOptions.GetVaryingBoundsDict())
+    # curve_fit wans a list of [ [lower1,lower2,...],[upper1,upper2,...]]
+    boundsCurvefitRaw = [BoundsObj.ToCurveFitConventions(*b) for b in boundsRaw]
+    boundsCurvefitLower = [b[0] for b in boundsRaw]
+    boundsCurvefitUpper = [b[1] for b in boundsRaw]
+    boundsCurvefit = boundsCurvefitLower,boundsCurvefitUpper
     # figure out what the model is
     if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
         # initially, use non-extensible for extensible model, as a first guess
@@ -312,22 +342,21 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     nEval = 500*varyNames
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
     if (UseBasin):
-        # XXX change the bounds funciton?
-        bounds = [(0.,1)]
+        boundsBasin = [BoundsObj.ToMinimizeConventions(*b) for b in boundsRaw]
         # basin hopping funciton actually keeps x fixed, so we just pass it in
         basinHoppingFunc = lambda *params : mFittingFunc(ExtScaled,*params)
         #  minimize sum of the residuals/N. Since the scales are normalized,
         # this should be at most between 0 and 1, so normalizing by N
         # means this will (usually) be bettween 0 and 1 (for any reasonable fit)
         nPoints = ExtScaled.size
-        basinSafe = lambda *params: SafeMinimize(nPoints,basinHoppingFunc,
-                                                 *params)
-        minimizeFunc = lambda *params: sum(np.abs(basinSafe(*params)-\
-                                                  ForceScaled))/nPoints
+        basinSafe = lambda *params,**kw: SafeMinimize(nPoints,basinHoppingFunc,
+                                                      *params,**kw)
+        minimizeFunc = lambda *params,**kw: sum(np.abs(basinSafe(*params,**kw)-\
+                                                       ForceScaled))/nPoints
         # the minimizer itself (for each 'basin') takes keywords
         # here, we are a little less 'picky' about the function tolerances
         # than before
-        minimizer_kwargs = OrderedDict(method="TNC",bounds=bounds,
+        minimizer_kwargs = OrderedDict(method="TNC",bounds=boundsBasin,
                                        options=dict(ftol=1e-3,
                                                     xtol=1e-3,gtol=1e-3))
         # use basin-hopping to get a solid guess of where we should  start
@@ -344,7 +373,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
                   method='trf',
                   jac=jacFunc,
                   # XXX kind of a kludge...
-                  bounds=(0,1),
+                  bounds=boundsCurvefit,
                   max_nfev=nEval,
                   verbose=0)
     # note: we use p0 as the initial guess for the parameter values
@@ -377,13 +406,14 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     Args:
         ext,force : see WlcFit
         VaryL0,VaryLp : see WlcParamsToVary, boolean if we should vary
-        **kwargs: passed directly to WlcParamValues (ie: initial guesses)
+        **kwargs: passed directly to WlcParamValues (ie: initial guesses,bounds)
     Returns:
         see WlcFit
     """
     model = WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999
     mVals = WlcParamValues(**kwargs)
-    toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp)
+    # non-extensible model has no K0
+    toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=False)
     # create the informaiton to pass on to the fitter
     mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary)
     # call the fitter
@@ -398,7 +428,7 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     Args:
         ext,force : see WlcFit
         VaryL0,VaryLp : see WlcParamsToVary, boolean if we should vary
-        **kwargs: passed directly to WlcParamValues (ie: initial guesses)
+        **kwargs: passed directly to WlcParamValues (ie: initial guesses,bounds)
     Returns:
         see WlcFit
     """

@@ -14,23 +14,63 @@ class BoundsObj:
     """
     Class to keep track of bounds
     """
-    def SantizeBounds(self,bound):
-        # we will by default assume that an unlimited bounds is None
-        if (np.isnan(bound) or bound is None):
-            return None
     def __init__(self,lower,upper):
+        """
+        initialize the bounds to upper and lwoer
+        """
         self.upper = upper
         self.lower = lower
+    @classmethod
+    def ClosedBound(BoundsObj,bound):
+        """
+        Returns true if the bound is non-infinite
+        """
+        return (bound is not None) and (np.isfinite(bound))
     def scale(self,scale):
-        if (self.upper is not None):
+        """
+        Scale the bounds so they are normalized by scale
+
+        Args:
+           scale: what to normalize to 
+        """
+        if (BoundsObj.ClosedBound(self.upper)):
             self.upper /= scale
-        if (self.upper is not None):
+        if (BoundsObj.ClosedBound(self.lower)):
             self.lower /= scale
-    def tuple(self,returnInf=None):
-        dealWithUnbounded = lambda x: x if (x is not None) else returnInf
-        upper = dealWithUnbounded(upper)
-        lower = dealWithUnbounded(lower)
+    def AsTuple(self):
+        """
+        return the lower and upper bounds as a tuple
+        """
+        return self.lower,self.upper
+    @classmethod
+    def _ToConvention(BoundsObj,lower,upper,lowerConvention,upperConvention):
+        if (not BoundsObj.ClosedBound(lower)):
+            lower = lowerConvention
+        if (not BoundsObj.ClosedBound(upper)):
+            upper = upperConvention
         return lower,upper
+    @classmethod
+    def ToCurveFitConventions(BoundsObj,lower,upper):
+        """
+        Scipy's curve fit uses infs as the bounds
+        
+        See: scipy.optimize.curve_fit
+docs.scipy.org/doc/scipy-0.17.0/reference/generated/scipy.optimize.curve_fit.html
+        """
+        return BoundsObj._ToConvention(lower,upper,-np.inf,np.inf)
+            
+    @classmethod
+    def ToMinimizeConventions(BoundsObj,lower,upper):
+        """
+        Scipy 'Minimize' uses None as the positive and negative conditions
+
+        See: scipy.optimize.minimize, 'bounds'
+docs.scipy.org/doc/scipy-0.17.0/reference/generated/scipy.optimize.minimize.html
+        """
+        return BoundsObj._ToConvention(lower,upper,None,None)
+
+            
+    
 
 class WLC_DEF:
     """
@@ -48,19 +88,18 @@ class WLC_DEF:
                                   K0 = 1318e-12, # Newtons
                                   kbT = 4.11e-21) # 4.1 pN * nm = 4.1e-21 N*m
     # write down the default bounds; just positive values parameter
-    BoundsDictionary = OrderedDict(L0=BoundsObj(0,None),
-                                   Lp=BoundsObj(0,None),
-                                   K0=BoundsObj(0,None),
-                                   kbT=BoundsObj(0,None))
-    
+    BoundsDictionary = OrderedDict(L0=BoundsObj(0,np.inf),
+                                   Lp=BoundsObj(0,np.inf),
+                                   K0=BoundsObj(0,np.inf),
+                                   kbT=BoundsObj(0,np.inf))
 
+    
 class WLC_MODELS:
     """
     Class definining valid models.
     """
     EXTENSIBLE_WANG_1997 = 0
     INEXTENSIBLE_BOUICHAT_1999 = 1
-
 
 class WlcParamsToVary:
     """
@@ -76,6 +115,7 @@ class WlcParamsToVary:
         self.VaryL0 = VaryL0
         self.VaryLp = VaryLp
         self.VaryK0 = VaryK0
+
 
 
 class WlcParamValues:
@@ -237,6 +277,7 @@ class WlcParamValues:
         """
         self.ScaleGen(1./xScale,1./ForceScale)
 
+    
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
                  ParamVals=WlcParamValues(),
@@ -252,13 +293,44 @@ class WlcFitInfo:
         self.Model = Model
         self.ParamVals = ParamVals
         self.ParamsVaried = VaryObj
-    def AddParamsGen(self,condition=lambda x: x):
+    """
+    The Following are helper functions that only make sense
+    in the context of 'AddParamsGen', which lets us get
+    varying and fixed bounds, values, and the like
+    """
+    @property
+    def _VaryCondition(self):
+        """
+        Return true if we should vary x (If its flag is Low)
+        """
+        return lambda x: x
+    @property
+    def _FixedCondition(self):
+        """
+        Return true if we shouldn't vary x (If its flag is False)
+        """
+        return lambda x: not x
+    @property
+    def _AddValue(self):
+        """
+        Function to get the value of a parameter
+        """
+        return lambda x: x.Value
+    def _AddBounds(self):
+        """
+        Functon to get the bounds of a parameter
+        """
+        return lambda x: x.Bounds.AsTuple()
+    def AddParamsGen(self,condition,AddFunction):
         """
         General function to add paraters to a list we return.
 
         Args: 
             condition: function taking in a flag if we should vary the object,
             and returning true/false if it should be added to the lisst
+
+            AddFunction: function taking in an object, returning what we want
+            to add
         Returns:
             list of elememnts we added by condition
         """
@@ -267,28 +339,41 @@ class WlcFitInfo:
         toVary = self.ParamsVaried
         vals = self.ParamVals
         addToDict = lambda **kwargs: toRet.update(dict(kwargs))
+        # XXX could generalize, make toVary have L0, just use lambdas everywhere
         if (condition(toVary.VaryL0)):
-            addToDict(L0=vals.L0.Value)
+            addToDict(L0=AddFunction(vals.L0))
         if (condition(toVary.VaryLp)):
-            addToDict(Lp=vals.Lp.Value)
+            addToDict(Lp=AddFunction(vals.Lp))
         if (condition(toVary.VaryK0)):
-            addToDict(K0=vals.K0.Value)
+            addToDict(K0=AddFunction(vals.K0))
         return toRet
     def GetVaryingParamDict(self):
         """
-        Gets the dictionary of varying parameters
+        Gets the (ordered) dictionary of varying parameters
         """
-        toRet= self.AddParamsGen(condition=lambda x : x)
+        toRet= self.AddParamsGen(self._VaryCondition,self._AddValue)
         return toRet
     def GetFixedParamDict(self):
         """
-        Gets the dictionary of fixed parameters (assumes temperature is amoung
+        Gets the (ordered) dictionary of fixed parameters (assumes temperature 
+        is amoung)
         """
         # temperature comes first in the ordering
         toRet = OrderedDict(kbT=self.ParamVals.kbT.Value)
-        allButTemp = self.AddParamsGen(condition=lambda x : not x)
+        allButTemp= self.AddParamsGen(self._FixedCondition,self._AddValue)
         toRet.update(allButTemp)
         return toRet
+    def GetVaryingBoundsDict(self,InfValue=None):
+        """
+        Gets the (ordered) dictionary of varying parameters, dealign with 
+        open bounds by returnign InfValue
+
+        Args:
+            InfValue: value to return for an open bound
+        """
+        return self.AddParamsGen(self._VaryCondition,self._AddBounds())
+    def DictToValues(self,Dict):
+        return [v for key,v in Dict.items()]
     def __str__(self):
         return "\n".join("{:10s}\t{:s}".format(k,v) for k,v in
                          self.ParamVals.GetParamDict().items())
