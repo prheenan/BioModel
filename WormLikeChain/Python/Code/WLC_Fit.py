@@ -7,13 +7,14 @@ import sys
 
 import copy
 import FitUtils.Python.FitUtil as FitUtil
-from scipy.optimize import basinhopping
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
-    FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary,BoundsObj
+    FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary,\
+    BoundsObj,Initialization
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
 from collections import OrderedDict
 from scipy.interpolate import dfitpack
+from scipy.optimize import brute
 
 
 def WlcPolyCorrect(kbT,Lp,lRaw):
@@ -173,13 +174,14 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         for i in range(factor+1):
             # make a spline interpolator of degree k=degree
             # this can throw an error with badly conditioned data.
+            xExtrap = xToFit
+            yExtrap = y
             try:
-                f = spline(xToFit,y,ext='extrapolate',k=degree,\
+                f = spline(xExtrap,yExtrap,ext='extrapolate',k=degree,\
                            bbox=[min(ext),max(ext)])
             except Exception as e:
                 # if that didnt work for some reason, then use a lower degree
-                f = spline(xToFit,y,ext='extrapolate',k=degree-1,\
-                           bbox=[min(ext),max(ext)])
+                raise RuntimeError("Badly conditioned data")
             # extrapolate the previous fit out just a smidge
             sliceV = slice(0,maxIdx+nToAdd*i,1)
             xToFit = ext[sliceV]
@@ -286,13 +288,35 @@ def SafeMinimize(n,func,*params,**kwargs):
     try:
         naive = func(*pArray,**kwargs)
         naive[np.where(~np.isfinite(naive))] = n
-    except OverflowError as e:
-        # each point (n!) had 
+    except (OverflowError,RuntimeError) as e:
+        # each point (n) given the highest weight, data is 'broken'
         naive = np.ones(n) * n
     return naive
     
+def GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc):
+    """
+    Given data for extension and force, minimizes the normalized sum of the 
+    absolute derivatives
 
-def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
+    Args:
+        ExtScaled: the scaled extension
+        ForceScaled: the scaled force
+        mFittingFunc: funciton taking in the extension and parameters,
+        returning a value for the force.
+    """
+    # basin hopping funciton actually keeps x fixed, so we just pass it in
+    basinHoppingFunc = lambda *params : mFittingFunc(ExtScaled,*params)
+    #  minimize sum of the residuals/N. Since the scales are normalized,
+    # this should be at most between 0 and 1, so normalizing by N
+    # means this will (usually) be bettween 0 and 1 (for any reasonable fit)
+    nPoints = ExtScaled.size
+    basinSafe = lambda *params,**kw: SafeMinimize(nPoints,basinHoppingFunc,
+                                                  *params,**kw)
+    minimizeFunc = lambda *params,**kw: sum(np.abs(basinSafe(*params,**kw)-\
+                                                   ForceScaled))/nPoints
+    return minimizeFunc
+
+def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=True):
     """
     General fiting function.
 
@@ -344,28 +368,13 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=False):
     # number of evaluations should depend on the number of things we are fitting
     nEval = 500*varyNames
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
-    if (UseBasin):
-        boundsBasin = [BoundsObj.ToMinimizeConventions(*b) for b in boundsRaw]
-        # basin hopping funciton actually keeps x fixed, so we just pass it in
-        basinHoppingFunc = lambda *params : mFittingFunc(ExtScaled,*params)
-        #  minimize sum of the residuals/N. Since the scales are normalized,
-        # this should be at most between 0 and 1, so normalizing by N
-        # means this will (usually) be bettween 0 and 1 (for any reasonable fit)
-        nPoints = ExtScaled.size
-        basinSafe = lambda *params,**kw: SafeMinimize(nPoints,basinHoppingFunc,
-                                                      *params,**kw)
-        minimizeFunc = lambda *params,**kw: sum(np.abs(basinSafe(*params,**kw)-\
-                                                       ForceScaled))/nPoints
-        # the minimizer itself (for each 'basin') takes keywords
-        # here, we are a little less 'picky' about the function tolerances
-        # than before
-        minimizer_kwargs = OrderedDict(method="TNC",bounds=boundsBasin,
-                                       options=dict(ftol=1e-3,
-                                                    xtol=1e-3,gtol=1e-3))
-        # use basin-hopping to get a solid guess of where we should  start
-        obj = basinhopping(minimizeFunc,x0=varyGuesses,disp=False,T=1,
-                           stepsize=0.001,minimizer_kwargs=minimizer_kwargs,
-                           niter_success=10,interval=10,niter=30)
+    # set up things for basin / brute force initalization
+    toMin = GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc)
+    boundsBasin = [BoundsObj.ToMinimizeConventions(*b) for b in boundsRaw]
+    initObj = WlcOptions.Init
+    if (initObj.Type == Initialization.HOP):
+        # Use the basin hopping mode
+        obj = FitUtil.BasinHop(toMin,varyGuesses,boundsBasin)
         varyGuesses = obj.x
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping function

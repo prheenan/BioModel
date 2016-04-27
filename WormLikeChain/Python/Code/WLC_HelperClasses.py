@@ -277,11 +277,23 @@ class WlcParamValues:
         """
         self.ScaleGen(1./xScale,1./ForceScale)
 
-    
+class Initialization:
+    """
+    Class to keep track of how we want to initialize
+    """
+    GUESS = 0
+    HOP = 1
+    BRUTE = 2
+    def __init__(self,Type=GUESS,*params,**kwargs):
+        self.Type = Type
+        self.Args = params
+        self.ParamDict = dict(**kwargs)
+        
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
                  ParamVals=WlcParamValues(),
-                 VaryObj=WlcParamsToVary()):
+                 VaryObj=WlcParamsToVary(),
+                 init=Initialization()):
         """
         Args:
         Model: which model, from WLC_MODELS, to use
@@ -293,6 +305,7 @@ class WlcFitInfo:
         self.Model = Model
         self.ParamVals = ParamVals
         self.ParamsVaried = VaryObj
+        self.Init = init
     """
     The Following are helper functions that only make sense
     in the context of 'AddParamsGen', which lets us get
@@ -446,7 +459,7 @@ def GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args):
 def GetReasonableBounds(ext,force,
                         c_L0_lower=0.5,c_L0_upper=2.,
                         c_Lp_lower=0.0,c_Lp_upper=0.5,
-                        c_K0_lower=10,c_Lp_upper=1e4)
+                        c_K0_lower=10,c_K0_upper=1e4):
     """
     Returns a reasonable (ordered) dictionary of bounds, given extensions and 
     force

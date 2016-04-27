@@ -11,6 +11,8 @@ import ntpath
 import argparse
 # for getting formatted times
 import time
+from scipy.optimize import basinhopping
+
 
 # Stats
 def RSQ(predicted,actual):
@@ -87,3 +89,33 @@ def TaylorSeries(x,y,deg=1,ZeroX=False,ZeroY=False,**kwargs):
     offsetX = x[0] if ZeroX else 0
     offsetY = y[0] if ZeroY else 0
     return np.polyfit(x-offsetX,y-offsetY,deg=deg)
+
+
+def BasinHop(funcToMinimize,x0,boundsBasin,method="TNC",disp=False,
+             interval=10,niter=30,niter_success=10,T=1,stepsize=0.001,
+             ftol=1e-3,xtol=1e-3,gtol=1e-3):
+    """
+    Returns the result of basin hopping, given the arguments:
+
+    Args:
+        funcToMinimize: function to minimize, should take in the parameters
+        as described by scipy's basinhopping routine
+    
+        x0: initial guessses, one per minimizer
+    
+        boundsBasin: the bounds, same size as x0. open ends of intervals are 
+        None
+
+        all others: consult basinhopping function
+    """
+    # the minimizer itself (for each 'basin') takes keywords
+    # here, we are a little less 'picky' about the function tolerances
+    # than before
+    minimizer_kwargs = dict(method=method,bounds=boundsBasin,
+                            options=dict(ftol=ftol,xtol=xtol,gtol=gtol))
+    # use basin-hopping to get a solid guess of where we should  start
+    obj = basinhopping(funcToMinimize,x0=x0,disp=disp,T=T,
+                       stepsize=stepsize,minimizer_kwargs=minimizer_kwargs,
+                       niter_success=niter_success,interval=interval,
+                       niter=niter)
+    return obj
