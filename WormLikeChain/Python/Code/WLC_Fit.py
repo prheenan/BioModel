@@ -376,6 +376,11 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=True):
         # Use the basin hopping mode
         obj = FitUtil.BasinHop(toMin,varyGuesses,boundsBasin)
         varyGuesses = obj.x
+    elif (initObj.Type == Initialization.BRUTE):
+        # use the brute force method
+        # XXX fix, ham-fisting this...
+        boundsTmp = [(0.1,1.0),(0.1,0.2)]
+        varyGuesses = brute(toMin,boundsTmp,Ns=30,disp=False)
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping function
     jacFunc = '3-point'
