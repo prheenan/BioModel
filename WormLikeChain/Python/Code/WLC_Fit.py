@@ -10,7 +10,7 @@ import FitUtils.Python.FitUtil as FitUtil
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
     FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary,\
-    BoundsObj,Initialization
+    BoundsObj,Initialization,GetReasonableBounds
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
 from collections import OrderedDict
 from scipy.interpolate import dfitpack
@@ -130,7 +130,7 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     plt.show()
 
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
-                  DebugConvergence=False,**kwargs):
+                  DebugConvergence=True,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -150,11 +150,9 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
     """
     if (ForceGuess is None):
         n = ext.size
-        ## XXX move these into parameters? essentially, how slowly we
-        # move from extensible to non-extensible
-        # maxFractionOfL0: determines the maximum extension we fit to
-        # and non-extensible
-        maxFractionOfL0 = 0.85
+        # maxFractionOfL0: determines the maximum fraction of L0 we fit to
+        # non-extensible before switching to extensible
+        maxFractionOfL0 = 0.9
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
         degree = 2
@@ -172,8 +170,10 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         # for debugging purposes.
         yOrig = y.copy()
         extOrig = xToFit.copy()
-        # make the extensible version
+        # make the extensible version, shouldnt change (much)
         y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,y)
+        if (DebugConvergence):
+            DebugExtensibleConvergence(extOrig,yOrig,xToFit,y,ext)
         # extrapolate the y back
         pastMaxExt = maxX-highestX
         # how many persistence lengths are we past the current point?
@@ -316,8 +316,11 @@ def SafeMinimize(n,func,*params,**kwargs):
         n**2
     """
     pArray = params[0]
+    print("...")
+    print(params)
+        
     try:
-        naive = func(*pArray,**kwargs)
+        naive = func(pArray,**kwargs)
         naive[np.where(~np.isfinite(naive))] = n
     except (OverflowError,RuntimeError) as e:
         # each point (n) given the highest weight, data is 'broken'
@@ -402,7 +405,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=True):
     # set up things for basin / brute force initalization
     toMin = GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc)
     boundsBasin = [BoundsObj.ToMinimizeConventions(*b) for b in boundsRaw]
-    initObj = WlcOptions.Init
+    initObj = WlcOptions.Initialization
     if (initObj.Type == Initialization.HOP):
         # Use the basin hopping mode
         obj = FitUtil.BasinHop(toMin,varyGuesses,boundsBasin)
@@ -410,8 +413,9 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=True):
     elif (initObj.Type == Initialization.BRUTE):
         # use the brute force method
         # XXX fix, ham-fisting this...
-        boundsTmp = [(0.1,1.0),(0.1,0.2)]
-        varyGuesses = brute(toMin,boundsTmp,Ns=30,disp=False)
+        print(boundsBasin)
+        varyGuesses = brute(toMin,ranges=boundsBasin,Ns=30,disp=False,
+                            finish=None)
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping function
     jacFunc = '3-point'
@@ -485,4 +489,17 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
     mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary)
     return WlcFit(ext,force,mInfo)
+
+def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
+                  Initialization=Initialization(Type=Initialization.BRUTE),
+                  Bounds=None,**kwargs):
+    if (Bounds is None):
+        Bounds = GetReasonableBounds(ext,force)
+    model = WLC_MODELS.EXTENSIBLE_WANG_1997
+    mVals = WlcParamValues(Bounds=Bounds,**kwargs)
+    toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
+    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary,
+                       Initialization=Initialization)
+    return WlcFit(ext,force,mInfo)
+                  
         

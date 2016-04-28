@@ -6,7 +6,22 @@ import matplotlib.pyplot as plt
 import sys
 
 import Code.WLC_Fit as WLC_Fit
+from WLC_UnitTest_Data import GetBouichatData
 
+def GetSampleForceExtension(**kwargs):
+    """
+    Returns Extension,Force for an example data set, for testing
+
+    Returns:
+        Extension,Force (both as arrays), then the actual data object
+    """
+    # get the (example) data
+    Data = GetBouichatData(**kwargs)
+    # get the force and extension (both in SI units, Newtons and meters)
+    # these are just arrays.
+    Force = Data.ForceWithNoise
+    Extension = Data.ext
+    return Extension,Force,Data
 
 def PlotWLCFit(DataObj,fit):
     """

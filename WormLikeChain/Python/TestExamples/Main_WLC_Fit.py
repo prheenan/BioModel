@@ -9,7 +9,8 @@ baseDir = "../"
 sys.path.append(baseDir)
 sys.path.append("../../../")
 
-from WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit
+from WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit,\
+    GetSampleForceExtension
 from WLC_UnitTest_Data import GetBouichatData
 import Code.WLC_Fit as WLC_Fit
 
@@ -25,18 +26,15 @@ def RunBouchiatDataTests():
     toTest =  [ [StepNm,GetBouichatData]]
     for Steps,Function in toTest:
         TestDataWithSteps(Steps,Function)
+        exit(1)
 
 def RunWLCExample():
     """
     Simple example of how the WLC stuff works. Start here to get a feel
     for how this works!
     """
-    # get the (example) data
-    Data = GetBouichatData()
-    # get the force and extension (both in SI units, Newtons and meters)
-    # these are just arrays.
-    Force = Data.ForceWithNoise
-    Extension = Data.ext
+    # get the (sample) extension and force
+    Extension,Force,Data = GetSampleForceExtension()
     ## for this example, everything besides contour length is fixed.
     #Set up initial guesses for the params
     # (see 'WLC_UnitTest_Data.GetBouichatData' for where these are coming from)
@@ -51,6 +49,20 @@ def RunWLCExample():
     PlotWLCFit(Data,extensibleFit)
     plt.show()
 
+def BoundedWLCExample():
+    """
+    Suppose you dont have a good idea for the exact parameters of your model.
+    The Bounded WLC, given rough ranges, can automatically figure it out
+    for you.
+    """
+    # get the (sample) extension and force
+    Extension,Force,Data = GetSampleForceExtension()
+    extensibleFit = WLC_Fit.BoundedWlcFit(Extension,Force,VaryL0=True)
+    # what we have is the fit object; we can get/print the parameters
+    PlotWLCFit(Data,extensibleFit)
+    plt.show()
+
+    
 
 def run():
     """
@@ -64,6 +76,7 @@ def run():
     RunExample = True
     RunTests = True
     if (RunExample):
+        BoundedWLCExample()
         RunWLCExample()
     if (RunTests):
         RunBouchiatDataTests()

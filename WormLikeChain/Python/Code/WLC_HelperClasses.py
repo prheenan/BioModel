@@ -293,7 +293,7 @@ class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
                  ParamVals=WlcParamValues(),
                  VaryObj=WlcParamsToVary(),
-                 init=Initialization()):
+                 Initialization=Initialization()):
         """
         Args:
         Model: which model, from WLC_MODELS, to use
@@ -305,7 +305,7 @@ class WlcFitInfo:
         self.Model = Model
         self.ParamVals = ParamVals
         self.ParamsVaried = VaryObj
-        self.Init = init
+        self.Initialization = Initialization
     """
     The Following are helper functions that only make sense
     in the context of 'AddParamsGen', which lets us get
@@ -477,15 +477,15 @@ def GetReasonableBounds(ext,force,
     """
     MaxX = max(ext)
     MaxForce = max(force)
-    TupleL0 = np.array(c_L0_lower,c_L0_upper) * MaxX
-    TupleLp = np.array(c_Lp_lower,c_Lp_upper) * MaxX
-    TupleK0 = np.array(c_K0_lower,c_K0_upper) * MaxForce
-    return OrderedDict(L0=BoundsObj(TupleL0),
-                       Lp=BoundsObj(TupleLp),
-                       K0=BoundsObj(TupleL0),
+    TupleL0 = np.array([c_L0_lower,c_L0_upper]) * MaxX
+    TupleLp = np.array([c_Lp_lower,c_Lp_upper]) * MaxX
+    TupleK0 = np.array([c_K0_lower,c_K0_upper]) * MaxForce
+    return OrderedDict(L0=BoundsObj(*TupleL0),
+                       Lp=BoundsObj(*TupleLp),
+                       K0=BoundsObj(*TupleL0),
                        # Note that we typically dont fit temperature,
                        # really no way to know.
-                       kbT=BoundsObj(0,np.inf))
+                       kbT=BoundsObj(*[0,np.inf]))
 
 def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
     """
