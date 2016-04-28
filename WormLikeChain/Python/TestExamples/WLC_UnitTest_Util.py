@@ -66,7 +66,7 @@ def CheckDataObj(DataObj,OutName=None):
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
     extensibleFit = WLC_Fit.ExtensibleWlcFit(x,y,VaryL0=True,
-                                             VaryLp=False,VaryK0=False)
+                                             VaryLp=True,VaryK0=False)
     # make sure the parameters match what the model says it should
     assert extensibleFit.Info.ParamVals.CloseTo(params)
     nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(x,y,VaryL0=True,
