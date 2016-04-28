@@ -118,9 +118,9 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     fudge = rangeV/100
     xRange = [minV-fudge,maxV+fudge]
     plt.xlim(xRange)
-    # do the same s
-    minY = min(yNow)
-    maxY = max(yNow)
+    # do the same...
+    minY = min(yOrig)
+    maxY = max(yOrig)
     rangeY = maxY-minY
     fudgeY = rangeY/100
     if ((extrapX is not None) and (extrapY is not None)):
@@ -130,7 +130,8 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     plt.show()
 
 
-def ExtrapolateExtensible(nToAdd,ext,xToFit,y,func,degree,**kwargs):
+def ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,xToFit,y,func,degree,
+                          DebugConvergence=False,**kwargs):
     n = ext.size
     maxIdx = y.size
     nLeft = (n-maxIdx+1)
@@ -161,6 +162,8 @@ def ExtrapolateExtensible(nToAdd,ext,xToFit,y,func,degree,**kwargs):
         prev[-nToAdd:] = fitted
         # fit everything to the extensible model again.
         y = func(xToFit,ForceGuess=prev,**kwargs)
+        if (DebugConvergence):
+            DebugExtensibleConvergence(extOrig,yOrig,xToFit,y,ext,newX,fitted)
         if (y.size == n):
             break
     return y
@@ -188,7 +191,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         n = ext.size
         # maxFractionOfL0: determines the maximum fraction of L0 we fit to
         # non-extensible before switching to extensible
-        maxFractionOfL0 = 0.9
+        maxFractionOfL0 = 1-10*(Lp/L0)
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
         # degree used for (possible) extensible fitting
@@ -227,12 +230,14 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
             # we use a second order polynomial to fit, so we want to
             # make sure we have enough points for the fit itself
             nToAdd = max(2*degree,int(np.ceil(pointsPerExtrapolation)))
-            y = ExtrapolateExtensible(nToAdd,ext,xToFit,y,WlcExtensible_Helper,
+            y = ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,
+                                      xToFit,y,WlcExtensible_Helper,
+                                      DebugConvergence=DebugConvergence,
                                       degree=degree,kbT=kbT,Lp=Lp,L0=L0,K0=K0)
             # POST: y is extended
         toRet = y
         if (Debug or DebugConvergence):
-            DebugExtensibleConvergence(extOrig,yOrig,xToFit,toRet,ext,)
+            DebugExtensibleConvergence(extOrig,yOrig,ext,toRet,ext)
     else:
         # already have a guess, go with that
         toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)

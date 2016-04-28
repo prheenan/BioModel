@@ -44,10 +44,6 @@ def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,Name,rol=0.015):
     # some high percentage of the contour length
     values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
     y = WLC_Fit.WlcExtensible(x,**values)
-    # for the non-extensible model, really only want to fit up to
-    # some high percentage of the contour length
-    values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
-    y = WLC_Fit.WlcExtensible(x,**values)
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     # make the limits based on their plot
@@ -81,7 +77,7 @@ def GetBullData(StepInNm=0.01):
                        Lp =  Lp,K0 = 1318.e-12)
     Name = "Bull_2014_FigureS2"
     noisepN = 6.8e-9
-    expectedMax=50e-12
+    expectedMax=80e-12
     ylim = [0,expectedMax]
     return GetDataObj(x,ParamValues,noisepN,ylim,expectedMax,Name)
     
