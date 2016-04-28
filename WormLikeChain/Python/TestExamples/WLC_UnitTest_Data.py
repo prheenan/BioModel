@@ -33,8 +33,55 @@ class ModelData:
     def ForceWithNoise(self):
         # make the noise be uniformly at random, with amplitude self.noise
         return self.force + (2*np.random.rand(self.n)-1) * self.noise
-        
 
+def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,rol=0.015):
+    """
+    Returns a data object, fitting the specified x with the parameters
+    and noise values
+    """
+    params = WLC_Fit.WlcParamValues(Values=ParamValues)
+    # for the non-extensible model, really only want to fit up to
+    # some high percentage of the contour length
+    values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
+    y = WLC_Fit.WlcExtensible(x,**values)
+    # for the non-extensible model, really only want to fit up to
+    # some high percentage of the contour length
+    values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
+    y = WLC_Fit.WlcExtensible(x,**values)
+    # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
+    # bound on the error we have everywhere
+    # make the limits based on their plot
+    toRet = ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
+    # the expected maximum fitted force is also from figure 1
+    actualMax = np.max(toRet.force)
+    # Note that this is a test on WlcExtensible, more or less.
+    np.testing.assert_allclose(actualMax,expectedMax,atol=0,rtol=0.15)
+    return toRet
+
+def GetBullData(StepInNm=0.01):
+    """
+    Returns samples from first unfold of Figure S2.a 
+    http://pubs.acs.org/doi/suppl/10.1021/nn5010588
+
+    Bull, Matthew S., Ruby May A. Sullan, Hongbin Li, and Thomas T. Perkins.
+"Improved Single Molecule Force Spectroscopy Using Micromachined Cantilevers"
+    """
+    # get the extensions used
+    maxXnm = 20
+    L0 = 18.1
+    """
+    # note: from Supplemental, pp 14 of 
+    Edwards, Devin T., Jaevyn K. Faulk et al 
+    "Optimizing 1-mus-Resolution Single-Molecule Force Spectroscopy..."
+    """
+    Lp = 0.4
+    ParamValues = dict(kbT = 4.11e-21,L0 = L0,
+                       Lp =  Lp,K0 = 1318.e-12)
+    params = WLC_Fit.WlcParamValues(Values=ParamValues)
+    values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
+    y = WLC_Fit.WlcExtensible(x,**values)
+    retur
+    
 def GetBouichatData(StepInNm=0.5):
     """
     Returns samples from data from Figure 1
@@ -56,25 +103,12 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     # write down their parameter values, figure 1 inset
     ParamValues = dict(kbT = 4.11e-21,L0 = 1317.52e-9,
                        Lp =  40.6e-9,K0 = 1318.e-12)
-    params = WLC_Fit.WlcParamValues(Values=ParamValues)
-    # for the non-extensible model, really only want to fit up to
-    # some high percentage of the contour length
-    values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
-    y = WLC_Fit.WlcExtensible(x,**values)
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     noiseAmplitude = 2e-12
     # make the limits based on their plot
     ylim = np.array([-3e-12,52e-12])
-    toRet = ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
     # the expected maximum fitted force is also from figure 1
     expectedMax = 48e-12
-    actualMax = np.max(toRet.force)
-    # make sure that the actual maximum force is within what we'd expect
-    # we have to have a fairly high relative error, due to step sizes
-    # causing a change in force (not exactly clear how big their steps are...)
-    
-    # Note that this is a test on WlcExtensible, more or less.
-    np.testing.assert_allclose(actualMax,expectedMax,atol=0,rtol=0.15)
-    return toRet
+    return GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax)
 

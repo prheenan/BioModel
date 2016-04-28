@@ -22,7 +22,7 @@ def RunBouchiatDataTests():
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
     # note we reverse it so we 'fail fast'
-    StepNm = [ 0.005,0.01,0.05,0.1,0.25,0.5,0.75,1,2,5,10][::-1]
+    StepNm = [ 0.005,0.01,0.05,0.1,0.25,0.5,0.75,1,2,5][::-1]
     toTest =  [ [StepNm,GetBouichatData]]
     for Steps,Function in toTest:
         TestDataWithSteps(Steps,Function)
