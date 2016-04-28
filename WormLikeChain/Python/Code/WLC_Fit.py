@@ -129,6 +129,42 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     plt.legend(loc='upper left')
     plt.show()
 
+
+def ExtrapolateExtensible(nToAdd,ext,xToFit,y,func,degree,**kwargs):
+    n = ext.size
+    maxIdx = y.size-1
+    nLeft = (n-maxIdx+1)
+    factor = int(np.ceil(nLeft/nToAdd))
+    for i in range(1,factor+1):
+        # for the last iteration, we may want to extend just a little.
+        # this avoids re-calculating, which can cause problems
+        diff = n-y.size
+        if (diff < 2*nToAdd):
+            # then we are between 1 and 2 persistence lengths, at the
+            # very end. things are likely very linear, so just 'double'
+            # (worst case)
+            nToAdd = diff
+        # fit a taylor series to the last nToAdd points
+        xExtrap = xToFit[-nToAdd:]
+        yExtrap = y[-nToAdd:]
+        taylor = FitUtil.TaylorSeries(xExtrap,yExtrap,deg=degree)
+        # get the new x and y
+        sliceV = slice(0,maxIdx+nToAdd*i,1)
+        xToFit = ext[sliceV]
+        prev = np.zeros(xToFit.size)
+        # extrapolate the previous fit out just a smidge
+        newX = xToFit[-nToAdd:]
+        fitted =  np.polyval(taylor,newX)
+        # add in the old solution
+        prev[:y.size] = y
+        # tack on the new
+        prev[-nToAdd:] = fitted
+        # fit everything to the extensible model again.
+        y = func(xToFit,ForceGuess=prev,**kwargs)
+        if (y.size == n):
+            break
+    return y
+
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
                   DebugConvergence=False,**kwargs):
     """
@@ -155,6 +191,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         maxFractionOfL0 = 0.9
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
+        # degree used for (possible) extensible fitting
         degree = 2
         # check where we stop fitting the non-extensible
         if (maxX > highestX):
@@ -162,7 +199,6 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         else:
             maxIdx = n
         maxIdx = max(degree,maxIdx)
-        nLeft = (n-maxIdx+1)
         sliceV = slice(0,maxIdx,1)
         xToFit= ext[sliceV]
         y = WlcNonExtensible(xToFit,kbT,Lp,L0)
@@ -174,58 +210,29 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,y)
         if (DebugConvergence):
             DebugExtensibleConvergence(extOrig,yOrig,xToFit,y,ext)
-        # extrapolate the y back
-        pastMaxExt = maxX-highestX
-        # how many persistence lengths are we past the current point?
-        numPersistencePast = max(1,(pastMaxExt/Lp))
-        # determine the number of points per persistence length
-        # I assume the separation points are more or less evenly
-        # spaced
-        deltaX = np.median(np.diff(ext))
-        pointsPerLp = (Lp/deltaX)
-        # Get the total number of points per extrapolation iteration.
-        # We want each extrapolation to consist of the points
-        # XXX flesh this out?
-        pointsPerExtrapolation = pointsPerLp/numPersistencePast
-        # we use a second order polynomial to fit, so we want to
-        # make sure we have enough points for the fit itself
-        nToAdd = max(2*degree,int(np.ceil(pointsPerExtrapolation)))
-        factor = int(np.ceil(nLeft/nToAdd))
         if (y.size < n):
-            for i in range(1,factor+1):
-                # for the last iteration, we may want to extend just a little.
-                # this avoids re-calculating, which can cause problems
-                diff = n-y.size
-                if (diff < 2*nToAdd):
-                    # then we are between 1 and 2 persistence lengths, at the
-                    # very end. things are likely very linear, so just 'double'
-                    # (worst case)
-                    nToAdd = diff
-                # fit a taylor series to the last nToAdd points
-                xExtrap = xToFit[-nToAdd:]
-                yExtrap = y[-nToAdd:]
-                taylor = FitUtil.TaylorSeries(xExtrap,yExtrap,deg=degree)
-                # get the new x and y
-                sliceV = slice(0,maxIdx+nToAdd*i,1)
-                xToFit = ext[sliceV]
-                prev = np.zeros(xToFit.size)
-                # extrapolate the previous fit out just a smidge
-                newX = xToFit[-nToAdd:]
-                fitted =  np.polyval(taylor,newX)
-                # add in the old solution
-                prev[:y.size] = y
-                # tack on the new
-                prev[-nToAdd:] = fitted
-                # fit everything to the extensible model again.
-                y = WlcExtensible_Helper(xToFit,kbT,Lp,L0,K0,prev)
-                if (DebugConvergence):
-                    DebugExtensibleConvergence(extOrig,yOrig,xToFit,prev,ext,
-                                               extrapX=newX,extrapY=fitted)
-                if (y.size == n):
-                    break
+            # extrapolate the y back
+            pastMaxExt = maxX-highestX
+            # how many persistence lengths are we past the current point?
+            numPersistencePast = max(1,(pastMaxExt/Lp))
+            # determine the number of points per persistence length
+            # I assume the separation points are more or less evenly
+            # spaced
+            deltaX = np.median(np.diff(ext))
+            pointsPerLp = (Lp/deltaX)
+            # Get the total number of points per extrapolation iteration.
+            # We want each extrapolation to consist of the points
+            # XXX flesh this out?
+            pointsPerExtrapolation = pointsPerLp/numPersistencePast
+            # we use a second order polynomial to fit, so we want to
+            # make sure we have enough points for the fit itself
+            nToAdd = max(2*degree,int(np.ceil(pointsPerExtrapolation)))
+            y = ExtrapolateExtensible(nToAdd,ext,xToFit,y,WlcExtensible_Helper,
+                                      degree=degree,kbT=kbT,Lp=Lp,L0=L0,K0=K0)
+            # POST: y is extended
         toRet = y
         if (Debug or DebugConvergence):
-            DebugExtensibleConvergence(extOrig,yOrig,xToFit,toRet,ext)
+            DebugExtensibleConvergence(extOrig,yOrig,xToFit,toRet,ext,)
     else:
         # already have a guess, go with that
         toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)
