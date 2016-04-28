@@ -53,11 +53,17 @@ def BoundedWLCExample():
     """
     Suppose you dont have a good idea for the exact parameters of your model.
     The Bounded WLC, given rough ranges, can automatically figure it out
-    for you.
+    for you. 
+
+    Even the rough ranges can be inferred from your data. That is what is 
+    happening here (see Code/WLC_Fit.BoundedWlcFit and 
+    Code/WLC_HelperClass.GetReasonableBounds for details)
+
     """
     # get the (sample) extension and force
     Extension,Force,Data = GetSampleForceExtension()
-    extensibleFit = WLC_Fit.BoundedWlcFit(Extension,Force,VaryL0=True)
+    extensibleFit = WLC_Fit.BoundedWlcFit(Extension,Force,VaryL0=True,
+                                          VaryLp=True)
     # what we have is the fit object; we can get/print the parameters
     PlotWLCFit(Data,extensibleFit)
     plt.show()

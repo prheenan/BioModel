@@ -130,7 +130,7 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     plt.show()
 
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
-                  DebugConvergence=True,**kwargs):
+                  DebugConvergence=False,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -315,14 +315,22 @@ def SafeMinimize(n,func,*params,**kwargs):
         error, we assume that the output was ridiculous, and give a score of
         n**2
     """
-    pArray = params[0]
-    print("...")
-    print(params)
-        
+    # ugly parameter adapting...
+    if (len(params[0]) > 1):
+        # then just convert the first element to a tuple
+        params = params[0]
+    else:
+        # convert the (only) element to its own tuple
+        params = tuple([params[0]])
+    # need to watch out for overflows, meaning the WLC has shot to
+    # infinity and we ignore the results.
+    # note this assumes the function to minimize is well-tested;
+    # any errors are from bad sets of parameters, rather than the
+    # model itself
     try:
-        naive = func(pArray,**kwargs)
+        naive = func(*params,**kwargs)
         naive[np.where(~np.isfinite(naive))] = n
-    except (OverflowError,RuntimeError) as e:
+    except (OverflowError,RuntimeError,ValueError) as e:
         # each point (n) given the highest weight, data is 'broken'
         naive = np.ones(n) * n
     return naive
@@ -413,9 +421,8 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=True):
     elif (initObj.Type == Initialization.BRUTE):
         # use the brute force method
         # XXX fix, ham-fisting this...
-        print(boundsBasin)
-        varyGuesses = brute(toMin,ranges=boundsBasin,Ns=30,disp=False,
-                            finish=None)
+        varyGuesses = brute(toMin,ranges=boundsBasin,disp=False,
+                            finish=None,*initObj.Args,**initObj.ParamDict)
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping function
     jacFunc = '3-point'
@@ -491,15 +498,31 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     return WlcFit(ext,force,mInfo)
 
 def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                  Initialization=Initialization(Type=Initialization.BRUTE),
-                  Bounds=None,**kwargs):
+                  Ns=50,Bounds=None,**kwargs):
+    """
+    Uses a Brute-force method to get a coase-grained grid on the data
+    before using a fine-grained local minimizer to find the best solution.
+
+    Args:
+        ext,force, Vary<XX>: see ExtensibleWlcFit
+        Ns: size of the grid on a side. For example, if a 2-D problem (2
+        parameters are being varied), and Ns=50, then the grid is a 50x50 
+        search over the bounds
+
+        Bounds: A boundsobject, formatted like 
+        WLC_HelperClass.GetReasonableBounds. If none, we create one
+        based on the data and kwargs
+
+        **kwargs: passed directly to the Bounds object, if we create one
+    """
     if (Bounds is None):
-        Bounds = GetReasonableBounds(ext,force)
+        Bounds = GetReasonableBounds(ext,force,**kwargs)
+    InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns)
     model = WLC_MODELS.EXTENSIBLE_WANG_1997
-    mVals = WlcParamValues(Bounds=Bounds,**kwargs)
+    mVals = WlcParamValues(Bounds=Bounds)
     toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
     mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary,
-                       Initialization=Initialization)
+                       Initialization=InitialObj)
     return WlcFit(ext,force,mInfo)
                   
         
