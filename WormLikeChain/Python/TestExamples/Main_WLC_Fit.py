@@ -22,11 +22,10 @@ def RunBouchiatDataTests():
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
     # note we reverse it so we 'fail fast'
-    StepNm = [ 0.05,0.1,0.25,0.5,0.75,1,2,5][::-1]
+    StepNm = [ 0.005,0.01,0.05,0.1,0.25,0.5,0.75,1,2,5][::-1]
     toTest =  [ [StepNm,GetBouichatData]]
     for Steps,Function in toTest:
         TestDataWithSteps(Steps,Function)
-        exit(1)
 
 def RunWLCExample():
     """
@@ -34,7 +33,7 @@ def RunWLCExample():
     for how this works!
     """
     # get the (sample) extension and force
-    Extension,Force,Data = GetSampleForceExtension()
+    Extension,Force,Data = GetSampleForceExtension(StepInNm=5)
     ## for this example, everything besides contour length is fixed.
     #Set up initial guesses for the params
     # (see 'WLC_UnitTest_Data.GetBouichatData' for where these are coming from)
@@ -57,8 +56,7 @@ def BoundedWLCExample():
 
     Even the rough ranges can be inferred from your data. That is what is 
     happening here (see Code/WLC_Fit.BoundedWlcFit and 
-    Code/WLC_HelperClass.GetReasonableBounds for details)
-
+    Code/WLC_HelperClass.GetReasonableBounds for details). 
     """
     # get the (sample) extension and force
     Extension,Force,Data = GetSampleForceExtension()
@@ -74,16 +72,16 @@ def run():
     """
     Runs some unit testing on the WLC fitting. Some booleans here:
 
-    RunExample: If true, pops up a plot showing a simple fit
+    RunExamples: If true, shows plots of various fits
 
     RunTests: If true, runs unit testing using known data/parameters,
     saving multiple plots in this directory
     """
-    RunExample = True
+    RunExamples = True
     RunTests = True
-    if (RunExample):
-        BoundedWLCExample()
+    if (RunExamples):
         RunWLCExample()
+        BoundedWLCExample()
     if (RunTests):
         RunBouchiatDataTests()
 

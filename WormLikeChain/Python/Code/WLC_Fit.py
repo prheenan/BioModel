@@ -224,7 +224,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
                 break
         toRet = y
         if (Debug or DebugConvergence):
-            DebugExtensibleConvergence(extOrig,yOrig,xToFit,prev,ext)
+            DebugExtensibleConvergence(extOrig,yOrig,xToFit,toRet,ext)
     else:
         # already have a guess, go with that
         toRet = WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess)

@@ -48,7 +48,11 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
         tuple of <z,F> in SI units
     """
     # upper and lower bound is taken from Figure 1, note nm scale
-    x = np.arange(0,1335,StepInNm) * 1e-9
+    maxExtNm = 1335
+    # figure out the number of steps at this interpolation
+    nSteps = int(np.ceil(maxExtNm/StepInNm))
+    # get all the extension values
+    x = np.linspace(start=0,stop=maxExtNm,num=nSteps,endpoint=True) * 1e-9
     # write down their parameter values, figure 1 inset
     ParamValues = dict(kbT = 4.11e-21,L0 = 1317.52e-9,
                        Lp =  40.6e-9,K0 = 1318.e-12)

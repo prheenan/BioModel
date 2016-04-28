@@ -82,21 +82,29 @@ def CheckDataObj(DataObj,OutName=None):
     # and Lp
     extensibleFit = WLC_Fit.ExtensibleWlcFit(x,y,VaryL0=True,
                                              VaryLp=True,VaryK0=False)
-    # make sure the parameters match what the model says it should
-    assert extensibleFit.Info.ParamVals.CloseTo(params)
-    nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(x,y,VaryL0=True,
-                                                   VaryLp=False)
     print("Extensible Parameters")
     print(extensibleFit)
-    print("Non-extensible Parameters")
-    print(nonExtensibleFit)
-    mFitNon = nonExtensibleFit.Prediction
+    # make sure the parameters match what the model says it should
+    assert extensibleFit.Info.ParamVals.CloseTo(params)
+    # try to get the non-extensible fit (possible it fails)
+    try:
+        nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(x,y,VaryL0=True,
+                                                       VaryLp=False)
+        # print off the results
+        print("Non-extensible Parameters")
+        print(nonExtensibleFit)
+    except ValueError:
+        # non-extensible model wouldnt cut it
+        nonExtensibleFit = None
+    # make a plot, if e want one
     if (OutName is not None):
         toPn = 1e12
         toNm = 1e9
         fig = PlotWLCFit(DataObj,extensibleFit)
-        # add the extensible model to the end
-        plt.plot(x*toNm,mFitNon*toPn,'b--',label="Non Extensible")
+        # add the non-extensible model to the end
+        if (nonExtensibleFit is not None):
+            mFitNon = nonExtensibleFit.Prediction
+            plt.plot(x*toNm,mFitNon*toPn,'b--',label="Non Extensible")
         fig.savefig(OutName + ".png")
 
 def TestDataWithSteps(Steps,DataFunction):
