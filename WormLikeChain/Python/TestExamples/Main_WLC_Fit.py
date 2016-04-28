@@ -11,20 +11,41 @@ sys.path.append("../../../")
 
 from WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit,\
     GetSampleForceExtension
-from WLC_UnitTest_Data import GetBouichatData
+from WLC_UnitTest_Data import GetBouichatData,GetBullData
 import Code.WLC_Fit as WLC_Fit
 
-
-def RunBouchiatDataTests():
+def BouchiatDataTests():
     """
-    Runs the unit tests for Bouchiat, and generates the plots
+    Returns the parameters for the Bouchiat Data Tests
+    """
+    StepNm = [0.005,0.01,0.05,0.1,0.25,0.5,0.75,1,2,5][::-1]
+    toTest =  GetBouichatData
+    return StepNm,toTest
+
+def BullDataTests():
+    """
+    Returns the parameters for the Bull Data Test
+    """
+    StepNm = [0.0001,0.005,0.01,0.05][::-1]
+    toTest =  GetBullData
+    return StepNm,toTest
+ 
+
+def RunDataTests():
+    """
+    Runs the unit tests, and generates the plots
     """
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
     # note we reverse it so we 'fail fast'
-    StepNm = [ 0.005,0.01,0.05,0.1,0.25,0.5,0.75,1,2,5][::-1]
-    toTest =  [ [StepNm,GetBouichatData]]
-    for Steps,Function in toTest:
+    IndiviudalFuncs = [BouchiatDataTests,BullDataTests]
+    StepsArray = []
+    FunctionsArray = []
+    for testFunc in IndiviudalFuncs:
+        tmpStep,tmpFunc = testFunc()
+        StepsArray.append(tmpStep)
+        FunctionsArray.append(tmpFunc)
+    for Steps,Function in zip(StepsArray,FunctionsArray):
         TestDataWithSteps(Steps,Function)
 
 def RunWLCExample():
@@ -79,11 +100,11 @@ def run():
     """
     RunExamples = True
     RunTests = True
+    if (RunTests):
+        RunDataTests()
     if (RunExamples):
         RunWLCExample()
         BoundedWLCExample()
-    if (RunTests):
-        RunBouchiatDataTests()
 
 if __name__ == "__main__":
     run()

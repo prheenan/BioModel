@@ -34,7 +34,7 @@ class ModelData:
         # make the noise be uniformly at random, with amplitude self.noise
         return self.force + (2*np.random.rand(self.n)-1) * self.noise
 
-def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,rol=0.015):
+def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,Name,rol=0.015):
     """
     Returns a data object, fitting the specified x with the parameters
     and noise values
@@ -51,7 +51,7 @@ def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,rol=0.015):
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     # make the limits based on their plot
-    toRet = ModelData(x,y,params,noiseAmplitude,"Bouchiat_1999_Figure1",ylim)
+    toRet = ModelData(x,y,params,noiseAmplitude,Name,ylim)
     # the expected maximum fitted force is also from figure 1
     actualMax = np.max(toRet.force)
     # Note that this is a test on WlcExtensible, more or less.
@@ -67,20 +67,23 @@ def GetBullData(StepInNm=0.01):
 "Improved Single Molecule Force Spectroscopy Using Micromachined Cantilevers"
     """
     # get the extensions used
-    maxXnm = 20
-    L0 = 18.1
+    maxXnm = 19
+    nSteps= maxXnm/StepInNm
+    x = np.linspace(0,maxXnm,num=nSteps) * 1e-9
+    L0 = 0.34e-9 * 64
     """
     # note: from Supplemental, pp 14 of 
     Edwards, Devin T., Jaevyn K. Faulk et al 
     "Optimizing 1-mus-Resolution Single-Molecule Force Spectroscopy..."
     """
-    Lp = 0.4
+    Lp = 0.4e-9
     ParamValues = dict(kbT = 4.11e-21,L0 = L0,
                        Lp =  Lp,K0 = 1318.e-12)
-    params = WLC_Fit.WlcParamValues(Values=ParamValues)
-    values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
-    y = WLC_Fit.WlcExtensible(x,**values)
-    retur
+    Name = "Bull_2014_FigureS2"
+    noisepN = 6.8e-9
+    expectedMax=50e-12
+    ylim = [0,expectedMax]
+    return GetDataObj(x,ParamValues,noisepN,ylim,expectedMax,Name)
     
 def GetBouichatData(StepInNm=0.5):
     """
@@ -110,5 +113,6 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
     ylim = np.array([-3e-12,52e-12])
     # the expected maximum fitted force is also from figure 1
     expectedMax = 48e-12
-    return GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax)
+    Name = "Bouchiat_1999_Figure1"
+    return GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,Name)
 
