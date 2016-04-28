@@ -100,11 +100,12 @@ def run():
     """
     RunExamples = True
     RunTests = True
-    if (RunTests):
-        RunDataTests()
     if (RunExamples):
         RunWLCExample()
         BoundedWLCExample()
+    if (RunTests):
+        RunDataTests()
+
 
 if __name__ == "__main__":
     run()

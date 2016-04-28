@@ -132,7 +132,7 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
 
 def ExtrapolateExtensible(nToAdd,ext,xToFit,y,func,degree,**kwargs):
     n = ext.size
-    maxIdx = y.size-1
+    maxIdx = y.size
     nLeft = (n-maxIdx+1)
     factor = int(np.ceil(nLeft/nToAdd))
     for i in range(1,factor+1):
