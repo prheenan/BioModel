@@ -98,7 +98,7 @@ def run():
     RunTests: If true, runs unit testing using known data/parameters,
     saving multiple plots in this directory
     """
-    RunExamples = False
+    RunExamples = True
     RunTests = True
     if (RunExamples):
         RunWLCExample()

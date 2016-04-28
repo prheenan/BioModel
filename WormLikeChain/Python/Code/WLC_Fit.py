@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+import warnings
 import copy
 import FitUtils.Python.FitUtil as FitUtil
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
@@ -341,8 +342,15 @@ def SafeMinimize(n,func,*params,**kwargs):
     # any errors are from bad sets of parameters, rather than the
     # model itself
     try:
-        naive = func(*params,**kwargs)
-        naive[np.where(~np.isfinite(naive))] = n
+        # Ignore warnings due to auto-fitting the data.
+        # This assumes the function is built correctly, but it is
+        # totally possible for us to give it terrible parameters --
+        # we dont want to spam the uses.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            naive = func(*params,**kwargs)
+            naive[np.where(~np.isfinite(naive))] = n
+            
     except (OverflowError,RuntimeError,ValueError) as e:
         # each point (n) given the highest weight, data is 'broken'
         naive = np.ones(n) * n
