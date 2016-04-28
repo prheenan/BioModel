@@ -170,7 +170,7 @@ def ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,xToFit,y,func,degree,
     return y
 
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
-                  DebugConvergence=False,**kwargs):
+                  DebugConvergence=True,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -189,6 +189,7 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         see WlcPolyCorrect
     """
     if (ForceGuess is None):
+        print(Lp,L0,K0,ext)
         n = ext.size
         # maxFractionOfL0: determines the maximum fraction of L0 we fit to
         # non-extensible before switching to extensible
@@ -375,6 +376,7 @@ def GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc):
     nPoints = ExtScaled.size
     basinSafe = lambda *params,**kw: SafeMinimize(nPoints,basinHoppingFunc,
                                                   *params,**kw)
+    # minimize the sum of the residuals divided by the number of points
     minimizeFunc = lambda *params,**kw: sum(np.abs(basinSafe(*params,**kw)-\
                                                    ForceScaled))/nPoints
     return minimizeFunc
