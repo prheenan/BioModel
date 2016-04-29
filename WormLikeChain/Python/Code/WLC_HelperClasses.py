@@ -207,6 +207,11 @@ class WlcParamValues:
         Returns: in-order dictionary of the parameters
         """
         return OrderedDict(L0=self.L0,Lp=self.Lp,K0=self.K0,kbT=self.kbT)
+    def GetValueDict(self):
+        """
+        Returns an ordered dictionary of the parameter *values*
+        """
+        return OrderedDict( (k,v.Value) for k,v in self.GetParamDict().items())
     def SetParamStdevs(self,L0,Lp,K0,kbT):
         """
         Sets the parameter stdevs

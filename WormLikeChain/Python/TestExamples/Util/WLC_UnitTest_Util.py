@@ -75,7 +75,7 @@ def CheckDataObj(DataObj,OutName=None):
     """
     x = DataObj.ext
     params = DataObj.params
-    paramDict= dict((k,v.Value) for k,v in params.GetParamDict().items())
+    paramDict= params.GetValueDict()
     # fit to the noisy data
     y = DataObj.ForceWithNoise
     print("Fitting Data From {:s}...".format(DataObj.name))
