@@ -177,7 +177,7 @@ def ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,xToFit,y,func,degree,
             break
     return y
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
                   DebugConvergence=False,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
@@ -386,7 +386,7 @@ def GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc):
                                                    ForceScaled))/nPoints
     return minimizeFunc
 
-def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo(),UseBasin=True):
+def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     """
     General fiting function.
 

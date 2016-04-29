@@ -84,8 +84,6 @@ def CheckDataObj(DataObj,OutName=None):
     extensibleFit = WLC_Fit.ExtensibleWlcFit(x,y,VaryL0=True,
                                              VaryLp=True,VaryK0=False,
                                              Values=paramDict)
-    plt.plot(extensibleFit.Prediction)
-    plt.show()
     print("Extensible Parameters")
     print(extensibleFit)
     # make sure the parameters match what the model says it should
