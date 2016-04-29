@@ -30,8 +30,16 @@ class ModelData:
         self.ylim = np.array(list(ylim))
         self.n = self.force.size
     @property
-    def ForceWithNoise(self):
-        # make the noise be uniformly at random, with amplitude self.noise
+    def ForceWithNoise(self,seed=42):
+        """
+        make the noise be uniformly at random, with amplitude self.noise
+
+        Args:
+            seed: what to seed with, defaults the MOLTUAE
+        Returns:
+            force with added noise
+        """
+        np.random.seed(seed)
         return self.force + (2*np.random.rand(self.n)-1) * self.noise
 
 def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,Name,rol=0.015):
