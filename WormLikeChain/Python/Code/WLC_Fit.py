@@ -120,8 +120,8 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     xRange = [minV-fudge,maxV+fudge]
     plt.xlim(xRange)
     # do the same...
-    minY = min(yOrig)
-    maxY = max(yOrig)
+    minY = min(min(yOrig),min(yNow))
+    maxY = max(max(yOrig),max(yNow))
     rangeY = maxY-minY
     fudgeY = rangeY/100
     if ((extrapX is not None) and (extrapY is not None)):
@@ -149,6 +149,14 @@ def ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,xToFit,y,func,degree,
         # fit a taylor series to the last nToAdd points
         xExtrap = xToFit[-nToAdd:]
         yExtrap = y[-nToAdd:]
+        idxInfinite = np.where(~np.isfinite(yExtrap))[0]
+        if (idxInfinite.size):
+            # record infinities all along
+            toRet = np.empty(n)
+            toRet[:y.size] = y
+            toRet[y.size:] = np.inf
+            y = toRet
+            break
         taylor = FitUtil.TaylorSeries(xExtrap,yExtrap,deg=degree)
         # get the new x and y
         sliceV = slice(0,maxIdx+nToAdd*i,1)
@@ -169,12 +177,10 @@ def ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,xToFit,y,func,degree,
             break
     return y
 
-def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
+def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=True,
                   DebugConvergence=False,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
-
-    If we are given NAN for the parameters, we return K0, as a maximum
 
     Args: 
         kbT,Lp,L0,ext,K0,ForceGuess:  See WlcExtensible_Helper. Note if 
