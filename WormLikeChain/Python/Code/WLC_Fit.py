@@ -197,8 +197,11 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
     if (ForceGuess is None):
         n = ext.size
         # maxFractionOfL0: determines the maximum fraction of L0 we fit to
-        # non-extensible before switching to extensible
-        maxFractionOfL0 = 1-10*(Lp/L0)
+        # non-extensible before switching to extensible. should always be
+        # able to fit at least 40% of a contour length (very low forces,
+        # less than (1 kbT/Lp)), since this is the region where WLC is linear
+        # and hookean (see Docs)
+        maxFractionOfL0 = max(0.4,1-10*(Lp/L0))
         highestX = maxFractionOfL0 * L0
         maxX = max(ext)
         # degree used for (possible) extensible fitting
