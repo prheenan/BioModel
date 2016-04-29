@@ -226,8 +226,6 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         if (y.size < n):
             # extrapolate the y back
             pastMaxExt = maxX-highestX
-            # how many persistence lengths are we past the current point?
-            numPersistencePast = max(1,(pastMaxExt/Lp))
             # determine the number of points per persistence length
             # I assume the separation points are more or less evenly
             # spaced
@@ -235,8 +233,8 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
             pointsPerLp = (Lp/deltaX)
             # Get the total number of points per extrapolation iteration.
             # We want each extrapolation to consist of the points
-            # XXX flesh this out?
-            pointsPerExtrapolation = pointsPerLp/numPersistencePast
+            extrapolationsPerLp = 5
+            pointsPerExtrapolation = pointsPerLp/extrapolationsPerLp
             # we use a second order polynomial to fit, so we want to
             # make sure we have enough points for the fit itself
             nToAdd = max(2*degree,int(np.ceil(pointsPerExtrapolation)))
