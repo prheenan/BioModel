@@ -26,11 +26,10 @@ def BullDataTests():
     """
     Returns the parameters for the Bull Data Test
     """
-    StepNm = [0.00001,0.0005,0.001,0.005][::-1]
+    StepNm = [0.0001,0.0005,0.001,0.005,0.025,0.01,0.025,0.05,0.1][::-1]
     toTest =  GetBullData
     return StepNm,toTest
  
-
 def RunDataTests():
     """
     Runs the unit tests, and generates the plots
@@ -38,7 +37,7 @@ def RunDataTests():
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
     # note we reverse it so we 'fail fast'
-    IndiviudalFuncs = [BouchiatDataTests]
+    IndiviudalFuncs = [BouchiatDataTests,BullDataTests]
     StepsArray = []
     FunctionsArray = []
     for testFunc in IndiviudalFuncs:
@@ -98,7 +97,7 @@ def run():
     RunTests: If true, runs unit testing using known data/parameters,
     saving multiple plots in this directory
     """
-    RunExamples = True
+    RunExamples = False
     RunTests = True
     if (RunExamples):
         RunWLCExample()

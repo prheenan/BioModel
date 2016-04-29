@@ -27,7 +27,7 @@ class ModelData:
         self.params = params
         self.noise = noise
         self.name = name
-        self.ylim = ylim
+        self.ylim = np.array(list(ylim))
         self.n = self.force.size
     @property
     def ForceWithNoise(self):
@@ -76,10 +76,10 @@ def GetBullData(StepInNm=0.01):
     ParamValues = dict(kbT = 4.11e-21,L0 = L0,
                        Lp =  Lp,K0 = 1318.e-12)
     Name = "Bull_2014_FigureS2"
-    noisepN = 6.8e-9
+    noiseN = 6.8e-12
     expectedMax=80e-12
     ylim = [0,expectedMax]
-    return GetDataObj(x,ParamValues,noisepN,ylim,expectedMax,Name)
+    return GetDataObj(x,ParamValues,noiseN,ylim,expectedMax,Name)
     
 def GetBouichatData(StepInNm=0.5):
     """

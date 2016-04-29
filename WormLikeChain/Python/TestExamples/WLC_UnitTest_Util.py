@@ -74,9 +74,9 @@ def CheckDataObj(DataObj,OutName=None):
         OutName : If not None, saves a plot.
     """
     x = DataObj.ext
-    y = DataObj.force
     params = DataObj.params
     paramDict= dict((k,v.Value) for k,v in params.GetParamDict().items())
+    # fit to the noisy data
     y = DataObj.ForceWithNoise
     print("Fitting Data From {:s}...".format(DataObj.name))
     # get an extensible and non-extensible model, choose whether to varying L0
@@ -109,10 +109,11 @@ def CheckDataObj(DataObj,OutName=None):
         if (nonExtensibleFit is not None):
             mFitNon = nonExtensibleFit.Prediction
             plt.plot(x*toNm,mFitNon*toPn,'b--',label="Non Extensible")
+            plt.legend(loc='upper left')
         fig.savefig(OutName + ".png")
 
 def TestDataWithSteps(Steps,DataFunction):
-    for step in Steps:
+    for i,step in enumerate(Steps):
         DataObj = DataFunction(step)
         CheckDataObj(DataObj,OutName=DataObj.name + \
-                     "DeltaX={:.2f}".format(step))
+                     "_{:d}_DeltaX={:.4g}nm".format(i,step))
