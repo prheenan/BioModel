@@ -76,12 +76,14 @@ def CheckDataObj(DataObj,OutName=None):
     x = DataObj.ext
     y = DataObj.force
     params = DataObj.params
+    paramDict= dict((k,v.Value) for k,v in params.GetParamDict().items())
     y = DataObj.ForceWithNoise
     print("Fitting Data From {:s}...".format(DataObj.name))
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
     extensibleFit = WLC_Fit.ExtensibleWlcFit(x,y,VaryL0=True,
-                                             VaryLp=True,VaryK0=False)
+                                             VaryLp=True,VaryK0=False,
+                                             Values=paramDict)
     print("Extensible Parameters")
     print(extensibleFit)
     # make sure the parameters match what the model says it should
@@ -89,7 +91,8 @@ def CheckDataObj(DataObj,OutName=None):
     # try to get the non-extensible fit (possible it fails)
     try:
         nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(x,y,VaryL0=True,
-                                                       VaryLp=False)
+                                                       VaryLp=False,
+                                                       Values=paramDict)
         # print off the results
         print("Non-extensible Parameters")
         print(nonExtensibleFit)

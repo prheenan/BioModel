@@ -170,7 +170,7 @@ def ExtrapolateExtensible(nToAdd,ext,extOrig,yOrig,xToFit,y,func,degree,
     return y
 
 def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
-                  DebugConvergence=True,**kwargs):
+                  DebugConvergence=False,**kwargs):
     """
     Fits to the (recursively defined) extensible model. 
 
@@ -189,7 +189,6 @@ def WlcExtensible(ext,kbT,Lp,L0,K0,ForceGuess=None,Debug=False,
         see WlcPolyCorrect
     """
     if (ForceGuess is None):
-        print(Lp,L0,K0,ext)
         n = ext.size
         # maxFractionOfL0: determines the maximum fraction of L0 we fit to
         # non-extensible before switching to extensible

@@ -276,6 +276,9 @@ class WlcParamValues:
            xScale/yScale: see ScaleGen
         """
         self.ScaleGen(1./xScale,1./ForceScale)
+    def __str__(self):
+        return "\n".join(["{:s}={:s}".format(k,v)
+                          for k,v in self.GetParamDict().items()])
 
 class Initialization:
     """
