@@ -437,7 +437,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     varyGuesses = varyDict.values()
     # force all parameters to be positive
     # number of evaluations should depend on the number of things we are fitting
-    nEval = 500*varyNames
+    nEval = 500*len(varyNames)
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
     # set up things for basin / brute force initalization
     toMin = GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc)
