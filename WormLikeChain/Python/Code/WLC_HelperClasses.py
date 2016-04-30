@@ -68,8 +68,6 @@ docs.scipy.org/doc/scipy-0.17.0/reference/generated/scipy.optimize.curve_fit.htm
 docs.scipy.org/doc/scipy-0.17.0/reference/generated/scipy.optimize.minimize.html
         """
         return BoundsObj._ToConvention(lower,upper,None,None)
-
-            
     
 
 class WLC_DEF:
@@ -296,6 +294,14 @@ class Initialization:
         self.Type = Type
         self.Args = params
         self.ParamDict = dict(**kwargs)
+        # initialization info is set when we
+        # initialize everythign by the actual method
+        self.InitializationInfo = None
+    def SetInitializationInfo(self,**kwargs):
+        """
+        Sets the initialization information dictionary
+        """
+        self.InitializationInfo = dict(**kwargs)
         
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
@@ -465,8 +471,8 @@ def GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args):
     return OrderedDict(mapV(ParamNamesToVary,args),**ParamsFixedDict)
 
 def GetReasonableBounds(ext,force,
-                        c_L0_lower=0.5,c_L0_upper=2.,
-                        c_Lp_lower=0.0,c_Lp_upper=0.5,
+                        c_L0_lower=0.8,c_L0_upper=1.1,
+                        c_Lp_lower=0.0,c_Lp_upper=0.1,
                         c_K0_lower=10,c_K0_upper=1e4):
     """
     Returns a reasonable (ordered) dictionary of bounds, given extensions and 
@@ -488,12 +494,29 @@ def GetReasonableBounds(ext,force,
     TupleL0 = np.array([c_L0_lower,c_L0_upper]) * MaxX
     TupleLp = np.array([c_Lp_lower,c_Lp_upper]) * MaxX
     TupleK0 = np.array([c_K0_lower,c_K0_upper]) * MaxForce
-    return OrderedDict(L0=BoundsObj(*TupleL0),
-                       Lp=BoundsObj(*TupleLp),
-                       K0=BoundsObj(*TupleL0),
+    return GetBoundsDict(TupleL0,
+                         TupleLp,
+                         TupleK0,
                        # Note that we typically dont fit temperature,
                        # really no way to know.
-                       kbT=BoundsObj(*[0,np.inf]))
+                         [0,np.inf])
+
+def GetBoundsDict(L0,Lp,K0,kbT):
+    """
+    Utility function: given tuples, returns a dictionary of bounds objects
+
+    Args:
+        L0,Lp,K0,kbT: tuple of upper and lower bounds for each parameter
+    Returns:
+        Ordered dictionary of <Paramter>:<Bounds>
+    """
+    return OrderedDict(L0=BoundsObj(*L0),
+                       Lp=BoundsObj(*Lp),
+                       K0=BoundsObj(*K0),
+                       # Note that we typically dont fit temperature,
+                       # really no way to know.
+                       kbT=BoundsObj(*kbT))
+    
 
 def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
     """

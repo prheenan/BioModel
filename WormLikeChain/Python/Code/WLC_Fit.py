@@ -450,8 +450,14 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     elif (initObj.Type == Initialization.BRUTE):
         # use the brute force method
         # XXX fix, ham-fisting this...
-        varyGuesses = brute(toMin,ranges=boundsBasin,disp=False,
-                            finish=None,*initObj.Args,**initObj.ParamDict)
+        x0,fval,grid,jout= brute(toMin,ranges=boundsBasin,disp=False,
+                                 full_output=True,
+                                 *initObj.Args,**initObj.ParamDict)
+        WlcOptions.Initialization.SetInitializationInfo(x0=x0,
+                                                        fval=fval,
+                                                        grid=grid,
+                                                        jout=jout)
+        varyGuesses = x0
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping function
     jacFunc = '3-point'
@@ -527,7 +533,7 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     return WlcFit(ext,force,mInfo)
 
 def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
-                  Ns=50,Bounds=None,**kwargs):
+                  Ns=100,Bounds=None,finish=None,**kwargs):
     """
     Uses a Brute-force method to get a coase-grained grid on the data
     before using a fine-grained local minimizer to find the best solution.
@@ -546,7 +552,8 @@ def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     """
     if (Bounds is None):
         Bounds = GetReasonableBounds(ext,force,**kwargs)
-    InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns)
+        
+    InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns,finish=finish)
     model = WLC_MODELS.EXTENSIBLE_WANG_1997
     mVals = WlcParamValues(Bounds=Bounds)
     toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
