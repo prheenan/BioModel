@@ -8,10 +8,13 @@ import sys
 import warnings
 import copy
 import FitUtils.Python.FitUtil as FitUtil
+
+from FitUtils.Python.FitClasses import Initialization,BoundsObj,\
+    FitInfo,FitReturnInfo,GetFunctionCall,GetFullDictionary
+
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from WLC_HelperClasses import WlcParamValues,WlcParamsToVary,WlcFitInfo,\
-    FitReturnInfo,BouchiatPolyCoeffs,GetFunctionCall,GetFullDictionary,\
-    BoundsObj,Initialization,GetReasonableBounds
+from WLC_HelperClasses import WlcParamValues,BouchiatPolyCoeffs,\
+    GetReasonableBounds
 from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
 from collections import OrderedDict
 from scipy.interpolate import dfitpack
@@ -387,7 +390,7 @@ def GetMinimizingFunction(ExtScaled,ForceScaled,mFittingFunc):
                                                    ForceScaled))/nPoints
     return minimizeFunc
 
-def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
+def WlcFit(extRaw,forceRaw,WlcOptions):
     """
     General fiting function.
 
@@ -404,7 +407,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
        WlcFitInfo, with updated parmaeters and standard deviations associated
        with the fit.
     """
-    model = WlcOptions.Model
+    func = WlcOptions.Model
     # scale everything to avoid convergence problems
     xNormalization = max(extRaw)
     forceNormalization = max(forceRaw)
@@ -423,15 +426,7 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     boundsCurvefitLower = [b[0] for b in boundsRaw]
     boundsCurvefitUpper = [b[1] for b in boundsRaw]
     boundsCurvefit = boundsCurvefitLower,boundsCurvefitUpper
-    # figure out what the model is
-    if (model == WLC_MODELS.EXTENSIBLE_WANG_1997):
-        # initially, use non-extensible for extensible model, as a first guess
-        func = WlcExtensible
-    elif (model == WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999):
-        func = WlcNonExtensible
-    else:
-        raise TypeError("Didnt recognize model {:s}".format(model))
-    # XXX add in bounds
+    # figure out what is fixed and varying
     fixedNames = fixed.keys()
     varyNames = varyDict.keys()
     varyGuesses = varyDict.values()
@@ -491,6 +486,23 @@ def WlcFit(extRaw,forceRaw,WlcOptions=WlcFitInfo()):
     # update the actual values and parameters; update the prediction scale
     return FitReturnInfo(finalInfo,predicted*forceNormalization)
 
+def InitializeParamVals(model,toVary=None,Values=None,Bounds=None,
+                        InitialObj=None):
+    """
+    Adapter to go to the general fitting method
+    """
+    function = GetFunctionFromModel(model)
+    if (Values is None):
+        Values = WLC_DEF.ValueDictionary
+    if (Bounds is None):
+        Bounds = WLC_DEF.BoundsDictionary
+    if (toVary is None):
+        toVary = VaryDictionary
+    if (InitialObj is None):
+        InitialObj = Initialization()
+    mVals = WlcParamValues(Vary=toVary,Bounds=Bounds,Values=Values)
+    return FitInfo(FunctionToCall=function,ParamVals=mVals,
+                   Initialization=InitialObj)
 
 def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     """
@@ -504,14 +516,24 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     Returns:
         see WlcFit
     """
-    model = WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999
-    # non-extensible model has no K0
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=False,kbT=False)
-    mVals = WlcParamValues(Vary=toVary,**kwargs)
-    # create the informaiton to pass on to the fitter
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals)
+    mInfo = InitializeParamVals(WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999,
+                                toVary=toVary,**kwargs)
     # call the fitter
     return WlcFit(ext,force,mInfo)
+
+def GetFunctionFromModel(model):
+    """
+    Given a model, gets the funciton to call
+
+    Args:
+        model: valid element from WLC_MODELS
+    """
+    
+    ModelToFunc = \
+        dict( [(WLC_MODELS.EXTENSIBLE_WANG_1997,WlcExtensible),
+               (WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999,WlcNonExtensible)])
+    return ModelToFunc[model]
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
                      **kwargs):
@@ -526,10 +548,9 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     Returns:
         see WlcFit
     """
-    model = WLC_MODELS.EXTENSIBLE_WANG_1997
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
-    mVals = WlcParamValues(Vary=toVary,**kwargs)
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals)
+    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,
+                                toVary=toVary,**kwargs)
     return WlcFit(ext,force,mInfo)
 
 def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
@@ -552,13 +573,11 @@ def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     """
     if (Bounds is None):
         Bounds = GetReasonableBounds(ext,force,**kwargs)
-        
     InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns,finish=finish)
-    model = WLC_MODELS.EXTENSIBLE_WANG_1997
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
-    mVals = WlcParamValues(Bounds=Bounds,Vary=toVary)
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,
-                       Initialization=InitialObj)
+    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,Bounds=Bounds,
+                                toVary=toVary,InitialObj=InitialObj,
+                                **kwargs)
     return WlcFit(ext,force,mInfo)
                   
         
