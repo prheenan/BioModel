@@ -120,7 +120,6 @@ class WlcParamsToVary:
         self.VaryK0 = VaryK0
 
 
-
 class WlcParamValues:
     """
     Class to record parameter values given to a fit or gotten from the same
@@ -145,6 +144,25 @@ class WlcParamValues:
             self.Stdev = Stdev
             self.Bounds = Bounds
             self.Vary = Vary
+        """
+        Various Setters below, to set the properites
+        """
+        def SetVarying(self,x):
+            """
+            Args:
+                x: should be a Boolean
+            """
+            self.Vary = x
+        def SetBounds(self,x):
+            """
+            Args:
+                x: should be a Bounds obj
+            """
+            self.Bounds = x
+        def SetStdev(self,x):
+            self.Stdev = x
+        def SetValue(self,x):
+            self.Value = x
         def Scale(self,scale):
             """
             Scale the parameter (and standard deviation) to scale,
@@ -185,6 +203,27 @@ class WlcParamValues:
         self.ParamDict = OrderedDict()
         for p in Params:
             self.ParamDict[p.Name] = p
+
+    def _SetGen(self,func,**kwargs):
+        """
+        General setting method, loops through each parameter and sets
+        
+        Args:
+            func: the function to apply, takes in a Param object and a value
+            corresponding to the parameter from kwargs
+           
+            **kwargs: dictionary of <key:value> pairs
+        """
+        for k,v in kwargs.items():
+            func(self.ParamDict[k],v)
+    def SetParamStdevs(self,**kwargs):
+        """
+        Sets the parameter stdevs
+
+        Args:
+            **kwargs: see SetVarying for keys. Each value is a standard dev
+        """
+        self._SetGen(lambda x,y: x.SetStdev(y),**kwargs)
     def SetVarying(self,**kwargs):
         """
         Sets the relevant parameters to their values
@@ -193,8 +232,7 @@ class WlcParamValues:
             **kwargs: dictionary, keys must match the parameter names this was 
             initialized with. values are booleans
         """
-        for k,v in kwargs.items():
-            self.ParamDict[k].Varying = v
+        self._SetGen(lambda x,y: x.SetVarying(y),**kwargs)
     def SetParamValues(self,**kwargs):
         """
         Sets the parameter values
@@ -202,8 +240,7 @@ class WlcParamValues:
         Args:
             **kwargs: See: SetVarying. each value is a float
         """
-        for k,v in kwargs.items():
-            self.ParamDict[k].Value = v
+        self._SetGen(lambda x,y: x.SetValue(y),**kwargs)
     def CloseTo(self,other,rtol=1e-1,atol=0):
         """
         Returns true if the other set of parameters is the 'same' as this
@@ -238,15 +275,7 @@ class WlcParamValues:
         Returns an ordered dictionary of the parameter *values*
         """
         return OrderedDict( (k,v.Value) for k,v in self.GetParamDict().items())
-    def SetParamStdevs(self,**kwargs):
-        """
-        Sets the parameter stdevs
 
-        Args:
-            **kwargs: see SetVarying for keys. Each value is a standard dev
-        """
-        for k,v in kwargs.items():
-            self.ParamDict[k].Stdev = v
     def _GenGetInOrder(self,func):
         """
         Reutrns some transform on each inorder parameter
@@ -390,7 +419,7 @@ class WlcFitInfo:
         vals = self.ParamVals.GetParamDict()
         # XXX could generalize, make toVary have L0, just use lambdas everywhere
         for key,val in vals.items():
-            if (condition(val.Varying)):
+            if (condition(val.Vary)):
                 valToAdd = AddFunction(val)
                 toRet[key] = valToAdd
         return toRet
