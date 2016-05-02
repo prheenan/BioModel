@@ -48,7 +48,7 @@ def BoundedWLCExample():
     # get the (sample) extension and force
     Extension,Force,Data = GetSampleForceExtension()
     extensibleFit = WLC_Fit.BoundedWlcFit(Extension,Force,VaryL0=True,
-                                          VaryLp=True)
+                                          VaryLp=True,Ns=20)
     # what we have is the fit object; we can get/print the parameters
     PlotWLCFit(Data,extensibleFit)
     plt.show()

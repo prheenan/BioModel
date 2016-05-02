@@ -140,11 +140,11 @@ class WlcParamValues:
                 Name: the name of the parameter
                 Vary: if the parameter should be varied
             """
-            self.Name=""
+            self.Name=Name
             self.Value = Value
             self.Stdev = Stdev
-            self.Bounds = None
-            self.Vary = False
+            self.Bounds = Bounds
+            self.Vary = Vary
         def Scale(self,scale):
             """
             Scale the parameter (and standard deviation) to scale,
@@ -178,29 +178,32 @@ class WlcParamValues:
         """
         Initiliaze parameters...
         """
-        self.L0 = WlcParamValues.Param(Name="L0")
-        self.Lp = WlcParamValues.Param(Name="Lp")
-        self.K0 = WlcParamValues.Param(Name="K0")
-        self.kbT = WlcParamValues.Param(Name="kbT")
-    def SetVarying(self,L0,Lp,K0,kbT):
+        Params = [WlcParamValues.Param(Name="L0"),
+                  WlcParamValues.Param(Name="Lp"),
+                  WlcParamValues.Param(Name="K0"),
+                  WlcParamValues.Param(Name="kbT")]
+        self.ParamDict = OrderedDict()
+        for p in Params:
+            self.ParamDict[p.Name] = p
+    def SetVarying(self,**kwargs):
         """
         Sets the relevant parameters to their values
-        """
-        self.L0.Varying = L0
-        self.Lp.Varying = Lp
-        self.K0.Varying = K0
-        self.kbT.Varying = kbT
-    def SetParamValues(self,L0,Lp,K0,kbT):
-        """
-        Sets the parameter values, initializing new objects
 
         Args:
-            kbT,Lp,L0,K0: See Init
+            **kwargs: dictionary, keys must match the parameter names this was 
+            initialized with. values are booleans
         """
-        self.L0.Value = L0
-        self.Lp.Value = Lp
-        self.K0.Value = K0
-        self.kbT.Value = kbT
+        for k,v in kwargs.items():
+            self.ParamDict[k].Varying = v
+    def SetParamValues(self,**kwargs):
+        """
+        Sets the parameter values
+
+        Args:
+            **kwargs: See: SetVarying. each value is a float
+        """
+        for k,v in kwargs.items():
+            self.ParamDict[k].Value = v
     def CloseTo(self,other,rtol=1e-1,atol=0):
         """
         Returns true if the other set of parameters is the 'same' as this
@@ -215,41 +218,35 @@ class WlcParamValues:
         myVals = self.GetParamValsInOrder()
         otherVals = other.GetParamValsInOrder()
         return np.allclose(myVals,otherVals,rtol=rtol,atol=atol)
-    def SetBounds(self,L0,Lp,K0,kbT):
+    def SetBounds(self,**kwargs):
         """
-        Sets the bounds for each Parameter. See __init__
+        Sets the bounds for each Parameter. See: SetVarying.
 
         Args:
-           L0,Lp,K0,kbT: each should be a tuple of [start,end]. e.g.
-           (0,np.inf) for only positive numbers
+            **kwargs: see SetVarying for keys. Each value is a bounds tuple
         """
-        self.L0.Bounds = L0
-        self.Lp.Bounds = Lp
-        self.K0.Bounds = K0
-        self.kbT.Bounds = kbT
+        for k,v in kwargs.items():
+            self.ParamDict[k].Bounds = v
     def GetParamDict(self):
         """
-        Returns: in-order dictionary of the parameters
+        Returns: in-order copy dictionary of the parameters
         """
-        return OrderedDict(L0=self.L0,Lp=self.Lp,K0=self.K0,kbT=self.kbT)
+        toRet = OrderedDict(self.ParamDict.items())
+        return toRet
     def GetValueDict(self):
         """
         Returns an ordered dictionary of the parameter *values*
         """
         return OrderedDict( (k,v.Value) for k,v in self.GetParamDict().items())
-    def SetParamStdevs(self,L0,Lp,K0,kbT):
+    def SetParamStdevs(self,**kwargs):
         """
         Sets the parameter stdevs
 
         Args:
-            See SetParamValues, except all standard deviations
+            **kwargs: see SetVarying for keys. Each value is a standard dev
         """
-        attr = [(self.L0,L0),
-                (self.Lp,Lp),
-                (self.K0,K0),
-                (self.kbT,kbT)]
-        for a,stdev in attr:
-            a.Stdev = stdev
+        for k,v in kwargs.items():
+            self.ParamDict[k].Stdev = v
     def _GenGetInOrder(self,func):
         """
         Reutrns some transform on each inorder parameter
@@ -273,6 +270,9 @@ class WlcParamValues:
         Conveniene function, gets the parameters in the conventional order
         """
         return self.GetParamDict().values()
+    def _Scale(self,**kwargs):
+        for k,v in kwargs.items():
+            self.ParamDict[k].Scale(v)
     def ScaleGen(self,xScale,ForceScale):
         """
         Scales the data to an x and y scale given by xScale and ForceScale.
@@ -284,12 +284,11 @@ class WlcParamValues:
             yScale: What to divide the force parts by
         """
         # lengths are distances
-        self.L0.Scale(xScale)
-        self.Lp.Scale(xScale)
-        # K0 is a force
-        self.K0.Scale(ForceScale)
-        # note: kbT is an energy = force * distance
-        self.kbT.Scale(ForceScale*xScale)
+        Scales = dict(L0=xScale,
+                      Lp=xScale,
+                      K0=ForceScale,
+                      kbT=ForceScale*xScale)
+        self._Scale(**Scales)
     def NormalizeParams(self,xScale,ForceScale):
         """
         Normalize the given parameters
@@ -512,29 +511,28 @@ def GetReasonableBounds(ext,force,
     TupleL0 = np.array([c_L0_lower,c_L0_upper]) * MaxX
     TupleLp = np.array([c_Lp_lower,c_Lp_upper]) * MaxX
     TupleK0 = np.array([c_K0_lower,c_K0_upper]) * MaxForce
-    return GetBoundsDict(TupleL0,
-                         TupleLp,
-                         TupleK0,
+    return GetBoundsDict(L0=TupleL0,
+                         Lp=TupleLp,
+                         K0=TupleK0,
                        # Note that we typically dont fit temperature,
                        # really no way to know.
-                         [0,np.inf])
+                         kbT=[0,np.inf])
 
-def GetBoundsDict(L0,Lp,K0,kbT):
+def GetBoundsDict(**kwargs):
     """
     Utility function: given tuples, returns a dictionary of bounds objects
 
     Args:
-        L0,Lp,K0,kbT: tuple of upper and lower bounds for each parameter
+        kwargs: keys are parameter names, values are tuple of upper and lower 
+        bounds for each parameter
     Returns:
         Ordered dictionary of <Paramter>:<Bounds>
     """
-    return OrderedDict(L0=BoundsObj(*L0),
-                       Lp=BoundsObj(*Lp),
-                       K0=BoundsObj(*K0),
-                       # Note that we typically dont fit temperature,
-                       # really no way to know.
-                       kbT=BoundsObj(*kbT))
-    
+    toRet = OrderedDict()
+    for k,v in kwargs.items():
+        # assume that v is a tuple
+        toRet[k] = BoundsObj(*v)
+    return toRet
 
 def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
     """
