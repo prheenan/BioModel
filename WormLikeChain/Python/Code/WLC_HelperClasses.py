@@ -90,6 +90,11 @@ class WLC_DEF:
                                    Lp=BoundsObj(0,np.inf),
                                    K0=BoundsObj(0,np.inf),
                                    kbT=BoundsObj(0,np.inf))
+    # default varying dictionary
+    VaryDictionary =  OrderedDict(L0=False,
+                                  Lp=False,
+                                  K0=False,
+                                  kbT=False)
 
     
 class WLC_MODELS:
@@ -124,10 +129,22 @@ class WlcParamValues:
         """
         Subclass to keep track of parameters.
         """
-        def __init__(self,Value=0,Stdev=None,Bounds=None):
+        def __init__(self,Value=0,Stdev=None,Bounds=None,Name="",Vary=False):
+            """
+            Initialize the properties of the parameter
+
+            Args:
+                Value: the value of the parameter
+                Stdev: the standard deviation fo the paameter
+                Bounds: the bound of the paramters
+                Name: the name of the parameter
+                Vary: if the parameter should be varied
+            """
+            self.Name=""
             self.Value = Value
             self.Stdev = Stdev
             self.Bounds = None
+            self.Vary = False
         def Scale(self,scale):
             """
             Scale the parameter (and standard deviation) to scale,
@@ -145,24 +162,34 @@ class WlcParamValues:
             return str(self)
     def __init__(self,
                  Values=WLC_DEF.ValueDictionary,
-                 Bounds=WLC_DEF.BoundsDictionary):
+                 Bounds=WLC_DEF.BoundsDictionary,
+                 Vary=WLC_DEF.VaryDictionary):
         """
         Args:
-            kbT,Lp,L0 : see WlcPolyCorrect. Initial guesses
-            K0: see WlcExtensible. Note this is ignored for non-extensible 
-            models
+            Values: dictionary of <Parameter:Value> pairs
+            Bounds: dictionary of <Parameter:BoundsObj> pairs
+            Vary: dictionary of <Parameter:VaryingObj> pairs
         """
         self._InitParams()
         self.SetParamValues(**Values)
         self.SetBounds(**Bounds)
+        self.SetVarying(**Vary)
     def _InitParams(self):
         """
         Initiliaze parameters...
         """
-        self.L0 = WlcParamValues.Param()
-        self.Lp = WlcParamValues.Param()
-        self.K0 = WlcParamValues.Param()
-        self.kbT = WlcParamValues.Param()
+        self.L0 = WlcParamValues.Param(Name="L0")
+        self.Lp = WlcParamValues.Param(Name="Lp")
+        self.K0 = WlcParamValues.Param(Name="K0")
+        self.kbT = WlcParamValues.Param(Name="kbT")
+    def SetVarying(self,L0,Lp,K0,kbT):
+        """
+        Sets the relevant parameters to their values
+        """
+        self.L0.Varying = L0
+        self.Lp.Varying = Lp
+        self.K0.Varying = K0
+        self.kbT.Varying = kbT
     def SetParamValues(self,L0,Lp,K0,kbT):
         """
         Sets the parameter values, initializing new objects
@@ -306,7 +333,6 @@ class Initialization:
 class WlcFitInfo:
     def __init__(self,Model=WLC_MODELS.EXTENSIBLE_WANG_1997,
                  ParamVals=WlcParamValues(),
-                 VaryObj=WlcParamsToVary(),
                  Initialization=Initialization()):
         """
         Args:
@@ -318,7 +344,6 @@ class WlcFitInfo:
         """
         self.Model = Model
         self.ParamVals = ParamVals
-        self.ParamsVaried = VaryObj
         self.Initialization = Initialization
     """
     The Following are helper functions that only make sense
@@ -363,16 +388,12 @@ class WlcFitInfo:
         """
         toRet = OrderedDict()
         # assume we never vary temperature
-        toVary = self.ParamsVaried
-        vals = self.ParamVals
-        addToDict = lambda **kwargs: toRet.update(dict(kwargs))
+        vals = self.ParamVals.GetParamDict()
         # XXX could generalize, make toVary have L0, just use lambdas everywhere
-        if (condition(toVary.VaryL0)):
-            addToDict(L0=AddFunction(vals.L0))
-        if (condition(toVary.VaryLp)):
-            addToDict(Lp=AddFunction(vals.Lp))
-        if (condition(toVary.VaryK0)):
-            addToDict(K0=AddFunction(vals.K0))
+        for key,val in vals.items():
+            if (condition(val.Varying)):
+                valToAdd = AddFunction(val)
+                toRet[key] = valToAdd
         return toRet
     def GetVaryingParamDict(self):
         """
@@ -385,10 +406,7 @@ class WlcFitInfo:
         Gets the (ordered) dictionary of fixed parameters (assumes temperature 
         is amoung)
         """
-        # temperature comes first in the ordering
-        toRet = OrderedDict(kbT=self.ParamVals.kbT.Value)
-        allButTemp= self.AddParamsGen(self._FixedCondition,self._AddValue)
-        toRet.update(allButTemp)
+        toRet= self.AddParamsGen(self._FixedCondition,self._AddValue)
         return toRet
     def GetVaryingBoundsDict(self,InfValue=None):
         """

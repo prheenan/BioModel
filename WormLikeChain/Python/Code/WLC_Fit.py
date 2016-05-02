@@ -505,11 +505,11 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
         see WlcFit
     """
     model = WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999
-    mVals = WlcParamValues(**kwargs)
     # non-extensible model has no K0
-    toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=False)
+    toVary = dict(L0=VaryL0,Lp=VaryLp,K0=False,kbT=False)
+    mVals = WlcParamValues(Vary=toVary,**kwargs)
     # create the informaiton to pass on to the fitter
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary)
+    mInfo = WlcFitInfo(Model=model,ParamVals=mVals)
     # call the fitter
     return WlcFit(ext,force,mInfo)
 
@@ -527,9 +527,9 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
         see WlcFit
     """
     model = WLC_MODELS.EXTENSIBLE_WANG_1997
-    mVals = WlcParamValues(**kwargs)
-    toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary)
+    toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
+    mVals = WlcParamValues(Vary=toVary,**kwargs)
+    mInfo = WlcFitInfo(Model=model,ParamVals=mVals)
     return WlcFit(ext,force,mInfo)
 
 def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
@@ -555,9 +555,9 @@ def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
         
     InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns,finish=finish)
     model = WLC_MODELS.EXTENSIBLE_WANG_1997
-    mVals = WlcParamValues(Bounds=Bounds)
-    toVary = WlcParamsToVary(VaryL0=VaryL0,VaryLp=VaryLp,VaryK0=VaryK0)
-    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,VaryObj=toVary,
+    toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
+    mVals = WlcParamValues(Bounds=Bounds,Vary=toVary)
+    mInfo = WlcFitInfo(Model=model,ParamVals=mVals,
                        Initialization=InitialObj)
     return WlcFit(ext,force,mInfo)
                   
