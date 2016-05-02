@@ -11,6 +11,8 @@ from FitUtils.Python import FitClasses
 MACHINE_EPSILON = np.finfo(float).eps
 
 
+
+
 class WLC_DEF:
     """
     Class defining defaults for inputs. 
