@@ -330,10 +330,28 @@ class Initialization:
         Sets the initialization information dictionary
         """
         self.InitializationInfo = dict(**kwargs)
+
+class FitOpt:
+
+    def __init__(self,Normalize=True):
+        """
+        Initialize options for the fitting
+        """
+        self.Normalize = Normalize
+        self.NormX = None
+        self.NormY = None
+    def GetNormalizationCoeffs(self,x,y):
+        if (self.Normalize):
+            return max(x),max(y)
+        else:
+            return 1,1
+    def SetNormCoeffs(self,x,y):
+        self.NormX = x
+        self.NormY = y
         
 class FitInfo:
     def __init__(self,FunctionToCall,ParamVals,
-                 Initialization=Initialization()):
+                 Initialization=Initialization(),FitOptions=FitOpt()):
         """
         Args:
             FunctionToCall: function to call, must have signatrue 
@@ -344,10 +362,13 @@ class FitInfo:
 
             ParamValues: values of the parameters for the fit (e.g. initial 
             guesses, or final resuts )
-            VaryObj: which parameters should be varied for the 
+
+            VaryObj: which parameters should be varied for the fit
+            FitOptions: Instance of FitOpt, Related to how we perform the fit 
         """
         self.Model = FunctionToCall
         self.ParamVals = ParamVals
+        self.FitOptions = FitOptions
         self.Initialization = Initialization
     """
     The Following are helper functions that only make sense
@@ -443,6 +464,19 @@ class FitReturnInfo:
         """
         self.Info = inf
         self.Prediction = PredictedData
+    def Predict(self,xVals):
+        """
+        Given new x values, predicts our model
+        
+        Args:
+            xVals: whatever we are fitting to, in units of the same thing
+            we fit with
+        Returns: prediction of the y values...
+        """
+        params = self.Info.ParamVals.GetValueDict()
+        norms = self.Info.FitOptions
+        model = self.Info.Model
+        return model(xVals/norms.NormX,**params)/norms.NormY
     def __str__(self):
         return str(self.Info)
 

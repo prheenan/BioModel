@@ -26,4 +26,13 @@ class BellParamValues(FitClasses.ParamValues):
                   "DeltaG",
                   "DeltaX",]
         return Params
+    def Scale(self,x,y):
+        """
+        Scales the variables to x and y (Force and rate) limits
+        """
+        return dict(k0=1,
+                    DeltaX=1,
+                    DeltaG=1,
+                    beta=1)
+                
 

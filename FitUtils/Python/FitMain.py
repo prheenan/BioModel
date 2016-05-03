@@ -98,8 +98,8 @@ def Fit(x,y,Options):
     """
     func = Options.Model
     # scale everything to avoid convergence problems
-    xNormalization = max(x)
-    yNormalization = max(y)
+    xNormalization,yNormalization = Options.FitOptions.\
+                                    GetNormalizationCoeffs(x,y)
     xScaled = x.copy()/xNormalization
     yScaled = y.copy()/yNormalization
     # get and scale the actual parameters (note this also scales the bounds!)
@@ -173,5 +173,7 @@ def Fit(x,y,Options):
     finalInfo.ParamVals.SetParamStdevs(**finalStdevs)
     finalInfo.ParamVals.DenormalizeParams(xNormalization,
                                           yNormalization)
+    finalInfo.FitOptions.SetNormCoeffs(xNormalization,
+                                       yNormalization)
     # update the actual values and parameters; update the prediction scale
     return FitReturnInfo(finalInfo,predicted*yNormalization)

@@ -11,6 +11,12 @@ import BellZhurkov.Python.Code.BellZhurkov as BellModel
 
 def RunWoodsideFigure6():
     """
+    Reproduces  Figure 6 From: 
+    Woodside, Michael T., and Steven M. Block. 
+"Reconstructing Folding Energy Landscapes by Single-Molecule Force Spectroscopy"
+    Annual Review of Biophysics 43, no. 1 (2014): 19-39. 
+    doi:10.1146/annurev-biophys-051013-022754.
+
     See TestExamples.TestUtil.Bell_Test_Data.Woodside2014FoldingAndUnfoldingData
     """
     Forces,Folding,Unfolding = Data.Woodside2014FoldingAndUnfoldingData()
@@ -18,17 +24,41 @@ def RunWoodsideFigure6():
 
     """
     GuessDict = dict(beta=1,
-                     k0=10,
+                     k0=60,
                      DeltaX=20e-9,
                      DeltaG=(max(Forces)-min(Forces)))
-    inf = BellModel.GenBellZurkovFit(Forces,Folding,GuessDict)
+    infFold = BellModel.GenBellZurkovFit(Forces,Folding,GuessDict)
+    print(infFold)
+    infUnfold = BellModel.GenBellZurkovFit(Forces,Unfolding,GuessDict)
+    # get predictions along a (slightly larger) x range
+    xMin=11e-12
+    xMax=15e-12
+    # how much should we interpolate?
+    numPredict = (len(Forces)+1)*50
+    xRangePredict = Forces
+    predictFold = infFold.Prediction 
+    predictUnfold = infUnfold.Prediction
+    markerDict = dict(marker='o',
+                      markersize=7,
+                      linewidth=0,
+                      markeredgewidth=0.0)
+    lineDict = dict(linestyle='-',color='k',linewidth=1.5)
+    toPn = 1e12
+    ForcePn = Forces*toPn
+    fig = plt.figure()
     ax = plt.subplot(1,1,1)
-    plt.plot(Forces,Folding,'ro',linewidth=0,label="Folding")
-    plt.plot(Forces,inf.Prediction,'g--',linewidth=2,label="Folding")
-    plt.plot(Forces,Unfolding,'bo',linewidth=0,
-             label="Unfolding")
+    plt.plot(ForcePn,Folding,'ro',label="Folding",**markerDict)
+    plt.plot(xRangePredict*toPn,predictFold,**lineDict)
+    plt.plot(ForcePn,Unfolding,'bo',label="Unfolding",**markerDict)
+    plt.plot(xRangePredict*toPn,predictUnfold,**lineDict)
     ax.set_yscale('log')
-    plt.show()
+    # limits in PicoNewtons
+    plt.xlim(xMin*toPn,xMax*toPn)
+    plt.xlabel("Force (pN)")
+    plt.ylabel("Rate (Hz)")
+    plt.title("Woodside and Block, Figure 6a (2016)")
+    plt.legend(loc='lower center')
+    fig.savefig("./Woodside2016_Figure6.png")
 
 def run():
     """

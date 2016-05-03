@@ -28,9 +28,22 @@ def Woodside2014FoldingAndUnfoldingData():
     Forces= np.array(Forces)
     # write down the folding and unfolding rates as decaying/increasing
     # exponentials, based on their starting value in the graph
-    ForceDiff = Forces[-1]-Forces[0]
-    FoldSlope = np.log((35-7)/(ForceDiff))
-    UnfoldSlope = np.log((35-8)/(ForceDiff))
-    Folding = 25 * np.exp( -(Forces-Forces[0])/FoldSlope )
-    Unfolding = 8 * np.exp( (Forces-Forces[0])/UnfoldSlope)
+    ForceDiff = max(Forces)-min(Forces)
+    # we have
+    # y ~ exp(+/- t/tau)
+    # so y_f/y_i = exp(+/- (t_f-t_i)/tau)
+    # so tau = +/- np.log(yf/y_i)/(tf-t_i). aparently the signs work themselves
+    # out the way I use tau below
+    yf = 300
+    yi = 8
+    # get the 'taus' for the exponential decay (really inverse forces)
+    tauFold = np.log(yf/yi)/(ForceDiff)
+    tauUnfold = np.log(yf/yi)/(ForceDiff)
+    # get the offset force array; use this to set up the data, which we
+    # assume decays or increases from our 'zero point' (first measured data)
+    forceOffset = (Forces-Forces[0])
+    # folding is decaying / decaying / *has* minus sign
+    Folding = yf * np.exp( -forceOffset/tauFold )
+    # unfolding is increasing / growing / *doesnt have* minus sign
+    Unfolding = yi * np.exp( forceOffset/tauUnfold)
     return Forces*1e-12,Folding,Unfolding

@@ -12,7 +12,7 @@ from Bell_Helper import BellParamValues
 
 def BellZhurkovLogModel(Force,beta,k0,DeltaG,DeltaX):
     """
-    Logarithm of the Bell-Zhurkov model 
+    Logarithm of the Bell-Zhurkov model
     
     XXX fill in with woodside description
 
@@ -26,22 +26,25 @@ def BellZhurkovLogModel(Force,beta,k0,DeltaG,DeltaX):
     FoldRate = np.log(k0) -beta * ( DeltaG - Force*DeltaX)
     return FoldRate
 
+def BellZhurkovModel(*args,**kwargs):
+    return np.exp(BellZhurkovLogModel(*args,**kwargs))
 
 def GenBellZurkovFit(Force,Rates,values,vary=None,
                      bounds=None,Initial=None):
     Vary = lambda x: x is None
     if (vary is None):
         vary = dict(beta=False,
-                    k0=True,
+                    k0=False,
                     DeltaG=True,
                     DeltaX=True)
     if (bounds is None):
         bounds = GetBoundsDict(beta=[0,np.inf],
                                k0=[0,np.inf],
-                               DeltaG=[0,np.inf],
-                               DeltaX=[0,np.inf])
+                               DeltaG=[-np.inf,np.inf],
+                               DeltaX=[-np.inf,np.inf])
     if (Initial is None):
-        Initial = Initialization(Type=Initialization.HOP,disp=True)
+        Initial = Initialization(Type=Initialization.HOP,disp=False,
+                                 stepsize=1e-9)
     Model = BellZhurkovLogModel
     mVals = BellParamValues(Vary=vary,Bounds=bounds,Values=values)
     Options = FitInfo(FunctionToCall=Model,ParamVals=mVals,

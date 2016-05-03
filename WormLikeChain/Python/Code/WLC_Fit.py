@@ -10,7 +10,8 @@ import copy
 import FitUtils.Python.FitUtil as FitUtil
 
 from collections import OrderedDict
-from FitUtils.Python.FitClasses import Initialization,BoundsObj,FitInfo
+from FitUtils.Python.FitClasses import Initialization,BoundsObj,FitInfo,\
+    FitOptions
 from FitUtils.Python.FitMain import Fit
 
 
@@ -336,7 +337,7 @@ def InitializeParamVals(model,toVary,Values=None,Bounds=None,
         InitialObj = Initialization()
     mVals = WlcParamValues(Vary=toVary,Bounds=Bounds,Values=Values)
     return FitInfo(FunctionToCall=function,ParamVals=mVals,
-                   Initialization=InitialObj)
+                   Initialization=InitialObj,FitOpt=FitOpt(Normalize=True))
 
 def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     """
