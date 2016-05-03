@@ -11,7 +11,7 @@ from FitUtils.Python.FitClasses import Initialization,BoundsObj,\
     FitInfo,FitReturnInfo,GetFunctionCall,GetFullDictionary
 import FitUtils.Python.FitUtil as FitUtil
 from scipy.optimize import brute
-
+import warnings
 
 
 def SafeMinimize(n,func,*params,**kwargs):
@@ -129,7 +129,8 @@ def Fit(x,y,Options):
     initObj = Options.Initialization
     if (initObj.Type == Initialization.HOP):
         # Use the basin hopping mode
-        obj = FitUtil.BasinHop(toMin,varyGuesses,boundsBasin)
+        obj = FitUtil.BasinHop(toMin,varyGuesses,boundsBasin,*initObj.Args,
+                               **initObj.ParamDict)
         varyGuesses = obj.x
     elif (initObj.Type == Initialization.BRUTE):
         # use the brute force method

@@ -13,6 +13,9 @@ from TestExamples.Util.WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit,\
     GetSampleForceExtension
 from TestExamples.Util.WLC_UnitTest_Data import GetBouichatData,GetBullData
 import Code.WLC_Fit as WLC_Fit
+# for basin hopping, need to initialize to HOP
+from FitUtils.Python.FitClasses import Initialization
+
 
 def RunWLCExample():
     """
@@ -41,8 +44,10 @@ def BoundedWLCExample():
     The Bounded WLC, given rough ranges, can automatically figure it out
     for you. 
 
-    Even the rough ranges can be inferred from your data. That is what is 
-    happening here (see Code/WLC_Fit.BoundedWlcFit and 
+    Even the rough ranges can be inferred from your data, *assuming
+    you only have a single WLC, and you have almost or just above a full
+    contour length. That is what is happening here 
+    (see Code/WLC_Fit.BoundedWlcFit and 
     Code/WLC_HelperClass.GetReasonableBounds for details). 
     """
     # get the (sample) extension and force
@@ -53,12 +58,31 @@ def BoundedWLCExample():
     PlotWLCFit(Data,extensibleFit)
     plt.show()
 
+def RunBasinHoping():
+    """
+    Runs the basin hoping routine, which is randomized and
+    probably slower than BoundedWLC, but uses a simulated-annealing like 
+    method forimitialization
+    """
+    # get the (sample) extension and force
+    Extension,Force,Data = GetSampleForceExtension()
+    InitialGuesses = Data.params.GetValueDict()
+    # make an initialization object for the basin hopping; set disp to false
+    # to prevent command-line spam
+    InitialObj = Initialization(Type=Initialization.HOP,disp=False)
+    extensibleFit = WLC_Fit.ExtensibleWlcFit(Extension,Force,VaryL0=True,
+                                             Values=InitialGuesses,
+                                             InitialObj=InitialObj)
+    # what we have is the fit object; we can get/print the parameters
+    PlotWLCFit(Data,extensibleFit)
+    plt.show()
     
 
 def run():
     """
     Runs some examples on the WLC fitting
     """
+    RunBasinHoping()
     RunWLCExample()
     BoundedWLCExample()
 

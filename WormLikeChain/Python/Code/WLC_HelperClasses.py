@@ -59,12 +59,12 @@ class WlcParamValues(FitClasses.ParamValues):
         super(WlcParamValues,self).__init__(**kwargs)
     def InitParams(self):
         """
-        Initiliaze parameters...
+        Initiliaze parameters names, as written in functions
         """
-        Params = [FitClasses.Param(Name="L0"),
-                  FitClasses.Param(Name="Lp"),
-                  FitClasses.Param(Name="K0"),
-                  FitClasses.Param(Name="kbT")]
+        Params = ["L0",
+                  "Lp",
+                  "K0",
+                  "kbT"]
         return Params
     def Scale(self,xScale,ForceScale):
         """

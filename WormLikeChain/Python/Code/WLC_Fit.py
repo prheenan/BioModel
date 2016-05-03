@@ -322,7 +322,7 @@ def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
     return grad
 
 
-def InitializeParamVals(model,toVary=None,Values=None,Bounds=None,
+def InitializeParamVals(model,toVary,Values=None,Bounds=None,
                         InitialObj=None):
     """
     Adapter to go to the general fitting method
@@ -332,8 +332,6 @@ def InitializeParamVals(model,toVary=None,Values=None,Bounds=None,
         Values = WLC_DEF.ValueDictionary
     if (Bounds is None):
         Bounds = WLC_DEF.BoundsDictionary
-    if (toVary is None):
-        toVary = VaryDictionary
     if (InitialObj is None):
         InitialObj = Initialization()
     mVals = WlcParamValues(Vary=toVary,Bounds=Bounds,Values=Values)
@@ -348,7 +346,8 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     Args:
         ext,force : see WlcFit
         VaryL0,VaryLp : see WlcParamsToVary, boolean if we should vary
-        **kwargs: passed directly to WlcParamValues (ie: initial guesses,bounds)
+        **kwargs: passed directly to InitializeParamVals 
+        (eg: initial guesses,bounds)
     Returns:
         see WlcFit
     """
@@ -380,7 +379,8 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     Args:
         ext,force : see WlcFit
         VaryL0,VaryLp : see WlcParamsToVary, boolean if we should vary
-        **kwargs: passed directly to WlcParamValues (ie: initial guesses,bounds)
+        **kwargs: passed directly to InitializeParamVals 
+        (eg: initial guesses,bounds)
     Returns:
         see WlcFit
     """
@@ -412,8 +412,7 @@ def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
     InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns,finish=finish)
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
     mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,Bounds=Bounds,
-                                toVary=toVary,InitialObj=InitialObj,
-                                **kwargs)
+                                toVary=toVary,InitialObj=InitialObj)
     return Fit(ext,force,mInfo)
                   
         

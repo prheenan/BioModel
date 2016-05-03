@@ -164,7 +164,7 @@ class ParamValues:
         InitParams method
         """
         # get the parameters
-        Params = self.InitParams()
+        Params = [Param(Name=p) for p in self.InitParams()]
         # set up the parameter dictionary
         self.ParamDict = OrderedDict()
         for p in Params:
@@ -179,7 +179,13 @@ class ParamValues:
            
             **kwargs: dictionary of <key:value> pairs
         """
+        keys = self.ParamDict.keys()
         for k,v in kwargs.items():
+            # check that the user didnt screw up...
+            assert k in self.ParamDict , \
+                "Specified inconsistent parameter '{:s}'.\nValid Params: {:s}".\
+                format(k,keys)
+            # sweet, we can apply our function
             func(self.ParamDict[k],v)
     def SetParamStdevs(self,**kwargs):
         """
@@ -267,7 +273,7 @@ class ParamValues:
     def _ScaleAllParams(self,**kwargs):
         for k,v in kwargs.items():
             self.ParamDict[k].Scale(v)
-    def Scale(self):
+    def Scale(self,*args,**kwargs):
         """
         Intended to be over-ridden, scales the parameters by one (no change)
         """
