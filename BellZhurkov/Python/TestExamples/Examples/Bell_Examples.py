@@ -28,7 +28,6 @@ def RunWoodsideFigure6():
                      DeltaX=20e-9,
                      DeltaG=(max(Forces)-min(Forces)))
     infFold = BellModel.GenBellZurkovFit(Forces,Folding,GuessDict)
-    print(infFold)
     infUnfold = BellModel.GenBellZurkovFit(Forces,Unfolding,GuessDict)
     # get predictions along a (slightly larger) x range
     xMin=11e-12
