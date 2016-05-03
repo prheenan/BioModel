@@ -23,7 +23,7 @@ def RunWoodsideFigure6():
     """
 
     """
-    GuessDict = dict(beta=1,
+    GuessDict = dict(beta=1/(4.1e-21),
                      k0=60,
                      DeltaX=20e-9,
                      DeltaG=(max(Forces)-min(Forces)))
@@ -34,9 +34,9 @@ def RunWoodsideFigure6():
     xMax=15e-12
     # how much should we interpolate?
     numPredict = (len(Forces)+1)*50
-    xRangePredict = Forces
-    predictFold = infFold.Prediction 
-    predictUnfold = infUnfold.Prediction
+    xRangePredict = np.linspace(xMin,xMax,numPredict)
+    predictFold = infFold.Predict(xRangePredict)
+    predictUnfold = infUnfold.Predict(xRangePredict)
     markerDict = dict(marker='o',
                       markersize=7,
                       linewidth=0,

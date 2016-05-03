@@ -333,7 +333,7 @@ class Initialization:
 
 class FitOpt:
 
-    def __init__(self,Normalize=True):
+    def __init__(self,Normalize=False):
         """
         Initialize options for the fitting
         """
@@ -351,7 +351,8 @@ class FitOpt:
         
 class FitInfo:
     def __init__(self,FunctionToCall,ParamVals,
-                 Initialization=Initialization(),FitOptions=FitOpt()):
+                 Initialization=Initialization(),FitOptions=FitOpt(),
+                 FunctionToPredict=None):
         """
         Args:
             FunctionToCall: function to call, must have signatrue 
@@ -365,11 +366,20 @@ class FitInfo:
 
             VaryObj: which parameters should be varied for the fit
             FitOptions: Instance of FitOpt, Related to how we perform the fit 
+
+            FunctionToPredict: some funciton (e.g. exponential) are much
+            more efficiently fit by a differnt function (e.g., logspace).
+            FunctionToPredict is a function with the same 
+            parameters, but used in the 'Predict' method, for predictng
+            actual values. If none, defaults to FunctionToCall
         """
         self.Model = FunctionToCall
         self.ParamVals = ParamVals
         self.FitOptions = FitOptions
         self.Initialization = Initialization
+        if (FunctionToPredict is None):
+            FunctionToPredict = FunctionToCall
+        self.FunctionToPredict = FunctionToPredict
     """
     The Following are helper functions that only make sense
     in the context of 'AddParamsGen', which lets us get
@@ -475,7 +485,7 @@ class FitReturnInfo:
         """
         params = self.Info.ParamVals.GetValueDict()
         norms = self.Info.FitOptions
-        model = self.Info.Model
+        model = self.Info.FunctionToPredict
         return model(xVals/norms.NormX,**params)/norms.NormY
     def __str__(self):
         return str(self.Info)

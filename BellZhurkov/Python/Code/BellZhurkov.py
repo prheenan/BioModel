@@ -48,10 +48,8 @@ def GenBellZurkovFit(Force,Rates,values,vary=None,
     Model = BellZhurkovLogModel
     mVals = BellParamValues(Vary=vary,Bounds=bounds,Values=values)
     Options = FitInfo(FunctionToCall=Model,ParamVals=mVals,
-                      Initialization=Initial)
+                      Initialization=Initial,FunctionToPredict=BellZhurkovModel)
     toRet =  FitMain.Fit(Force,np.log(Rates),Options)
-    # need to exponentiate, since we fitted to the log model
-    toRet.Prediction = np.exp(toRet.Prediction )
     return toRet
 
 
