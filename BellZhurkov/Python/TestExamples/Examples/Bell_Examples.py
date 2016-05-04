@@ -20,16 +20,13 @@ def RunWoodsideFigure6():
     See TestExamples.TestUtil.Bell_Test_Data.Woodside2014FoldingAndUnfoldingData
     """
     Forces,Folding,Unfolding = Data.Woodside2014FoldingAndUnfoldingData()
-    """
-
-    """
+    # everything in CGS initially
     GuessDict = dict(beta=1/(4.1e-21),
-                     k0=60,
+                     k0=300,
                      DeltaX=20e-9,
-                     DeltaG=(max(Forces)-min(Forces)))
+                     DeltaG=0)
     infFold = BellModel.GenBellZurkovFit(Forces,Folding,GuessDict)
     infUnfold = BellModel.GenBellZurkovFit(Forces,Unfolding,GuessDict)
-    print(infFold)
     # get predictions along a (slightly larger) x range
     xMin=11e-12
     xMax=15e-12

@@ -43,7 +43,7 @@ def GenBellZurkovFit(Force,Rates,values,vary=None,
                                DeltaG=[-np.inf,np.inf],
                                DeltaX=[-np.inf,np.inf])
     if (Initial is None):
-        Initial = Initialization(Type=Initialization.HOP,disp=False,
+        Initial = Initialization(Type=Initialization.GUESS,disp=False,
                                  stepsize=1e-9)
     Model = BellZhurkovLogModel
     mVals = BellParamValues(Vary=vary,Bounds=bounds,Values=values)
