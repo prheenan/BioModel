@@ -475,7 +475,7 @@ class FitReturnInfo:
         """
         self.Info = inf
         self.Prediction = PredictedData
-    def Predict(self,xVals):
+    def Predict(self,xVals,Normalize=False):
         """
         Given new x values, predicts our model
         
@@ -488,11 +488,15 @@ class FitReturnInfo:
         norms = self.Info.FitOptions
         # get a copy of the parameters
         paramObj = copy.deepcopy(self.Info.ParamVals)
-        xNorm = norms.NormX
-        yNorm = norms.NormY
-        # normalize the parameters
-        paramObj.NormalizeParams(xNorm,yNorm)
-        # get the values
+        if (normalize):
+            xNorm = norms.NormX
+            yNorm = norms.NormY
+            # normalize the parameters
+            paramObj.NormalizeParams(xNorm,yNorm)
+            # get the values
+        else:
+            xNorm =1
+            yNorm =1
         params = paramObj.GetValueDict()
         model = self.Info.FunctionToPredict
         return model(xVals/xNorm,**params)/yNorm

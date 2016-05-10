@@ -82,9 +82,9 @@ def run():
     """
     Runs some examples on the WLC fitting
     """
-    RunBasinHoping()
     RunWLCExample()
     BoundedWLCExample()
+    RunBasinHoping()
 
 if __name__ == "__main__":
     run()

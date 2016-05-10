@@ -176,5 +176,6 @@ def Fit(x,y,Options):
     finalInfo.FitOptions.SetNormCoeffs(xNormalization,
                                        yNormalization)
     # update the actual values and parameters; update the prediction scale
-    finalPrediction = finalInfo.FunctionToPredict(xScaled,**finalVals)
+    finalPrediction = finalInfo.FunctionToPredict(xScaled,**finalVals)*\
+                      yNormalization
     return FitReturnInfo(finalInfo,finalPrediction)
