@@ -29,16 +29,15 @@ def BellZhurkovLogModel(Force,beta,k0,DeltaG,DeltaX):
 def BellZhurkovModel(*args,**kwargs):
     return np.exp(BellZhurkovLogModel(*args,**kwargs))
 
-def GenBellZurkovFit(Force,Rates,values,vary=None,
-                     bounds=None,Initial=None):
-    Vary = lambda x: x is None
-    if (vary is None):
-        vary = dict(beta=False,
+def BellZurkovFit(Force,Rates,Values,Vary=None,
+                  Bounds=None,Initial=None):
+    if (Vary is None):
+        Vary = dict(beta=False,
                     k0=False,
                     DeltaG=True,
                     DeltaX=True)
-    if (bounds is None):
-        bounds = GetBoundsDict(beta=[0,np.inf],
+    if (Bounds is None):
+        Bounds = GetBoundsDict(beta=[0,np.inf],
                                k0=[0,np.inf],
                                DeltaG=[-np.inf,np.inf],
                                DeltaX=[-np.inf,np.inf])
@@ -46,7 +45,7 @@ def GenBellZurkovFit(Force,Rates,values,vary=None,
         Initial = Initialization(Type=Initialization.GUESS,disp=False,
                                  stepsize=1e-9)
     Model = BellZhurkovLogModel
-    mVals = BellParamValues(Vary=vary,Bounds=bounds,Values=values)
+    mVals = BellParamValues(Vary=Vary,Bounds=Bounds,Values=Values)
     Options = FitInfo(FunctionToCall=Model,ParamVals=mVals,
                       Initialization=Initial,FunctionToPredict=BellZhurkovModel)
     toRet =  FitMain.Fit(Force,np.log(Rates),Options)
