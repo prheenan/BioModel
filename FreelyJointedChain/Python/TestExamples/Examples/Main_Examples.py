@@ -16,22 +16,27 @@ def PlotSmith1996():
     # fit the data...
     Extension = Data.Extension
     Values = Data.Params.GetValueDict()
-    fit = FreelyJointedChainFit(Extension,Data.ForceWithNoise,Values=Values)
-    extFit = fit.Prediction
+    noiseForce = Data.ForceWithNoise
+    fit = FreelyJointedChainFit(Extension,noiseForce,Values=Values)
+    # now fit on a (relatively) uniform grid from low forst to high force
+    # use a 10x linear grid
+    n = noiseForce.size*10
+    forceGrid = np.linspace(noiseForce[0],noiseForce[-1],n)
+    # get the predictions
+    extGrid = fit.Predict(forceGrid)
     toMicrons = lambda x : x * 1e6
     toPn = lambda x: x * 1e12
     ext = toMicrons(Extension)
+    noiseForcePn = toPn(noiseForce)
     ylim = lambda :  plt.ylim(toPn(Data.ylim))
-    noiseForcePn = toPn(Data.ForceWithNoise)
     # plot the model and fit
     plt.subplot(2,1,1)
     plt.plot(ext,toPn(Data.Force))
-    plt.xlabel("Extension (microns)")
     plt.ylabel("Force (pN)")
     ylim()
     plt.subplot(2,1,2)
-    plt.plot(ext,noiseForcePn,'k',alpha=0.5)
-    plt.plot(toMicrons(extFit),noiseForcePn,'b--')
+    plt.plot(ext,noiseForcePn,'k',alpha=0.3)
+    plt.plot(toMicrons(extGrid),toPn(forceGrid),'b--',linewidth=2)
     plt.xlabel("Extension (microns)")
     plt.ylabel("Force (pN)")
     ylim()

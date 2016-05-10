@@ -7,7 +7,8 @@ import sys
 
 
 from collections import OrderedDict
-MACHINE_EPSILON = np.finfo(float).eps
+import copy
+# abstract base class
 import abc
 
 class BoundsObj:
@@ -483,10 +484,19 @@ class FitReturnInfo:
             we fit with
         Returns: prediction of the y values...
         """
-        params = self.Info.ParamVals.GetValueDict()
+        # get the fit options (for normalization)
         norms = self.Info.FitOptions
+        # get a copy of the parameters
+        paramObj = copy.deepcopy(self.Info.ParamVals)
+        xNorm = norms.NormX
+        yNorm = norms.NormY
+        # normalize the parameters
+        paramObj.NormalizeParams(xNorm,yNorm)
+        # get the values
+        params = paramObj.GetValueDict()
         model = self.Info.FunctionToPredict
-        return model(xVals/norms.NormX,**params)/norms.NormY
+        return model(xVals/xNorm,**params)/yNorm
+    
     def __str__(self):
         return str(self.Info)
 
