@@ -33,8 +33,6 @@ def RunWoodsideFigure6():
                Vary=vary)
     infFold = BellModel.BellZurkovFit(Forces,Folding,**opt)
     infUnfold = BellModel.BellZurkovFit(Forces,Unfolding,**opt)
-    print(infFold)
-    print(infUnfold)
     # get predictions along a (slightly larger) x range
     xMin=11e-12
     xMax=15e-12
