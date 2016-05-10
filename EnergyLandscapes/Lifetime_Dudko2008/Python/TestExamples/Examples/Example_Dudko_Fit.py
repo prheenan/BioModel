@@ -74,6 +74,22 @@ def run():
                   kbT=4.1e-21)
     kbT = 4.1e-21
     x = np.linspace(0,200)
+    """
+    Numbers from 
+    Dudko, Olga K., Gerhard Hummer, and Attila Szabo.
+    "Theory, Analysis, and Interpretation of Single-Molecule Force 
+    Spectroscopy Experiments."
+    Proceedings of the National Academy of Sciences 105, no. 41 
+    (October 14, 2008)
+
+    General interpretation (ie: conversion from x_tx  to V_tx) is from 4190 
+    ("Theory") section of :
+
+    Dudko, Olga K., et al
+    "Extracting Kinetics from Single-Molecule Force Spectroscopy:
+    Nanopore Unzipping of DNA Hairpins." 
+    Biophysical Journal 92 (June 15, 2007)
+    """
     y = DudkoModel(x,
                    tau0=14.3,
                    v=1/2,
