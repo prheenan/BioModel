@@ -488,7 +488,7 @@ class FitReturnInfo:
         norms = self.Info.FitOptions
         # get a copy of the parameters
         paramObj = copy.deepcopy(self.Info.ParamVals)
-        if (normalize):
+        if (Normalize):
             xNorm = norms.NormX
             yNorm = norms.NormY
             # normalize the parameters
