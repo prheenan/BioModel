@@ -21,7 +21,7 @@ def PlotSmith1996():
     # now fit on a (relatively) uniform grid from low forst to high force
     # use a 10x linear grid
     n = noiseForce.size*10
-    forceGrid = np.linspace(noiseForce[0],noiseForce[-1],n)
+    forceGrid = np.linspace(noiseForce[0],max(noiseForce),n)
     # get the predictions
     extGrid = fit.Predict(forceGrid)
     toMicrons = lambda x : x * 1e6
