@@ -26,7 +26,7 @@ class FJC_Data:
         minusOneToOne = (np.random.rand(self.N)-0.5)*2
         return self.Force + minusOneToOne * self.noise
 
-def Smith1996_Figure6(StepPn=0.1):
+def Smith1996_Figure6(StepPn=0.01):
     """
     Returns the data from figure 6 of 
 
@@ -43,7 +43,7 @@ def Smith1996_Figure6(StepPn=0.1):
     EndForcePn = 80
     Num = int(np.ceil(EndForcePn/StepPn))
     toPn = 1e-12
-    Force = np.linspace(StepPn,EndForcePn,Num) * toPn
+    Force = np.linspace(0,EndForcePn,Num) * toPn
     # parameter values from after last equation in ibid
     dictV = dict(L0=27e-6,
                  b_kuhn=15e-10,

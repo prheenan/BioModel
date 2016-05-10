@@ -28,18 +28,22 @@ def PlotSmith1996():
     toPn = lambda x: x * 1e12
     ext = toMicrons(Extension)
     noiseForcePn = toPn(noiseForce)
+    # functions to make the plots align
     ylim = lambda :  plt.ylim(toPn(Data.ylim))
+    xlim = lambda : plt.xlim(0,max(ext)*1.05)
     # plot the model and fit
     plt.subplot(2,1,1)
     plt.plot(ext,toPn(Data.Force))
     plt.ylabel("Force (pN)")
     ylim()
+    xlim()
     plt.subplot(2,1,2)
     plt.plot(ext,noiseForcePn,'k',alpha=0.3)
     plt.plot(toMicrons(extGrid),toPn(forceGrid),'b--',linewidth=2)
     plt.xlabel("Extension (microns)")
     plt.ylabel("Force (pN)")
     ylim()
+    xlim()
     plt.show()
 
 
