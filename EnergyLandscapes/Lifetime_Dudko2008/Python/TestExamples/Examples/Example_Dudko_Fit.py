@@ -9,6 +9,9 @@ import sys
 sys.path.append("../../../../../")
 from EnergyLandscapes.Lifetime_Dudko2008.Python.TestExamples.Util import \
     Example_Data
+from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko2008Lifetime import \
+    DudkoFit,DudkoModel
+
 
 def GetTimeIntegral(probabilities,forces,loads):
     """
@@ -41,23 +44,53 @@ def run():
     maxProb = np.max(np.concatenate(probArr))
     n = len(probArr)
     # try to make  the lifetime
-    j =-1
-    mTmp = probArr[j]
-    idxWhere = np.where(mTmp > 0)
-    mTmp = mTmp[idxWhere]
-    mForces = edges[idxWhere]
-    tmpLoad = data.LoadingRates[j]
-    print(tmpLoad)
-    loads = np.ones(mForces.size) * tmpLoad
-    lifetimes = GetTimeIntegral(mTmp,mForces,loads)
-    plt.semilogy(mForces,lifetimes,'bs')
-    plt.ylabel("Unzipping time, T(V)[s]")
-    plt.xlabel("Voltage, V [mV]")
-    plt.show()
     styles = [dict(color='b'),
               dict(color='g'),
               dict(color='y'),
               dict(color='r')]
+    times = []
+    voltages = []
+    for j in range(n):
+        mTmp = probArr[j]
+        idxWhere = np.where(mTmp > 0)
+        mTmp = mTmp[idxWhere]
+        mForces = edges[idxWhere]
+        tmpLoad = data.LoadingRates[j]
+        loads = np.ones(mForces.size) * tmpLoad
+        lifetimes = GetTimeIntegral(mTmp,mForces,loads)
+        plt.semilogy(mForces,lifetimes,'bs',**styles[j])
+        plt.ylabel("Unzipping time, T(V)[s]")
+        plt.xlabel("Voltage, V [mV]")
+        # XXX last point has time of 0?
+        times.extend(lifetimes[:-1])
+        voltages.extend(mForces[:-1])
+    times = np.array(times)
+    voltages = np.array(voltages)
+    idxSort = np.argsort(voltages)
+    Values = dict(tau0=1e-3,
+                  v=1/2.,
+                  x_tx=11e-3,
+                  DeltaG_tx=12 * 4.1e-21,
+                  kbT=4.1e-21)
+    kbT = 4.1e-21
+    x = np.linspace(0,200)
+    y = DudkoModel(x,
+                   tau0=14.3,
+                   v=1/2,
+                   x_tx=kbT/11.1,
+                   DeltaG_tx=11.9*kbT,
+                   kbT=kbT)
+    plt.plot(x,y)
+    print(y)
+    plt.show()
+    exit(1)
+    fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
+    print(fit.Info)
+    nFit = len(voltages) * 50
+    xArr = np.linspace(min(voltages)*0.9,max(voltages)*1.1,nFit)
+    predicted = fit.Predict(xArr)
+    plt.plot(xArr,predicted)
+    plt.show()
     for i,prob in enumerate(probArr):
         mStyle = styles[i]
         plt.subplot(n/2,n/2,(i+1))
