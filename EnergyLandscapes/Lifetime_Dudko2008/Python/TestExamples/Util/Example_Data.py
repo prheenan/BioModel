@@ -8,8 +8,20 @@ import sys
 from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko_Helper import \
     DudkoParamValues
 
+from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko_Helper import \
+    GetTimeIntegral
+
+from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko2008Lifetime import \
+    DudkoFit,DudkoModel
+
+class PlotOpt:
+    def __init__(self,xlabel,ylabel,ylim):
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        self.ylim = ylim
+
 class ExampleData:
-    def __init__(self,BinEdges,BinValues,LoadingRates,Params,rtol=0.1):
+    def __init__(self,BinEdges,BinValues,LoadingRates,Params,PlotOpt,rtol=0.1):
         """
         Records all the initial data. 
         """
@@ -18,14 +30,52 @@ class ExampleData:
         self.LoadingRates = LoadingRates
         self.ParamObj = DudkoParamValues(Values=Params)
         self.rtol=rtol
+        self.PlotOpt=PlotOpt
     @property
     def Params(self):
+        """
+        Returns the (expected) parameters as a dictionary of <name:values>
+        """
         return self.ParamObj.GetValueDict()
     def Validate(self,PredictedY,PredictedParams):
+        """
+        Validates the predicted y and parameters. Throws an assertion error
+        if it failes
+
+        Args:
+            PredictedY: the y values (lifetimes) predicted by the dudko method
+            PredictedParams: the predicted parameters, as a dictionary
+        """
         for key_exp,val_exp in self.Params.items():
             predicted = PredictedParams[key_exp]
             np.testing.assert_allclose(predicted,val_exp,
                                        atol=0,rtol=self.rtol)
+    def GetLifetimesAndVoltages(self):
+        """
+        Gets the Lifetimes and voltages for each loading rate, assuming the 
+        loading rate is constant (See dudko2008)
+
+        Returns:
+            tuple of <time,voltages>, where element [i] of time or voltage
+            corresponds to LoadingRates[i]
+        """
+        times = []
+        voltages = []
+        n = len(self.LoadingRates)
+        for j in range(n):
+            mTmp = self.Probabilities[j]
+            idxWhere = np.where(mTmp > 0)
+            mTmp = mTmp[idxWhere]
+            mForces = self.Edges[idxWhere]
+            tmpLoad = self.LoadingRates[j]
+            loads = np.ones(mForces.size) * tmpLoad
+            lifetimes = GetTimeIntegral(mTmp,mForces,loads)
+            # XXX last is 0?
+            times.append(lifetimes[:-1])
+            voltages.append(mForces[:-1])
+        return times,voltages
+
+        
             
 def Dudko2008Fig1_Probabilities():
     """
@@ -90,5 +140,95 @@ def Dudko2008Fig1_Probabilities():
                    x_tx=kbT/11.1,
                    DeltaG_tx=11.9*kbT,
                    kbT=kbT)
-    return ExampleData(edges,allHist,speeds,Params)
+    mOpt = PlotOpt(ylabel="Unzipping time, T(V)[s]",
+                   xlabel="Voltage (mV)",
+                   ylim=[1e-4,25])
+    return ExampleData(edges,allHist,speeds,Params,mOpt)
 
+
+def GetStyle(i):
+    """
+    Gets the style associated with the Dudko2008 plot
+
+    Args:
+        i: which style to get
+    Returns: 
+        dictionary of style parmaeters
+    """
+    styles = [dict(color='b',marker='s'),
+              dict(color='g',marker='v'),
+              dict(color='y',marker='d'),
+              dict(color='r',marker='*')]
+    n = len(styles)
+    return styles[i%n]
+
+
+def PlotLifetimesAndFit(data):
+    """
+    Makes a plot of lifetime versus force (or voltage)
+
+    Args:
+        data: the data to use, instance of ExampleData
+    Returns:
+        the figure handle made
+    """
+    # get the per-loading rate lifetimes
+    times,voltages = data.GetLifetimesAndVoltages()
+    fig = plt.figure()
+    # plot each loading rate 
+    for i,(mTimes,mForces) in enumerate(zip(times,voltages)):
+        style = GetStyle(i)
+        plt.semilogy(mForces,mTimes,linewidth=0,markersize=9,**style)
+        plt.ylabel(data.PlotOpt.ylabel)
+        plt.xlabel(data.PlotOpt.xlabel)
+    # concatenate everything for the fit 
+    times = np.concatenate(np.array(times))
+    voltages = np.concatenate(np.array(voltages))
+    idxSort = np.argsort(voltages)
+    Values = data.Params
+    maxX = max(voltages)
+    x = np.linspace(0,maxX)
+    y = DudkoModel(x,**Values)
+    # plot the expected values on top
+    plt.plot(x,y,label="Dudko Parameters")
+    plt.ylim(data.PlotOpt.ylim)
+    plt.xlim([0,maxX])
+    plt.title("Lifetime versus 'force' not well-modeled by Bell")
+    fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
+    yFit = DudkoModel(x,**fit.Info.ParamVals.GetValueDict())
+    # get the predicted (fitted) parametrs
+    params = fit.Info.ParamVals.GetValueDict()
+    # validate that the Dudko model gets things correct. 
+    data.Validate(fit.Prediction,params)
+    plt.plot(x,yFit,'r--',label="Fitted Parameters")
+    plt.legend()
+    return fig
+
+def PlotHistograms(data):
+    """
+    Makes a histogram of probability versus force
+
+    Args:
+        data: see PlotLifetimesAndFit
+    Returns:
+        the figure handle made
+    """
+    edges = data.Edges
+    probArr = data.Probabilities
+    times,voltages = data.GetLifetimesAndVoltages()
+    # concateate all the times and volages
+    times = np.concatenate(times)
+    voltages = np.concatenate(voltages)
+    maxProb = np.max(np.concatenate(probArr))
+    n = len(probArr)
+    nFit = len(voltages) * 50
+    fig = plt.figure()
+    for i,prob in enumerate(probArr):
+        mStyle = GetStyle(i)
+        plt.subplot(n/2,n/2,(i+1))
+        plt.bar(edges,prob,width=10,linewidth=0,color=mStyle['color'])
+        plt.ylim([0,maxProb*1.05])
+        if (i == 2):
+            plt.xlabel(data.PlotOpt.xlabel)
+            plt.ylabel("probability")
+    return fig
