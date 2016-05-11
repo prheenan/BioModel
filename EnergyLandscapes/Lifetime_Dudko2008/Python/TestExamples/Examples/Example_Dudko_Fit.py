@@ -95,14 +95,15 @@ def run():
     plt.plot(x,y)
     plt.ylim([1e-4,25])
     plt.xlim([0,205])
-    plt.show()
     fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
+    yFit = DudkoModel(x,**fit.Info.ParamVals.GetValueDict())
     print(fit.Info)
+    plt.plot(x,yFit,'r--')
+    plt.show()
+    
     nFit = len(voltages) * 50
     xArr = np.linspace(min(voltages)*0.9,max(voltages)*1.1,nFit)
     predicted = fit.Predict(xArr)
-    plt.plot(xArr,predicted)
-    plt.show()
     for i,prob in enumerate(probArr):
         mStyle = styles[i]
         plt.subplot(n/2,n/2,(i+1))

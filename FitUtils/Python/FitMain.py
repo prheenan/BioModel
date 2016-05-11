@@ -133,6 +133,10 @@ def Fit(x,y,Options):
                                **initObj.ParamDict)
         varyGuesses = obj.x
     elif (initObj.Type == Initialization.BRUTE):
+        # check and make sure the bounds are infinity
+        flatBounds = list(np.array(boundsBasin).flatten())
+        assert (None not in flatBounds) and (np.inf not in flatBounds) , \
+            "Brute force (grid) initialization method recquires closed bounds"
         # use the brute force method
         x0,fval,grid,jout= brute(toMin,ranges=boundsBasin,disp=False,
                                  full_output=True,
