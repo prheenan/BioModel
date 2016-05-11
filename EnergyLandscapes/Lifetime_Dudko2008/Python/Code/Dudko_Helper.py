@@ -29,6 +29,29 @@ class DudkoParamValues(FitClasses.ParamValues):
         return Params
                 
 
+def GetDudkoIntegral(probabilities,forces,loads):
+    """
+    Returns equation 10 from Dudko2008
+
+    Args:
+        probabilities: array, element i is the probabilities for a rupture in 
+        force bin forces[i]
+     
+        forces: array, element [i] is force bin i
+        loads: array, list of loading factors for each bin
+    Returns:
+        tuple of <tau,forces> where each is a list representing the non-zero
+        lifetimes obtained from equation 10.
+    """
+    DeltaF = np.median(np.diff(forces))
+    h = probabilities/DeltaF
+    WhereValid = np.where(h > 0)
+    h = h[WhereValid]
+    tauAtK = lambda k: (DeltaF/loads[k]) * (h[k]/2 + sum(h[k+1:]))/(h[k])
+    tau = np.array([tauAtK(k) for k in range(len(h))])
+    forces = forces[WhereValid] + DeltaF/2
+    return tau,forces
+    
 def GetTimeIntegral(probabilities,forces,loads):
     """
     Getting the lifetimes by equation 2, from Dudko2008. I do *not* use

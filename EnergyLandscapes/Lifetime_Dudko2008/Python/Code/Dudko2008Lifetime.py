@@ -62,11 +62,14 @@ def DudkoFit(Force,Rates,Values,Vary=None,
         kbT = Values['kbT']
         # XXX move to bounds guessing / reasonable bounds
         maxF = max(Force)
+        # a tength of a kT isnt much of a barrier; 20kT is a large barrier
+        # since covalent bonds are ~200-500 kJ/mol= O(500 kJ/mol), which is
+        # O(100 / 2.5 kT) = O(40 kT)
         minE = kbT/10
         maxE = kbT*20
         RawBounds = dict(tau0=[0.1,1e2],
                          v=[0,1],
-                         x_tx=[minE/maxF,maxE/maxF],
+                         x_tx=[0,maxE/maxF],
                          DeltaG_tx=[minE,maxE],
                          kbT=[0,np.inf])
         Bounds = GetBoundsDict(**RawBounds)

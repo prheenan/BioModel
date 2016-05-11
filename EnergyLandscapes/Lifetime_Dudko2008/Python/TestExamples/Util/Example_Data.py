@@ -6,10 +6,7 @@ import matplotlib.pyplot as plt
 import sys
 
 from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko_Helper import \
-    DudkoParamValues
-
-from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko_Helper import \
-    GetTimeIntegral
+    DudkoParamValues,GetDudkoIntegral,GetTimeIntegral
 
 from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko2008Lifetime import \
     DudkoFit,DudkoModel
@@ -65,15 +62,13 @@ class ExampleData:
         n = len(self.LoadingRates)
         for j in range(n):
             mTmp = self.Probabilities[j]
-            idxWhere = np.where(mTmp > 0)
-            mTmp = mTmp[idxWhere]
-            mForces = self.Edges[idxWhere]
+            mForces = self.Edges
             tmpLoad = self.LoadingRates[j]
             loads = np.ones(mForces.size) * tmpLoad
-            lifetimes = GetTimeIntegral(mTmp,mForces,loads)
+            lifetimes,mForces = GetDudkoIntegral(mTmp,mForces,loads)
             # XXX last is 0?
-            times.append(lifetimes[:-1])
-            voltages.append(mForces[:-1])
+            times.append(lifetimes)
+            voltages.append(mForces)
         return times,voltages
 
 def Dudko2008Fig2_Probabilities():
@@ -88,7 +83,7 @@ def Dudko2008Fig2_Probabilities():
     """
     # # Write down figure 2 histograms
     # first: edges are (roughly) 7pN apart, with 20 total (10mV/step)
-    edges =np.linspace(0,140,21) *1e-12
+    edges =np.linspace(0,120,21) *1e-12
     # below, I record the (rough) probabilities in each bin from zero.
     # I convert the probabilities to a 'percentage' (e.g. 0.01 -> 1),
     # to make it easier to write out
@@ -97,13 +92,13 @@ def Dudko2008Fig2_Probabilities():
     # 4.5V/s
     fig2a_400_nm_s = [0,0,2,4,20,40,50,38,1]
     # 12 V/s
-    fig2a_2000_nm_s  = [0,0,0,2,10,20,24,36,38,12,8]
+    fig2a_2000_nm_s  = [0,0,0,0,0,2,10,20,24,36,38,12,8]
     # 18 V/s
-    fig2a_4000_nm_s  = [0,0,0,1,10,12,24,30,40,30,20,6]
+    fig2a_4000_nm_s  = [0,0,0,0,0,1,1,4,11,22,26,34,28,18,4]
     # convertion to meters from nm
     toM = 1e-9
-    # stiffness is in pN/nm (0.3 pN/nm = 0.3 (e-12 N)/(1e-9 m)
-    stiffness_SI = (0.3e-12)/1e-9
+    # stiffness is in pN/nm (pN/nm = (1e-12 N)/(1e-9 m)
+    stiffness_SI = (0.2e-12)/1e-9
     # convert the speed to a loading rate just using stiffness
     # loading rate = Force/Time = Stiffness * Velocicty 
     # XXX should convert the loading rate by equation [4]
@@ -266,18 +261,20 @@ def PlotLifetimesAndFit(data):
     idxSort = np.argsort(voltages)
     Values = data.Params
     maxX = max(voltages)
+    maxInPlotUnits = ConvertFuncX(maxX)
     x = np.linspace(0,maxX)
     y = DudkoModel(x,**Values)
     # plot the expected values on top
     plt.plot(ConvertFuncX(x),y,label="Dudko Parameters")
     plt.ylim(data.PlotOpt.ylim)
-    plt.xlim([0,ConvertFuncX(maxX)])
+    plt.xlim([0,maxInPlotUnits*1.05])
     plt.title("Lifetime versus 'force' not well-modeled by Bell")
     fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
     yFit = DudkoModel(x,**fit.Info.ParamVals.GetValueDict())
     # get the predicted (fitted) parametrs
     params = fit.Info.ParamVals.GetValueDict()
-    # validate that the Dudko model gets things correct. 
+    # validate that the Dudko model gets things correct.
+    # XXX fix 
     #data.Validate(fit.Prediction,params)
     plt.plot(ConvertFuncX(x),yFit,'r--',label="Fitted Parameters")
     plt.legend()
@@ -292,7 +289,8 @@ def PlotHistograms(data):
     Returns:
         the figure handle made
     """
-    edges = data.Edges
+    # immediately convert to whatever units we want to use
+    edges = data.PlotOpt.ConvertX(data.Edges)
     probArr = data.Probabilities
     times,voltages = data.GetLifetimesAndVoltages()
     width = np.median(np.diff(edges))
@@ -303,6 +301,7 @@ def PlotHistograms(data):
     n = len(probArr)
     nFit = len(voltages) * 50
     fig = plt.figure()
+    xlim = lambda : plt.xlim([0,max(edges)*1.05])
     for i,prob in enumerate(probArr):
         mStyle = GetStyle(i)
         plt.subplot(n/2,n/2,(i+1))
@@ -311,4 +310,5 @@ def PlotHistograms(data):
         if (i == 2):
             plt.xlabel(data.PlotOpt.xlabel)
             plt.ylabel("probability")
+        xlim()
     return fig

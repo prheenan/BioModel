@@ -20,12 +20,13 @@ def run():
     """
 
     """
-    # figure 2 frm dudko 2008
-    data = Example_Data.Dudko2008Fig2_Probabilities()
-    PlotFit(data,"../Out/Dudko2008_Fig2")
     # figure 1 from dudko 2008
     data = Example_Data.Dudko2008Fig1_Probabilities()
     PlotFit(data,"../Out/Dudko2008_Fig1")
+    # figure 2 frm dudko 2008
+    data = Example_Data.Dudko2008Fig2_Probabilities()
+    PlotFit(data,"../Out/Dudko2008_Fig2")
+
 
 
 
