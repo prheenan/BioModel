@@ -12,27 +12,8 @@ from EnergyLandscapes.Lifetime_Dudko2008.Python.TestExamples.Util import \
 from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko2008Lifetime import \
     DudkoFit,DudkoModel
 
-
-def GetTimeIntegral(probabilities,forces,loads):
-    """
-    Getting the lifetimes by equation 2, from Dudko2008. I do *not* use
-    the method they suggest (10), since we can do the numerical integral a 
-    little better by using trapezoids
-
-    Args:
-        probabilities: array of probabilites; element [i] is probablity 
-        to rupture at force forces[i]. y axis of (e.g) Dudko2008 Figure 1a
-
-        forces: array of rupture 'forces' or similiar (e.g. x axis of ibid
-        is voltage). Element [i] corresponds to rupture associated with probs[i]
-
-        Load: array of 'loading rate' (units of forces/time), e.g. label
-        of ibid 
-    """
-    lifetimes = [np.trapz(y=probabilities[i:]/(probabilities[i]*loads[i]),
-                          x=forces[i:])
-                 for i in range(probabilities.size)]
-    return lifetimes
+from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko_Helper import \
+    GetTimeIntegral
 
 def run():
     """
@@ -68,39 +49,18 @@ def run():
     times = np.array(times)
     voltages = np.array(voltages)
     idxSort = np.argsort(voltages)
-    kbT = 4.1e-21
+    Values = data.Params
     x = np.linspace(0,200)
-    """
-    Numbers from 
-    Dudko, Olga K., Gerhard Hummer, and Attila Szabo.
-    "Theory, Analysis, and Interpretation of Single-Molecule Force 
-    Spectroscopy Experiments."
-    Proceedings of the National Academy of Sciences 105, no. 41 
-    (October 14, 2008)
-
-    General interpretation (ie: conversion from x_tx  to V_tx) is from 4190 
-    ("Theory") section of :
-
-    Dudko, Olga K., et al
-    "Extracting Kinetics from Single-Molecule Force Spectroscopy:
-    Nanopore Unzipping of DNA Hairpins." 
-    Biophysical Journal 92 (June 15, 2007)
-    """
-    Values = dict(tau0=14.3,
-                   v=1/2,
-                   x_tx=kbT/11.1,
-                   DeltaG_tx=11.9*kbT,
-                   kbT=kbT)
     y = DudkoModel(x,**Values)
     plt.plot(x,y)
     plt.ylim([1e-4,25])
     plt.xlim([0,205])
     fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
     yFit = DudkoModel(x,**fit.Info.ParamVals.GetValueDict())
-    print(fit.Info)
+    params = fit.Info.ParamVals.GetValueDict()
+    data.Validate(fit.Prediction,params)
     plt.plot(x,yFit,'r--')
     plt.show()
-    
     nFit = len(voltages) * 50
     xArr = np.linspace(min(voltages)*0.9,max(voltages)*1.1,nFit)
     predicted = fit.Predict(xArr)

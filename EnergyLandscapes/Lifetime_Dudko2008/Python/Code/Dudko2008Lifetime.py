@@ -64,7 +64,7 @@ def DudkoFit(Force,Rates,Values,Vary=None,
         maxF = max(Force)
         minE = kbT/10
         maxE = kbT*20
-        RawBounds = dict(tau0=[0,1e2],
+        RawBounds = dict(tau0=[0.1,1e2],
                          v=[0,1],
                          x_tx=[minE/maxF,maxE/maxF],
                          DeltaG_tx=[minE,maxE],

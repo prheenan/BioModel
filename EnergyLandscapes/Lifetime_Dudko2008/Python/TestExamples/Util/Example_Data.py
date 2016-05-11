@@ -5,12 +5,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko_Helper import \
+    DudkoParamValues
+
 class ExampleData:
-    def __init__(self,BinEdges,BinValues,LoadingRates):
+    def __init__(self,BinEdges,BinValues,LoadingRates,Params,rtol=0.1):
+        """
+        Records all the initial data. 
+        """
         self.Probabilities = BinValues
         self.Edges = BinEdges
         self.LoadingRates = LoadingRates
-
+        self.ParamObj = DudkoParamValues(Values=Params)
+        self.rtol=rtol
+    @property
+    def Params(self):
+        return self.ParamObj.GetValueDict()
+    def Validate(self,PredictedY,PredictedParams):
+        for key_exp,val_exp in self.Params.items():
+            predicted = PredictedParams[key_exp]
+            np.testing.assert_allclose(predicted,val_exp,
+                                       atol=0,rtol=self.rtol)
+            
 def Dudko2008Fig1_Probabilities():
     """
     Function to get the dudko values
@@ -48,19 +64,31 @@ def Dudko2008Fig1_Probabilities():
         histFull  /= sumV
         allHist.append(histFull)
         speeds.append(speed)
-    return ExampleData(edges,allHist,speeds)
-
-def run():
+    # now get the expected parameters from fitting
     """
-    <Description>
+    Actual numbers from
+    Dudko, Olga K., Gerhard Hummer, and Attila Szabo.
+    "Theory, Analysis, and Interpretation of Single-Molecule Force 
+    Spectroscopy Experiments."
+    Proceedings of the National Academy of Sciences 105, no. 41 
+    (October 14, 2008)
 
-    Args:
-        param1: This is the first param.
-    
-    Returns:
-        This is a description of what is returned.
+    General interpretation (ie: conversion from x_tx  to V_tx) is from 4190 
+    ("Theory") section of :
+
+    Dudko, Olga K., et al
+    "Extracting Kinetics from Single-Molecule Force Spectroscopy:
+    Nanopore Unzipping of DNA Hairpins." 
+    Biophysical Journal 92 (June 15, 2007)
     """
-    pass
+    kbT = 4.1e-21
+    Params = dict(tau0=14.3,
+                   v=1/2,
+                  # see pp 4190, since F=V (ie: we use voltage analogously)
+                  # Beta * x_tx = 1/V_tx
+                  # and V_tx = 11.1mV (everything is in mV)
+                   x_tx=kbT/11.1,
+                   DeltaG_tx=11.9*kbT,
+                   kbT=kbT)
+    return ExampleData(edges,allHist,speeds,Params)
 
-if __name__ == "__main__":
-    run()
