@@ -10,17 +10,23 @@ sys.path.append("../../../../../")
 from EnergyLandscapes.Lifetime_Dudko2008.Python.TestExamples.Util import \
     Example_Data
 
-
-
+def PlotFit(data,BaseName):
+    fig = Example_Data.PlotHistograms(data)
+    fig.savefig(BaseName + "_Histogram.png")
+    fig = Example_Data.PlotLifetimesAndFit(data)
+    fig.savefig(BaseName + "_Lifetimes.png")
+    
 def run():
     """
 
     """
+    # figure 2 frm dudko 2008
+    data = Example_Data.Dudko2008Fig2_Probabilities()
+    PlotFit(data,"../Out/Dudko2008_Fig2")
+    # figure 1 from dudko 2008
     data = Example_Data.Dudko2008Fig1_Probabilities()
-    fig = Example_Data.PlotLifetimesAndFit(data)
-    fig.savefig("../out/Dudko2008Fig1_Lifetimes.png")
-    fig = Example_Data.PlotHistograms(data)
-    fig.savefig("../out/Dudko2008Fig1_Histogram.png")
+    PlotFit(data,"../Out/Dudko2008_Fig1")
+
 
 
 if __name__ == "__main__":

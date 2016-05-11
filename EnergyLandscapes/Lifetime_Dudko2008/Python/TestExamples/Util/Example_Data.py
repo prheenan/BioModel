@@ -92,20 +92,36 @@ def Dudko2008Fig2_Probabilities():
     # I convert the probabilities to a 'percentage' (e.g. 0.01 -> 1),
     # to make it easier to write out
     # 200nm/s, y values
-    fig2a_200nm_s = [0,0,4,16,36,6,34,4]
+    fig2a_200_nm_s = [0,0,4,16,36,60,34,4]
     # 4.5V/s
-    fig2a_400nm_s = [0,0,2,4,20,40,50,38,1]
+    fig2a_400_nm_s = [0,0,2,4,20,40,50,38,1]
     # 12 V/s
-    fig2a_2000_nm_s  = [0,0,0,2,10,2,24,36,38,12,8]
+    fig2a_2000_nm_s  = [0,0,0,2,10,20,24,36,38,12,8]
     # 18 V/s
     fig2a_4000_nm_s  = [0,0,0,1,10,12,24,30,40,30,20,6]
-    plotsAndSpeeds = [ [fig2a_200nm_s,200],
-                       [fig2a_400nm_s,400],
-                       [fig2a_2000nm_s,2000],
-                       [fig2a_4000nm_s,4000]]
+    # convertion to meters from nm
+    toM = 1e-9
+    # stiffness is in pN * nm
+    stiffness_SI = (0.3e-12)/1e-9
+    # convert the speed to a loading rate just using stiffness
+    # XXX should convert the loading rate by equation [4]
+    toRupture = lambda x: x*toM/stiffness_SI
+    plotsAndSpeeds = [ [fig2a_200_nm_s,toRupture(200)],
+                       [fig2a_400_nm_s,toRupture(400)],
+                       [fig2a_2000_nm_s,toRupture(2000)],
+                       [fig2a_4000_nm_s,toRupture(4000)]]
     allHist,speeds = GetLoadsAndSpeed(edges, plotsAndSpeeds)
-    # convert the loading rate by equation [4]
-    # XXX ..
+    kbT = 4.1e-21
+    Params = dict(tau0=120,
+                  v=1/2,
+                  x_tx=1.1e-9,
+                  DeltaG_tx=15*kbT,
+                  kbT=kbT)
+    mOpt = PlotOpt(ylabel="Unzipping time, T(F)[s]",
+                   xlabel="Force (pN)",
+                   ylim=[1e-4,150])
+    return ExampleData(edges,allHist,speeds,Params,mOpt)
+    
     
 def GetLoadsAndSpeed(edges, plotsAndSpeeds):
     """
