@@ -44,12 +44,13 @@ def run():
     maxProb = np.max(np.concatenate(probArr))
     n = len(probArr)
     # try to make  the lifetime
-    styles = [dict(color='b'),
-              dict(color='g'),
-              dict(color='y'),
-              dict(color='r')]
+    styles = [dict(color='b',marker='s'),
+              dict(color='g',marker='v'),
+              dict(color='y',marker='d'),
+              dict(color='r',marker='*')]
     times = []
     voltages = []
+    # XXX TODO: break up rupture forces etc. 
     for j in range(n):
         mTmp = probArr[j]
         idxWhere = np.where(mTmp > 0)
@@ -58,20 +59,15 @@ def run():
         tmpLoad = data.LoadingRates[j]
         loads = np.ones(mForces.size) * tmpLoad
         lifetimes = GetTimeIntegral(mTmp,mForces,loads)
-        plt.semilogy(mForces,lifetimes,'bs',**styles[j])
+        plt.semilogy(mForces,lifetimes,'bs',markersize=9,**styles[j])
         plt.ylabel("Unzipping time, T(V)[s]")
         plt.xlabel("Voltage, V [mV]")
-        # XXX last point has time of 0?
+        # XXX last is 0?
         times.extend(lifetimes[:-1])
         voltages.extend(mForces[:-1])
     times = np.array(times)
     voltages = np.array(voltages)
     idxSort = np.argsort(voltages)
-    Values = dict(tau0=1e-3,
-                  v=1/2.,
-                  x_tx=11e-3,
-                  DeltaG_tx=12 * 4.1e-21,
-                  kbT=4.1e-21)
     kbT = 4.1e-21
     x = np.linspace(0,200)
     """
@@ -90,16 +86,16 @@ def run():
     Nanopore Unzipping of DNA Hairpins." 
     Biophysical Journal 92 (June 15, 2007)
     """
-    y = DudkoModel(x,
-                   tau0=14.3,
+    Values = dict(tau0=14.3,
                    v=1/2,
                    x_tx=kbT/11.1,
                    DeltaG_tx=11.9*kbT,
                    kbT=kbT)
+    y = DudkoModel(x,**Values)
     plt.plot(x,y)
-    print(y)
+    plt.ylim([1e-4,25])
+    plt.xlim([0,205])
     plt.show()
-    exit(1)
     fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
     print(fit.Info)
     nFit = len(voltages) * 50
@@ -110,7 +106,7 @@ def run():
     for i,prob in enumerate(probArr):
         mStyle = styles[i]
         plt.subplot(n/2,n/2,(i+1))
-        plt.bar(edges,prob,width=10,linewidth=0,**mStyle)
+        plt.bar(edges,prob,width=10,linewidth=0,color=mStyle['color'])
         plt.ylim([0,maxProb*1.05])
         if (i == 2):
             plt.xlabel("unzipping voltage [mV]")

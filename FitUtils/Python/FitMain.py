@@ -134,14 +134,13 @@ def Fit(x,y,Options):
         varyGuesses = obj.x
     elif (initObj.Type == Initialization.BRUTE):
         # use the brute force method
-        # XXX fix, ham-fisting this...
         x0,fval,grid,jout= brute(toMin,ranges=boundsBasin,disp=False,
                                  full_output=True,
                                  *initObj.Args,**initObj.ParamDict)
         Options.Initialization.SetInitializationInfo(x0=x0,
-                                                        fval=fval,
-                                                        grid=grid,
-                                                        jout=jout)
+                                                     fval=fval,
+                                                     grid=grid,
+                                                     jout=jout)
         varyGuesses = x0
     # now, set up a slightly better-quality fit, based on the local minima
     # that the basin-hopping function
