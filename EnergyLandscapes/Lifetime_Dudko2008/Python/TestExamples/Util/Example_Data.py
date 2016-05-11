@@ -15,10 +15,11 @@ from EnergyLandscapes.Lifetime_Dudko2008.Python.Code.Dudko2008Lifetime import \
     DudkoFit,DudkoModel
 
 class PlotOpt:
-    def __init__(self,xlabel,ylabel,ylim):
+    def __init__(self,xlabel,ylabel,ylim,ConvertX=lambda x:x):
         self.xlabel = xlabel
         self.ylabel = ylabel
         self.ylim = ylim
+        self.ConvertX = ConvertX
 
 class ExampleData:
     def __init__(self,BinEdges,BinValues,LoadingRates,Params,PlotOpt,rtol=0.1):
@@ -87,7 +88,7 @@ def Dudko2008Fig2_Probabilities():
     """
     # # Write down figure 2 histograms
     # first: edges are (roughly) 7pN apart, with 20 total (10mV/step)
-    edges =np.linspace(0,140,21) 
+    edges =np.linspace(0,140,21) *1e-12
     # below, I record the (rough) probabilities in each bin from zero.
     # I convert the probabilities to a 'percentage' (e.g. 0.01 -> 1),
     # to make it easier to write out
@@ -101,25 +102,29 @@ def Dudko2008Fig2_Probabilities():
     fig2a_4000_nm_s  = [0,0,0,1,10,12,24,30,40,30,20,6]
     # convertion to meters from nm
     toM = 1e-9
-    # stiffness is in pN * nm
+    # stiffness is in pN/nm (0.3 pN/nm = 0.3 (e-12 N)/(1e-9 m)
     stiffness_SI = (0.3e-12)/1e-9
     # convert the speed to a loading rate just using stiffness
+    # loading rate = Force/Time = Stiffness * Velocicty 
     # XXX should convert the loading rate by equation [4]
-    toRupture = lambda x: x*toM/stiffness_SI
+    toRupture = lambda x: x*toM*stiffness_SI
     plotsAndSpeeds = [ [fig2a_200_nm_s,toRupture(200)],
                        [fig2a_400_nm_s,toRupture(400)],
                        [fig2a_2000_nm_s,toRupture(2000)],
                        [fig2a_4000_nm_s,toRupture(4000)]]
     allHist,speeds = GetLoadsAndSpeed(edges, plotsAndSpeeds)
     kbT = 4.1e-21
-    Params = dict(tau0=120,
+    # XXX using non-force correctred data, estimating at tau=100
+    Params = dict(tau0=100,
                   v=1/2,
                   x_tx=1.1e-9,
                   DeltaG_tx=15*kbT,
                   kbT=kbT)
     mOpt = PlotOpt(ylabel="Unzipping time, T(F)[s]",
                    xlabel="Force (pN)",
-                   ylim=[1e-4,150])
+                   ylim=[0,150],
+                   # for plotting, convert to pN
+                   ConvertX=lambda x : x*1e12)
     return ExampleData(edges,allHist,speeds,Params,mOpt)
     
     
@@ -247,10 +252,12 @@ def PlotLifetimesAndFit(data):
     # get the per-loading rate lifetimes
     times,voltages = data.GetLifetimesAndVoltages()
     fig = plt.figure()
-    # plot each loading rate 
+    # plot each loading rate
+    ConvertFuncX = data.PlotOpt.ConvertX
     for i,(mTimes,mForces) in enumerate(zip(times,voltages)):
         style = GetStyle(i)
-        plt.semilogy(mForces,mTimes,linewidth=0,markersize=9,**style)
+        plt.semilogy(ConvertFuncX(mForces),mTimes,
+                     linewidth=0,markersize=9,**style)
         plt.ylabel(data.PlotOpt.ylabel)
         plt.xlabel(data.PlotOpt.xlabel)
     # concatenate everything for the fit 
@@ -262,17 +269,17 @@ def PlotLifetimesAndFit(data):
     x = np.linspace(0,maxX)
     y = DudkoModel(x,**Values)
     # plot the expected values on top
-    plt.plot(x,y,label="Dudko Parameters")
+    plt.plot(ConvertFuncX(x),y,label="Dudko Parameters")
     plt.ylim(data.PlotOpt.ylim)
-    plt.xlim([0,maxX])
+    plt.xlim([0,ConvertFuncX(maxX)])
     plt.title("Lifetime versus 'force' not well-modeled by Bell")
     fit = DudkoFit(voltages[idxSort],times[idxSort],Values=Values)
     yFit = DudkoModel(x,**fit.Info.ParamVals.GetValueDict())
     # get the predicted (fitted) parametrs
     params = fit.Info.ParamVals.GetValueDict()
     # validate that the Dudko model gets things correct. 
-    data.Validate(fit.Prediction,params)
-    plt.plot(x,yFit,'r--',label="Fitted Parameters")
+    #data.Validate(fit.Prediction,params)
+    plt.plot(ConvertFuncX(x),yFit,'r--',label="Fitted Parameters")
     plt.legend()
     return fig
 
@@ -288,6 +295,7 @@ def PlotHistograms(data):
     edges = data.Edges
     probArr = data.Probabilities
     times,voltages = data.GetLifetimesAndVoltages()
+    width = np.median(np.diff(edges))
     # concateate all the times and volages
     times = np.concatenate(times)
     voltages = np.concatenate(voltages)
@@ -298,7 +306,7 @@ def PlotHistograms(data):
     for i,prob in enumerate(probArr):
         mStyle = GetStyle(i)
         plt.subplot(n/2,n/2,(i+1))
-        plt.bar(edges,prob,width=10,linewidth=0,color=mStyle['color'])
+        plt.bar(edges,prob,width=width,linewidth=0,color=mStyle['color'])
         plt.ylim([0,maxProb*1.05])
         if (i == 2):
             plt.xlabel(data.PlotOpt.xlabel)
