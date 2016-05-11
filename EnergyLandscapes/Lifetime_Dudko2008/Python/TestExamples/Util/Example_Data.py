@@ -75,11 +75,78 @@ class ExampleData:
             voltages.append(mForces[:-1])
         return times,voltages
 
-        
-            
+def Dudko2008Fig2_Probabilities():
+    """
+    Function to get the dudko values from Figure 2 (Forces)
+
+    Dudko, Olga K., Gerhard Hummer, and Attila Szabo.
+    "Theory, Analysis, and Interpretation of Single-Molecule Force 
+    Spectroscopy Experiments."
+    Proceedings of the National Academy of Sciences 105, no. 41 
+    (October 14, 2008)
+    """
+    # # Write down figure 2 histograms
+    # first: edges are (roughly) 7pN apart, with 20 total (10mV/step)
+    edges =np.linspace(0,140,21) 
+    # below, I record the (rough) probabilities in each bin from zero.
+    # I convert the probabilities to a 'percentage' (e.g. 0.01 -> 1),
+    # to make it easier to write out
+    # 200nm/s, y values
+    fig2a_200nm_s = [0,0,4,16,36,6,34,4]
+    # 4.5V/s
+    fig2a_400nm_s = [0,0,2,4,20,40,50,38,1]
+    # 12 V/s
+    fig2a_2000_nm_s  = [0,0,0,2,10,2,24,36,38,12,8]
+    # 18 V/s
+    fig2a_4000_nm_s  = [0,0,0,1,10,12,24,30,40,30,20,6]
+    plotsAndSpeeds = [ [fig2a_200nm_s,200],
+                       [fig2a_400nm_s,400],
+                       [fig2a_2000nm_s,2000],
+                       [fig2a_4000nm_s,4000]]
+    allHist,speeds = GetLoadsAndSpeed(edges, plotsAndSpeeds)
+    # convert the loading rate by equation [4]
+    # XXX ..
+    
+def GetLoadsAndSpeed(edges, plotsAndSpeeds):
+    """
+    Given a list of loading rate and count measurements, gets the normalized
+    histograms
+
+    Args:
+        edge: all of the 'x' values for the histogram (E.g. force or voltage
+        bin edges) 
+
+        plotsAndSpeeds: list: each element is a tuple; element 0 of the tuple 
+        is a (not necessarily normalized) distribution of rupture probabilities,
+        starting from 0, and continuing until 0
+    returns:
+        tuple of <list of histograms (one per loading rate),
+    list of loading rates>
+    """
+    allHist = []
+    speeds = []
+    # get the normalized histograms
+    for hist,speed in plotsAndSpeeds:
+        hist = np.array(hist)
+        histFull = np.zeros(edges.size)
+        histFull[:hist.size] = hist
+        # normalize everything to one
+        sumV = sum(histFull)
+        histFull  /= sumV
+        allHist.append(histFull)
+        speeds.append(speed)
+    return allHist,speeds
+    
 def Dudko2008Fig1_Probabilities():
     """
-    Function to get the dudko values
+    Function to get the dudko values from Figure 1 (nanopore)
+
+    Dudko, Olga K., Gerhard Hummer, and Attila Szabo.
+    "Theory, Analysis, and Interpretation of Single-Molecule Force 
+    Spectroscopy Experiments."
+    Proceedings of the National Academy of Sciences 105, no. 41 
+    (October 14, 2008)
+
     """
     # # Write down figure 1 histograms
     # first: edges are (roughly) 10mV apart, with 20 total (10mV/step)
@@ -102,18 +169,7 @@ def Dudko2008Fig1_Probabilities():
                        [fig1a_4p5,4.5e3],
                        [fig1a_12,12e3],
                        [fig1a_18 ,18e3]]
-    allHist = []
-    speeds = []
-    # get the normalized histograms
-    for hist,speed in plotsAndSpeeds:
-        hist = np.array(hist)
-        histFull = np.zeros(edges.size)
-        histFull[:hist.size] = hist
-        # normalize everything to one
-        sumV = sum(histFull)
-        histFull  /= sumV
-        allHist.append(histFull)
-        speeds.append(speed)
+    allHist,speeds = GetLoadsAndSpeed(edges, plotsAndSpeeds)
     # now get the expected parameters from fitting
     """
     Actual numbers from
