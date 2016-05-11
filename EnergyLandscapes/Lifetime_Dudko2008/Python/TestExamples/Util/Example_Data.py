@@ -38,6 +38,7 @@ def Dudko2008Fig1_Probabilities():
                        [fig1a_18 ,18e3]]
     allHist = []
     speeds = []
+    # get the normalized histograms
     for hist,speed in plotsAndSpeeds:
         hist = np.array(hist)
         histFull = np.zeros(edges.size)
