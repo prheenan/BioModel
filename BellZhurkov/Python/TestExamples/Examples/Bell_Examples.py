@@ -19,8 +19,10 @@ def RunWoodsideFigure6():
 
     See TestExamples.TestUtil.Bell_Test_Data.Woodside2014FoldingAndUnfoldingData
     """
-    Forces,Folding,Unfolding = Data.Woodside2014FoldingAndUnfoldingData()
-    # everything in CGS initially
+    BellData = Data.Woodside2014FoldingAndUnfoldingData()
+    Forces,Folding,Unfolding = (BellData.Forces,BellData.RatesFold,
+                                BellData.RatesUnfold)
+    # everything in SI initially
     vary = dict(beta=False,
                 k0=False,
                 DeltaG=True,
@@ -63,10 +65,29 @@ def RunWoodsideFigure6():
     plt.legend(loc='lower center')
     fig.savefig("./Woodside2016_Figure6.png")
 
+def RunSchlierf2006Figure1a():
+    DataToTest = Data.Schlierf2006Figure1a()
+    Forces,Folding = (DataToTest.Forces,DataToTest.RatesFold)
+    print(Forces,Folding)
+    # everything in SI initially
+    vary = dict(beta=False,
+                k0=True,
+                DeltaG=False,
+                DeltaX=True)
+    GuessDict = dict(beta=1/(4.1e-21),
+                     k0=0.35,
+                     DeltaX=5e-10,
+                     DeltaG=0)
+    opt = dict(Values=GuessDict,
+               Vary=vary)
+    infFold = BellModel.BellZurkovFit(Forces,Folding,**opt)
+    print(infFold)
+    
 def run():
     """
     Runs examples of the Bell-Zhurkov Model
     """
+    RunSchlierf2006Figure1a()
     RunWoodsideFigure6()
     
 if __name__ == "__main__":

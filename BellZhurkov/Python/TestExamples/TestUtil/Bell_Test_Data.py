@@ -5,6 +5,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+class BellData:
+    def __init__(self,forces,RatesFold,RatesUnfold=None):
+        self.Forces = forces
+        self.RatesFold = RatesFold
+        self.RatesUnfold=RatesUnfold
+
+def Schlierf2006Figure1a():
+    """
+    From 
+
+    Schlierf, Michael, and Matthias Rief. 
+    "Single-Molecule Unfolding Force Distributions Reveal a Funnel-Shaped 
+    Energy Landscape." 
+    Biophysical Journal 90, no. 4 (February 15, 2006)
+    """
+    # pulling velocities (x axis of figure 1a) 
+    Velocities = np.array([0.2,0.4,0.8,2,4]) * 1e-6
+    # unfolding forces (y axis of figure 1a)
+    UnfoldingForces = np.array([42,46,52,62,68]) * 1e-12
+    return BellData(UnfoldingForces,Velocities)
+
 def Woodside2014FoldingAndUnfoldingData():
     """
     From: 
@@ -46,4 +67,4 @@ def Woodside2014FoldingAndUnfoldingData():
     Folding = yf * np.exp( -forceOffset/tauFold )
     # unfolding is increasing / growing / *doesnt have* minus sign
     Unfolding = yi * np.exp( forceOffset/tauUnfold)
-    return Forces*1e-12,Folding,Unfolding
+    return BellData(Forces*1e-12,Folding,Unfolding)
