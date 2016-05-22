@@ -7,6 +7,7 @@ import sys
 
 from scipy.integrate import cumtrapz
 import itertools
+from collections import defaultdict
 
 
 class FEC_Pulling_Object:
@@ -44,27 +45,29 @@ class FEC_Pulling_Object:
         """
         return self.SpringConstant,self.Velocity,self.Time,self.Extension
     def SetMyWork(self):
-        self.Work = GetWork(*self.GetWorkArgs())
-    def GetDigitizedWork(self,Bins):
+        self.Work = GetWork(self)
+    def GetDigitizedWork(self,BinTime,BinExt):
         """
         Gets the digitized work (averaged in a bin), given the Bins
 
         Args:
-            Bins: the position binning to use
+            BinTime: the time binning to use
+            BinExt: the extension binning to use
         Returns: 
-            The digitized work W, where W[i] is a list of Work values associated
-            with Bins[i]
+            The digitized boltman matrix exp(-Beta*W), 
+            where W[i][j] is a *list* of Work values associated with BinTime[i]
+            and BinExt[j]
         """
-        N = Bins.size
-        IdxBinned = np.digitize(self.Extension,bins=Bins)-1
-        # slow, but works: get a list of list, append all the works.
-        ToRet = [[] for i in range(N)]
-        for i,idx in enumerate(IdxBinned):
-            print(self.Work[i])
-            print(idx,len(ToRet))
-            ToRet[idx].append(self.Work[i])
-        print(ToRet)
-        return ToRet
+        NumTimes = BinTime.size
+        NumExt = BinExt.size
+        IdxExtArr = np.digitize(self.Extension,bins=BinExt)-1
+        IdxTimeArr = np.digitize(self.Time,bins=BinTime)-1
+        DigitzedMatrix = defaultdict(lambda : defaultdict(list))
+        BoltzmanFactors = np.exp(-self.Beta*self.Work)
+        for i,idx_ext in enumerate(IdxExtArr):
+            idx_time = IdxTimeArr[i]
+            DigitzedMatrix[idx_time][idx_ext].append(BoltzmanFactors[i])
+        return DigitzedMatrix
 
 
 def CummulativeWorkIntegral(Times,Extension):
@@ -76,15 +79,15 @@ def CummulativeWorkIntegral(Times,Extension):
     Args:
         Times: array of times to cummulatively integrate the extension. Units of
         [Work]/([stifffness]*[velocity]*[Extension]
+
         Extension: array of extensions to integrate 
     Returns:
         integral of z from t=0 to t=tau, for tau=[0,...,n], where n is 
         len(Times)
     """
-    return cumtrapz(x=Times,y=Extension,initial=0)
+    return cumtrapz(x=Times-Times[0],y=Extension,initial=0)
 
-def GetWork(Stiffness,Velocity,Times,Extensions):
-    coeff = Stiffness*Velocity
+def GetWork(Obj):
     """
     see pp 634, 'Methods' of : 
     Gupta, Amar Nath, Abhilash Vincent, Krishna Neupane, Hao Yu, Feng Wang, 
@@ -92,8 +95,16 @@ def GetWork(Stiffness,Velocity,Times,Extensions):
     "Experimental Validation of Free-Energy-Landscape Reconstruction from 
     Non-Equilibrium Single-Molecule Force Spectroscopy Measurements." 
     Nature Physics 7, no. 8 (August 2011)
+
+    Args:
+        Obj: instance of FEC_Pulling_Object
     """
-    TimeDependent = coeff * (1/2 * Velocity * Times**2 + \
+    Stiffness = Obj.SpringConstant
+    Times = Obj.Time
+    Extensions = Obj.Extension
+    Velocity = Obj.Velocity
+    coeff = Stiffness*Velocity
+    TimeDependent = coeff * (1/2 * Velocity * (Times**2) + \
                              Extensions[0]*Times)
     # now we so the cummulative intergral
     Cummulative = -coeff * CummulativeWorkIntegral(Times,Extensions)
@@ -158,39 +169,28 @@ def GetExtensionBounds(PullingObjects):
                          lambda x: x.Extension[0],
                          # upper bound is the last extension
                          lambda x: x.Extension[-1])
-    
-def _WeightedHistogramNumerator(Beta,MolExtensionTimesSeries,WorkTimeSeries,q,
-                                tol=1e-15):
-    """
-    Args:
-        beta: see FreeEnergyAtZeroForceWeightedHistogram
-        extensions are within this value, we consider them equal for the 
-        purposes of the Delta function
-        MolExtensionTimesSeries: see FreeEnergyAtZeroForceWeightedHistogram
-        WorkTimeSeries: see FreeEnergyAtZeroForceWeightedHistogram
-        q: desired extension
-        tol: tolerance, in absolute extension, for the binning. If two 
-    """
-    WhereEqual = np.where(np.abs(MolExtensionTimesSeries-q) < tol)
-    Partition = WorkTimeSeries[WhereEqual]
-    Delta = np.exp(-Beta*WorkTimeSeries[WhereEqual])
-    return sum(Delta/Partition)
 
-def _WeightedHistogramDenominator(Beta,WorkTimeSeries,Potential,q):
-    """
-    Args:
-        Beta: see FreeEnergyAtZeroForceWeightedHistogram
-        WorkTimeSeries: see FreeEnergyAtZeroForceWeightedHistogram
-        Potential: functiomn taking in q,t, returning an energy, units of 1/Beta
-        q: see WeightedHistogramNumerator
-    """
-    Numer = np.exp(-Beta*Potential(q,WorkTimeSeries))
-    Denom = WorkTimeSeries
-    AllSumsTerms = Numer/Denom
-    return sum(AllSumTerms)
 
-def FreeEnergyAtZeroForceWeightedHistogram(Beta,Times,MolExtensionTimesSeries,
-                                           WorkTimeSeries,Potential):
+def HarmonicPotential(Stiffness,Velocity,Times,Extensions):
+    """
+    Modeled after potential in methods of paper cited in "GetWork".
+    Using that notation
+
+    Args:
+        Stiffness,Velocity,Times,Extensions: See "GetWork"
+    Returns:
+        Relevant Potential
+    """
+    # z is the center position of the bead
+    z = Extensions[0] + Velocity*Times
+    # x is the difference between molecular (q) and bead position (z)
+    x = Extensions-z
+    Potential = (Stiffness/2) * x**2
+    return Potential
+
+def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
+                                           BoltzmannMatrix,Potential,
+                                           Stiffness,Velocity):
     """
     Gets the free energy at zero force
 
@@ -198,23 +198,82 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,Times,MolExtensionTimesSeries,
 
     Args:
         Beta: 1/(k_b*T), units of 1/[Work] 
-        Times: Times[i] is the times for WorkTimeSeries[i] (W_t in ibid)
-        MolExtensionTimesSeries : MolExtensionTimesSeries[i] is the (binnned)
-        extension at Times[i]. (q_t in ibid)
+        MolExtensionBins : MolExtensionTimesSeries[i] is the ith (binnned)
+        extension.
+
+        TimeBins: list, i-th element is the ith time
     
-        WorkTimeSeries: Work at time t. See ibid
-        Potential: Potential function, taking in *both* an extension and a time
+        BoltzmannMatrix: Double nested default dictionary, 
+        element [i][j] is the average boltzmann factor at time [i], 
+        extension [j]
+
+        Potential: Potential function, with signature 
+        (Stiffness,Velocity,Times,Extensions), returning the appropriate 
+        potential
+
+        Stiffness,Velocity: See GetWork
     Returns:
-        Tuple of <Extension q, Free Energy G>. G[i] is the free energy at 
-        zero force at extenson q[i]
+        Free Energy G. G[i] is the free energy at 
+        zero force at MolExtesionBins q[i]
     """
-    allQ = sorted(list(set(MolExtensionTimesSeries)))
-    denom = [_WeightedHistogramDenominator(Beta,WorkTimeSeries,q) for q in allQ]
-    numer = [_WeightedHistogramNumerator(Beta,MolExtensionTimesSeries,
-                                         WorkTimeSeries,q) for q in allQ]
+    # conver the Work matrix into a matrix where we have element [l][k]
+    # being extension l, time k
+    # to do this, we essentially just swap the keys
+    TxFunc = lambda Dict,k1,v1,k2,v2 : Dict[k2].update(k1=v2)
+    BoltzmannMatrixByTime = BoltzmannMatrix
+    BoltzmannMatrixByExt = TransformNestedDefaultDict(BoltzmannMatrix,float,
+                                                      TxFunc)
+    # for each time, get the mean parition function associated
+    Partition =np.array([ np.mean(BoltzmannMatrixByTime[i].values())
+                          for i,_ in enumerate(TimeBins)])
+    # for each an extension ('j'), get the average across all times
+    SumTerms = [np.sum(BoltzmannMatrixByExt[j].values()/Partition[j])
+                        for j,_ in enumerate(MolExtesionBins)]
+    # for each extension, get the denominator term (weighted potential)
+    PotentialWeighted = lambda q: np.exp(-Beta*Potential(Stiffness,Velocity,q,
+                                                         TimeBins))
+    PotentialWeight = [sum(PotentialWeighted(q)/Partition)
+                       for q in MolExtesionBins]
+    Numer = SumTerms/Partition
+    Denom = PotentialWeight
     # get the free energy at all q
-    FreeEnergyAtZeroForce = np.log(np.array(denom)/np.array(numer))/Beta
-    return allQ,FreeEnergyAtZeroForce
+    FreeEnergyAtZeroForce = -np.log(np.array(Numer)/np.array(Denom))/Beta
+    return FreeEnergyAtZeroForce
+
+def TransformNestedDefaultDict(Original,ElementFunc,TxFunction):
+    return TransformListOfNestedDefaultDict([Original],ElementFunc,TxFunction)
+
+def TransformListOfNestedDefaultDict(Original,ElementFunc,TxFunction):
+
+    """
+    Given a douby-nested dictionary of lists and a transformation function,
+    returns a default dictionary by transforming
+
+    Args:
+        Original: a *list* of dictionaries to concatenate
+        ElementFunc: what the individual elements are (ie: should be
+        only argument passed to inner defaultdict; what are we actually
+        storing in the dictionary?). Eg: 'list' or 'float'
+
+        TxFunction: Function with signature <dictionary,k1,v1,k2,v2>
+        where k<xx> is key <xx> and v<xx> is value xx. dictionary is the
+        same one we return
+    Returns:
+        a doubly-nested default dictionary of lists 
+    """
+    # note this looks bad (triply nested), but because we
+    # are using default dictionaries, it is linear in the
+    # total number of points (ie: we are just regrouping all the
+    # individual FEC into a matrix)
+    ToRet = defaultdict(lambda : defaultdict(ElementFunc))
+    for o in Original:
+        for k1,v1 in o.items():
+            for k2,v2 in v1.items():
+                TxFunction(ToRet,k1,v1,k2,v2)
+    return ToRet
+
+def DictUpdateFunc(f,DictV,k1,v1,k2,v2):
+    DictV[k1][k2] = f(v2)
 
 
 def FreeEnergyWeightedHistogramByObject(Objs,NumTimeBins,NumPositionBins):
@@ -234,18 +293,44 @@ def FreeEnergyWeightedHistogramByObject(Objs,NumTimeBins,NumPositionBins):
                                    num=n)
     # create the bins...
     ExtBins = BinIt(ExtBounds,NumPositionBins)
-    # Get the time-digitized work for each FEC
-    DigitizedWork = [o.GetDigitizedWork(ExtBins) for o in Objs]
-    # flatten all the works
-    WorkByExtenson = [ [Work[i] for Work in DigitizedWork ]
-                       for i,_ in enumerate(ExtBins)]
-    FlattenedWork = [np.array(list(itertools.chain(*a)))
-                     for a in WorkByExtenson ]
-    # POST: FlattenedWork now constants the work values in each bin.
-    Beta = 1/(4.1e-21)
-    plt.boxplot(FlattenedWork)
+    TimeBins = BinIt(TimeBounds,NumTimeBins)
+    # Get the time-digitized boltmann factors for each FEC
+    DigitizedMatrices = [o.GetDigitizedWork(TimeBins,ExtBins) for o in Objs]
+    # create a function that given a dictionary and the two keys,
+    # extends the existing dictionary list with the list in that bin.
+    # essentially this just concatenates all the FEC into a single list
+    CombineFunction = lambda DictV,k1,_,k2,v2: DictV[k1][k2].extend(v2)
+    FlatDigitized = TransformListOfNestedDefaultDict(DigitizedMatrices,list,
+                                                     CombineFunction)
+    ## POST: FlatDigitizes has the (flattened) array, where element [i][j]
+    ## is the *list* of Boltzmann factors at time i, element j (where i and
+    ## j are indices into the respective bins)
+    # get their average and standard deviation for each extension and time
+    # create functions to take the *flattened* dictionary (ie: each element
+    # is a list) and get the mean/std of the list
+    
+    MeanFunc = lambda *args : DictUpdateFunc(np.mean,*args)
+    StdFunc = lambda *args : DictUpdateFunc(np.std,*args)
+    # mean in each bin
+    MeanDigitized = TransformNestedDefaultDict(FlatDigitized,float,MeanFunc)
+    StdDigitized = TransformNestedDefaultDict(FlatDigitized,float,StdFunc)
+    #XXX assume that all betas are the same
+    #XXX assume specific potential, given by Gupta2011 
+    Potential = HarmonicPotential
+    Beta = np.mean([o.Beta for o in Objs])
+    Stiffness = np.mean([o.SpringConstant for o in Objs])
+    Velocity =  np.mean([o.Velocity for o in Objs])
+    FreeEnergyAtZeroForce =  \
+        FreeEnergyAtZeroForceWeightedHistogram(Beta,ExtBins,TimeBins,
+                                               MeanDigitized,Potential,
+                                               Stiffness,Velocity)
+    F0 = 12e-12
+    FreeEnergyAtF0 = FreeEnergyAtZeroForce - ExtBins*F0
+    plt.subplot(2,1,1)
+    plt.plot(ExtBins,FreeEnergyAtZeroForce)
+    plt.subplot(2,1,2)
+    plt.plot(ExtBins,FreeEnergyAtF0)
     plt.show()
-    
-    
+    # stdev in each bin
     
 

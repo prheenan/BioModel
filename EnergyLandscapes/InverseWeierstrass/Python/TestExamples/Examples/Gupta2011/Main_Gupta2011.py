@@ -35,7 +35,8 @@ def ReadInData(InDir,ExtString="Ext_",ForceString="F_",FileExt=".txt",Max=2):
     Data = [(np.loadtxt(ext)*1e-9,np.loadtxt(force)*1e-12)
             for ext,force in Pairs]
     # create the data objects we will return
-    ToRet = [InverseWeierstrass.FEC_Pulling_Object(GetTimes(ext),ext,force)
+    ToRet = [InverseWeierstrass.FEC_Pulling_Object(GetTimes(ext),ext,
+                                                   force)
              for ext,force in Data]
     return ToRet
 
@@ -61,7 +62,7 @@ def PlotAllFEC(Objs):
         plt.ylabel("Work (kbT)")
         plt.tight_layout()
 
-def Analyze(Objs,NumTimeBins=200,NumPositionBins=50):
+def Analyze(Objs,NumTimeBins=75,NumPositionBins=75):
     """
     Args:
         Objs: list of InverseWeierstrass.FEC_Pulling_Object objects 
@@ -70,8 +71,7 @@ def Analyze(Objs,NumTimeBins=200,NumPositionBins=50):
     """
     # get all the works
     InverseWeierstrass.SetAllWorkOfObjects(Objs)
-    InverseWeierstrass.\
-        FreeEnergyWeightedHistogramByObject(Objs,
+    InverseWeierstrass.FreeEnergyWeightedHistogramByObject(Objs,\
                                             NumTimeBins=NumTimeBins,
                                             NumPositionBins=NumPositionBins)
     nObj = len(Objs)
@@ -85,7 +85,7 @@ def run():
     Runs the IWT on the Woodside data
     """
     # read the data into objects
-    Objs = ReadInData(InDir="./Example_Force_Extension_Data/",Max=10)
+    Objs = ReadInData(InDir="./Example_Force_Extension_Data/",Max=100)
     Analyze(Objs)
 
 if __name__ == "__main__":
