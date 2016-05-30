@@ -32,7 +32,8 @@ def ReadInData(InDir,ExtString="Ext_",ForceString="F_",FileExt=".txt",Max=2):
     GetTimes = lambda x: np.linspace(start=0,stop=(x.size-1)*TimeStep,
                                      num=x.size)
     # note: data is in nm and pN, so we convert back to m and N
-    Data = [(np.loadtxt(ext)*1e-9,np.loadtxt(force)*1e-12)
+    ForceOffsetN = -2e-12
+    Data = [(np.loadtxt(ext)*1e-9,np.loadtxt(force)*1e-12-ForceOffsetN)
             for ext,force in Pairs]
     # create the data objects we will return
     ToRet = [InverseWeierstrass.FEC_Pulling_Object(GetTimes(ext),ext,
@@ -62,7 +63,7 @@ def PlotAllFEC(Objs):
         plt.ylabel("Work (kbT)")
         plt.tight_layout()
 
-def Analyze(Objs,NumTimeBins=75,NumPositionBins=75):
+def Analyze(Objs,NumTimeBins=100,NumPositionBins=150):
     """
     Args:
         Objs: list of InverseWeierstrass.FEC_Pulling_Object objects 
@@ -71,9 +72,10 @@ def Analyze(Objs,NumTimeBins=75,NumPositionBins=75):
     """
     # get all the works
     InverseWeierstrass.SetAllWorkOfObjects(Objs)
-    InverseWeierstrass.FreeEnergyWeightedHistogramByObject(Objs,\
-                                            NumTimeBins=NumTimeBins,
-                                            NumPositionBins=NumPositionBins)
+    InverseWeierstrass.FreeEnergyAtZeroForce(Objs,\
+                                             NumTimeBins=NumTimeBins,
+                                             NumPositionBins=NumPositionBins)
+    # stdev in each bin
     nObj = len(Objs)
     fig = plt.figure(figsize=(6,12))
     PlotAllFEC(Objs)
