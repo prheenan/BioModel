@@ -424,7 +424,7 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
     FreeEnergyExt = (q * 1e9)[GoodIdx]
     plt.subplot(n,1,2)
     plt.plot(ExtBins * 1e9,FreeEnergyAtZeroForce*Beta)
-    plt.ylabel("Free Energy at Zero Force")
+    plt.ylabel("Free Energy at Zero Force (kT)")
     plt.xlabel("Extension")
     plt.ylim([-2,max(FreeEnergyAtZeroForce*Beta)])
     plt.subplot(n,1,3)
@@ -432,10 +432,13 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
     ExtIdx = np.where( (FreeEnergyExt < 925) & (FreeEnergyExt > 900) )
     Ext = FreeEnergyExt[ExtIdx]
     Ext -= min(Ext)
+    Ext -= 7.5
     FreeEnergy = FreeEnergyAtF0_kbT[ExtIdx]
     plt.plot(Ext,FreeEnergy)
-    plt.ylabel("Free Energy at F-One Half")
+    plt.ylabel("Free Energy at F-1/2 (kT)")
+    plt.xlabel("Distance around Barrier (nm)")
     plt.tight_layout()
+    plt.ylim([-0.5,10])
     plt.show()
 
     return FreeEnergyAtZeroForce

@@ -67,7 +67,7 @@ def PlotAllFEC(Objs):
         plt.ylabel("Work (kbT)")
         plt.tight_layout()
 
-def Analyze(Objs,NumTimeBins=50):
+def Analyze(Objs,NumTimeBins=75):
     """
     Args:
         Objs: list of InverseWeierstrass.FEC_Pulling_Object objects 
