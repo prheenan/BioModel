@@ -37,7 +37,11 @@ def ReadInData(InDir,ExtString="Ext_",ForceString="F_",FileExt=".txt",Max=2):
             for ext,force in Pairs]
     # create the data objects we will return
     ToRet = [InverseWeierstrass.FEC_Pulling_Object(GetTimes(ext),ext,
-                                                   force)
+                                                   force,
+                                                   # velocity not given, eyeball
+                                                   # bassed on 2nm in 1
+                                                   # data point
+                                                   Velocity=(2e-9)*freq)
              for ext,force in Data]
     return ToRet
 
@@ -63,7 +67,7 @@ def PlotAllFEC(Objs):
         plt.ylabel("Work (kbT)")
         plt.tight_layout()
 
-def Analyze(Objs,NumTimeBins=100,NumPositionBins=150):
+def Analyze(Objs,NumTimeBins=50):
     """
     Args:
         Objs: list of InverseWeierstrass.FEC_Pulling_Object objects 
@@ -73,8 +77,7 @@ def Analyze(Objs,NumTimeBins=100,NumPositionBins=150):
     # get all the works
     InverseWeierstrass.SetAllWorkOfObjects(Objs)
     InverseWeierstrass.FreeEnergyAtZeroForce(Objs,\
-                                             NumTimeBins=NumTimeBins,
-                                             NumPositionBins=NumPositionBins)
+                                             NumTimeBins=NumTimeBins)
     # stdev in each bin
     nObj = len(Objs)
     fig = plt.figure(figsize=(6,12))
