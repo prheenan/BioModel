@@ -91,37 +91,37 @@ class FEC_Pulling_Object:
         return ToRet
     def SetWork(self,Work):
         self.Work = Work
-    def _GetDigitizedGen(self,BinTime,ToDigitize):
+    def _GetDigitizedGen(self,Bins,ToDigitize):
         """
         Generalized method to get 'digitized' results
 
         Args:
-            BinTime: see GetDigitizedBoltzmann
+            Bins: see GetDigitizedBoltzmann
             ToDigitize: Array to dizitize, e.g. self.Forces
         Returns:
             See GetDigitizedBoltzmann, except digitized contents of 
             'GetDigitizedBoltzmann'
         """
-        NumTimes = BinTime.size
-        IdxTimeAdd = np.digitize(self.Time,bins=BinTime)-1
+        NumTimes = Bins.size
+        IdxAdd = np.digitize(self.Extension,bins=Bins)-1
         DigitzedMatrix = [[] for _ in range(NumTimes)]
-        for i,idx_time in enumerate(IdxTimeAdd):
-            DigitzedMatrix[idx_time].append(ToDigitize[i])
+        for i,idx in enumerate(IdxAdd):
+            DigitzedMatrix[idx].append(ToDigitize[i])
         return DigitzedMatrix
-    def GetDigitizedBoltzmann(self,BinTime):
+    def GetDigitizedBoltzmann(self,Bins):
         """
         Gets the digitized boltzmann factor np.exp(-beta*W)
         (averaged in a bin), given the Bins
 
         Args:
-            BinTime: the time binning to use
+            Bins: the bins to use
         Returns: 
             The digitized boltman matrix exp(-Beta*W), 
             where W[i] is a *list* of Work values associated with BinTime[i]
         """
         ToDigitize = np.exp(-self.Beta*self.Work)
-        return self._GetDigitizedGen(BinTime,ToDigitize)
-    def GetDigitizedBias(BinTime,ZFunc):
+        return self._GetDigitizedGen(Bins,ToDigitize)
+    def GetDigitizedBias(Bins,ZFunc):
         """
         Gets the digitized bias (q-z), See equation 11 and 'Methods' (above 18)
         of:
@@ -132,7 +132,7 @@ class FEC_Pulling_Object:
         107, no. 50 (December 14, 2010)
 
         Args:
-            BinTime: see GetDigitizedBoltzmann
+            Bins: see GetDigitizedBoltzmann
             ZFunc: Function taking in a time array
             for the position of the bead, typically z(t) = z0 + v(t)
         Returns:
@@ -140,18 +140,18 @@ class FEC_Pulling_Object:
         """
         z = ZFunc(self.Time)
         ToDigitize = self.Extension - z
-        return self._GetDigitizedGen(BinTime,ToDigitize)
-    def GetDigitizedForce(self,BinTime):
+        return self._GetDigitizedGen(Bins,ToDigitize)
+    def GetDigitizedForce(self,Bins):
         """
         Gets the digitized force within the bins. See materials cited in 
         GetDigitizedBias
 
         Args:
-            BinTime: see ibid
+            Bins: see ibid
         Returns:
             see GetDigitizedBoltzmann, except Force is the content
         """
-        return self._GetDigitizedGen(BinTime,self.Force)
+        return self._GetDigitizedGen(Bins,self.Force)
 
 def CummulativeWorkIntegral(Z,Force):
     """
@@ -334,26 +334,29 @@ def GetBoltzmannWeightedAverage(BoltzmannFactors,
         BoltzmannWeightedAverage[i] = np.mean(WeightedVals)
     return BoltzmannWeightedAverage/Partition
 
-def FreeEnergyAtZeroForce(Objs,NumTimeBins):
+def FreeEnergyAtZeroForce(Objs,NumBins):
     """
     Wrapper to make it easier to get the weighted histograms, etcs.
 
     Args:
         obj: list of FEC_Pulling_Object
+        NumBins: number of bins to put things into
     """
     # get the bounds associated with the times and extensions
     TimeBounds = GetTimeBounds(Objs)
+    ExtBounds = GetExtensionBounds(Objs)
     # Create the time and position bins using a helper function
     BinIt= lambda x,n: np.linspace(start=x[0],
                                    stop=x[1],
                                    endpoint=False,
                                    num=n)
-    # create the bins...
-    TimeBins = BinIt(TimeBounds,NumTimeBins)
+    # create the extension bins 
+    ExtBins = BinIt(ExtBounds,NumBins)
     # Set up functions for getting the force and boltzmann factors
-    BoltzmanFunc = lambda o : o.GetDigitizedBoltzmann(TimeBins)
-    ForceFunc = lambda o: o.GetDigitizedForce(TimeBins)
-    GetForceSqFunc = lambda x : x._GetDigitizedGen(TimeBins,
+    BinDataTo = ExtBins
+    BoltzmanFunc = lambda o : o.GetDigitizedBoltzmann(BinDataTo)
+    ForceFunc = lambda o: o.GetDigitizedForce(BinDataTo)
+    GetForceSqFunc = lambda x : x._GetDigitizedGen(BinDataTo,
                                                    x.Force**2)
     # get the (per-instance) boltmann factors, for weighing
     BoltzByFEC = [BoltzmanFunc(o) for o in Objs]
@@ -362,7 +365,8 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
                                      for x in objs
                                      for item in x[i]]
                                     for i in range(bins)]
-    BoltzHistogramByTime = FlatFunc(BoltzByFEC,NumTimeBins)
+    NBins = len(BinDataTo)
+    BoltzHistogramByTime = FlatFunc(BoltzByFEC,NBins)
     Partition = np.array([np.mean(b) for b in BoltzHistogramByTime])
     """
     Get the mean boltzmann factor, <exp(-Beta*W(z))>, like a partition
@@ -379,8 +383,8 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
     ForcePerEnsemble = [ForceFunc(o) for o in Objs]
     ForceSquaredPerEnsemble = [GetForceSqFunc(o) for o in Objs]
     # Get the histograms by time
-    ForcePerTime = FlatFunc(ForcePerEnsemble,NumTimeBins)
-    ForceSqPerTime = FlatFunc(ForceSquaredPerEnsemble,NumTimeBins)
+    ForcePerTime = FlatFunc(ForcePerEnsemble,NBins)
+    ForceSqPerTime = FlatFunc(ForceSquaredPerEnsemble,NBins)
     BoltzmannWeightedForce = GetBoltzmannWeightedAverage(BoltzHistogramByTime,
                                                          ForcePerTime,
                                                          Partition)
@@ -398,7 +402,6 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
     Beta = np.mean([o.Beta for o in Objs])
     SpringConst = np.mean([o.SpringConstant for o in Objs])
     Velocities = np.mean([o.Velocity for o in Objs])
-    ExtBins = np.mean([o.Extension[0] for o in Objs]) + Velocities * TimeBins
     k = SpringConst
     FreeEnergy_A = (-1/Beta)*np.log(Partition)
     # write down the terms involving the first and second derivative of A

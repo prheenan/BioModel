@@ -68,17 +68,16 @@ def PlotAllFEC(Objs):
         plt.ylabel("Work (kbT)")
         plt.tight_layout()
 
-def Analyze(Objs,NumTimeBins=75):
+def Analyze(Objs,NumBins=40):
     """
     Args:
         Objs: list of InverseWeierstrass.FEC_Pulling_Object objects 
-        NumTimeBins: For discretizing time, how many times to use
-        NumPositionBins: For discretizing position, how many times to use
+        NumBins: For discretizing <XXX>, how many bins to use
     """
     # get all the works
     InverseWeierstrass.SetAllWorkOfObjects(Objs)
     Landscape = InverseWeierstrass.\
-                FreeEnergyAtZeroForce(Objs,NumTimeBins=NumTimeBins)
+                FreeEnergyAtZeroForce(Objs,NumBins=NumBins)
     FreeEnergyAtZeroForce = Landscape.EnergyLandscape
     ExtBins = Landscape.ExtensionBins
     q = Landscape.Extensions
@@ -110,17 +109,15 @@ def Analyze(Objs,NumTimeBins=75):
     plt.ylabel("G at Zero Force (kT)")
     plt.xlabel("Extension [nm]")
     plt.subplot(n,1,3)
-    # just get the region we care about
-    ExtIdx = np.where( (FreeEnergyExt < 925) & (FreeEnergyExt > 900) )
-    Ext = FreeEnergyExt[ExtIdx]
-    Ext -= min(Ext)
-    Ext -= 7.5
-    FreeEnergy = FreeEnergyAtF0_kbT[ExtIdx]
-    plt.plot(Ext,FreeEnergy)
+    # sort everything by the free energy extension
+    SortIdx = np.argsort(FreeEnergyExt)
+    FreeEnergy = FreeEnergyAtF0_kbT[SortIdx]
+    plt.plot(FreeEnergyExt[SortIdx] * 1e9,FreeEnergy)
     plt.ylabel("G at F-1/2 (kT)")
     plt.xlabel("Distance around Barrier (nm)")
     plt.tight_layout()
     plt.ylim([-0.5,10])
+    plt.show()
     fig.savefig("./LandscapeReconstruction.png")
     ## make a plot of just a single force extension curve
     fig = plt.figure()
