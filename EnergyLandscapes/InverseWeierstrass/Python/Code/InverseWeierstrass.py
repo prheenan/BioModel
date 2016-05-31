@@ -420,13 +420,21 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
     for o in Objs:
         plt.plot(o.Extension*1e9,o.Force*1e12)
     # Plot the free energy versus txtension as well
+    plt.ylabel("Force [pN]")
     FreeEnergyExt = (q * 1e9)[GoodIdx]
     plt.subplot(n,1,2)
-    plt.plot(ExtBins,FreeEnergyAtZeroForce*Beta)
+    plt.plot(ExtBins * 1e9,FreeEnergyAtZeroForce*Beta)
+    plt.ylabel("Free Energy at Zero Force")
+    plt.xlabel("Extension")
+    plt.ylim([-2,max(FreeEnergyAtZeroForce*Beta)])
     plt.subplot(n,1,3)
-    plt.plot(FreeEnergyExt,FreeEnergyAtF0_kbT)
-    plt.xlim([900,925])
-    plt.ylim([-0.5,15])
+    # just get the region we care about
+    ExtIdx = np.where( (FreeEnergyExt < 925) & (FreeEnergyExt > 900) )
+    Ext = FreeEnergyExt[ExtIdx]
+    Ext -= min(Ext)
+    FreeEnergy = FreeEnergyAtF0_kbT[ExtIdx]
+    plt.plot(Ext,FreeEnergy)
+    plt.ylabel("Free Energy at F-One Half")
     plt.tight_layout()
     plt.show()
 
