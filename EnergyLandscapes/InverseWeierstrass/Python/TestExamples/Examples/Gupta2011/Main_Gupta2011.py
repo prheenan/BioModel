@@ -36,12 +36,11 @@ def ReadInData(InDir,ExtString="Ext_",ForceString="F_",FileExt=".txt",Max=2):
     Data = [(np.loadtxt(ext)*1e-9,
              (np.loadtxt(force)*1e-12-ForceOffsetN))
             for ext,force in Pairs]
-    # create the data objects we will return
     ToRet = [InverseWeierstrass.FEC_Pulling_Object(GetTimes(ext),ext,
                                                    force,
                                                    # velocity not given, eyeball
                                                    # bassed on 2nm in 1
-                                                   # data point
+                                                   # data point 
                                                    Velocity=(2e-9)*freq)
              for ext,force in Data]
     return ToRet
@@ -112,12 +111,14 @@ def Analyze(Objs,NumBins=40):
     # sort everything by the free energy extension
     SortIdx = np.argsort(FreeEnergyExt)
     FreeEnergy = FreeEnergyAtF0_kbT[SortIdx]
-    plt.plot(FreeEnergyExt[SortIdx] * 1e9,FreeEnergy)
+    Ext = FreeEnergyExt[SortIdx]
+    Offset = 849
+    plt.plot(Ext-Offset,FreeEnergy)
     plt.ylabel("G at F-1/2 (kT)")
     plt.xlabel("Distance around Barrier (nm)")
     plt.tight_layout()
     plt.ylim([-0.5,10])
-    plt.show()
+    plt.xlim([-5,5])
     fig.savefig("./LandscapeReconstruction.png")
     ## make a plot of just a single force extension curve
     fig = plt.figure()
