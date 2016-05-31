@@ -10,8 +10,15 @@ import itertools
 from collections import defaultdict
 
 
-class FEC_Pulling_Object:
+class EnergyLandscape:
 
+    def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
+        self.EnergyLandscape = EnergyLandscape
+        self.Extensions = Extensions
+        self.ExtensionBins = ExtensionBins
+        self.Beta = Beta
+
+class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,StringConstant=0.4e-3,
                  ZFunc=None,
                  Velocity=20e-9,Beta=1./(4.1e-21)):
@@ -402,46 +409,8 @@ def FreeEnergyAtZeroForce(Objs,NumTimeBins):
     FreeEnergyAtZeroForce = FreeEnergy_A - (dA_dz)**2/(2*k) + \
                             (1/(2*Beta)) * np.log(SecondDerivTerm)
     FreeEnergyAtZeroForce -= FreeEnergyAtZeroForce[0]
-    # for plotting, only look at finite.
-    GoodIdx = np.where(np.isfinite(FreeEnergyAtZeroForce))[0]
     # write down q, using ibid, 10, argument to G0
-    # XXX should fix...
     q = ExtBins-dA_dz/k
-    # shift the free energy to F_1/2
-    # approximately 20pN, see plots
-    F0 = 19.5e-12
-    q = ExtBins-dA_dz/k
-    FreeEnergyAtF0_kbT = ((FreeEnergyAtZeroForce-ExtBins*F0)*Beta)[GoodIdx]
-    FreeEnergyAtF0_kbT -= np.min(FreeEnergyAtF0_kbT)
-    n=3
-    fig = plt.figure(figsize=(5,7))
-    # plot energies in units of 1/Beta (kT), force in pN, dist in nm
-    plt.subplot(n,1,1)
-    for o in Objs:
-        plt.plot(o.Extension*1e9,o.Force*1e12)
-    # Plot the free energy versus txtension as well
-    plt.ylabel("Force [pN]")
-    FreeEnergyExt = (q * 1e9)[GoodIdx]
-    plt.subplot(n,1,2)
-    plt.plot(ExtBins * 1e9,FreeEnergyAtZeroForce*Beta)
-    plt.ylabel("Free Energy at Zero Force (kT)")
-    plt.xlabel("Extension")
-    plt.ylim([-2,max(FreeEnergyAtZeroForce*Beta)])
-    plt.subplot(n,1,3)
-    # just get the region we care about
-    ExtIdx = np.where( (FreeEnergyExt < 925) & (FreeEnergyExt > 900) )
-    Ext = FreeEnergyExt[ExtIdx]
-    Ext -= min(Ext)
-    Ext -= 7.5
-    FreeEnergy = FreeEnergyAtF0_kbT[ExtIdx]
-    plt.plot(Ext,FreeEnergy)
-    plt.ylabel("Free Energy at F-1/2 (kT)")
-    plt.xlabel("Distance around Barrier (nm)")
-    plt.tight_layout()
-    plt.ylim([-0.5,10])
-    plt.show()
+    return EnergyLandscape(FreeEnergyAtZeroForce,q,ExtBins,Beta)
 
-    return FreeEnergyAtZeroForce
-
-    
 

@@ -33,7 +33,8 @@ def ReadInData(InDir,ExtString="Ext_",ForceString="F_",FileExt=".txt",Max=2):
                                      num=x.size)
     # note: data is in nm and pN, so we convert back to m and N
     ForceOffsetN = -2e-12
-    Data = [(np.loadtxt(ext)*1e-9,np.loadtxt(force)*1e-12-ForceOffsetN)
+    Data = [(np.loadtxt(ext)*1e-9,
+             (np.loadtxt(force)*1e-12-ForceOffsetN))
             for ext,force in Pairs]
     # create the data objects we will return
     ToRet = [InverseWeierstrass.FEC_Pulling_Object(GetTimes(ext),ext,
@@ -76,13 +77,87 @@ def Analyze(Objs,NumTimeBins=75):
     """
     # get all the works
     InverseWeierstrass.SetAllWorkOfObjects(Objs)
-    InverseWeierstrass.FreeEnergyAtZeroForce(Objs,\
-                                             NumTimeBins=NumTimeBins)
-    # stdev in each bin
-    nObj = len(Objs)
-    fig = plt.figure(figsize=(6,12))
-    PlotAllFEC(Objs)
-    fig.savefig("FEC.png")
+    Landscape = InverseWeierstrass.\
+                FreeEnergyAtZeroForce(Objs,NumTimeBins=NumTimeBins)
+    FreeEnergyAtZeroForce = Landscape.EnergyLandscape
+    ExtBins = Landscape.ExtensionBins
+    q = Landscape.Extensions
+    Beta = Landscape.Beta
+    # for plotting, only look at finite.
+    GoodIdx = np.where(np.isfinite(FreeEnergyAtZeroForce))[0]
+    # shift the free energy to F_1/2
+    # approximately 20pN, see plots
+    F0 = 19.5e-12
+    FreeEnergyAtF0_kbT = ((FreeEnergyAtZeroForce-ExtBins*F0)*Beta)[GoodIdx]
+    FreeEnergyAtF0_kbT -= np.min(FreeEnergyAtF0_kbT)
+    n=3
+    fig = plt.figure(figsize=(5,7))
+    # plot energies in units of 1/Beta (kT), force in pN, dist in nm
+    plt.subplot(n,1,1)
+    xlim = lambda : plt.xlim([750,940])
+    for o in Objs:
+        plt.plot(o.Extension*1e9,o.Force*1e12)
+    xlim()
+    # Plot the free energy versus txtension as well
+    plt.ylabel("Force [pN]")
+    plt.xlabel("Extension [nm]")
+    plt.title("Transforming {:d} FECs to a landscape".format(len(Objs)))
+    FreeEnergyExt = (q * 1e9)[GoodIdx]
+    plt.subplot(n,1,2)
+    plt.plot(ExtBins * 1e9,FreeEnergyAtZeroForce*Beta)
+    xlim()
+    plt.ylim([0,250])
+    plt.ylabel("G at Zero Force (kT)")
+    plt.xlabel("Extension [nm]")
+    plt.subplot(n,1,3)
+    # just get the region we care about
+    ExtIdx = np.where( (FreeEnergyExt < 925) & (FreeEnergyExt > 900) )
+    Ext = FreeEnergyExt[ExtIdx]
+    Ext -= min(Ext)
+    Ext -= 7.5
+    FreeEnergy = FreeEnergyAtF0_kbT[ExtIdx]
+    plt.plot(Ext,FreeEnergy)
+    plt.ylabel("G at F-1/2 (kT)")
+    plt.xlabel("Distance around Barrier (nm)")
+    plt.tight_layout()
+    plt.ylim([-0.5,10])
+    fig.savefig("./LandscapeReconstruction.png")
+    ## make a plot of just a single force extension curve
+    fig = plt.figure()
+    tmp = Objs[0]
+    ExtTmp = tmp.Extension*1e9
+    ForceTmp = tmp.Force*1e12
+    xlim = lambda : plt.xlim([min(ExtTmp),max(ExtTmp)])
+    ylim = lambda : plt.ylim([min(ForceTmp),max(ForceTmp)])
+    plt.plot(ExtTmp,ForceTmp,linewidth=3.0)
+    plt.xlabel("Extension [nm]")
+    plt.ylabel("Force [pN]")
+    xlim()
+    ylim()
+    plt.tight_layout()
+    fig.savefig("ForceExtensionCurve.png")
+    GetYSpan = lambda x: ForceTmp[np.argmin(np.abs(ExtTmp-x))]
+    # add in lines to show position binning
+    for b in ExtBins:
+        x = b*1e9
+        YVals = [0,GetYSpan(x)]
+        plt.plot((x,x),YVals,color='r')
+    xlim()
+    ylim()
+    plt.tight_layout()
+    fig.savefig("ForceExtensionCurve_Binned.png")
+    # add in integral, showing work
+    Colors = ['r','k']
+    NColors = len(Colors)
+    for i,b in enumerate(ExtBins[:-1]):
+        x1 = b*1e9
+        x2 = ExtBins[i+1]*1e9
+        yVals = [GetYSpan(x1),GetYSpan(x2)]
+        plt.fill_between([x1,x2],yVals,color=Colors[i % NColors],alpha=0.3)
+    xlim()
+    ylim()
+    plt.tight_layout()
+    fig.savefig("ForceExtensionCurve_Work.png")
 
     
 def run():
