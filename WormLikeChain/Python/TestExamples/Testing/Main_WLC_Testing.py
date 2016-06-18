@@ -7,7 +7,7 @@ import sys
 
 baseDir = "../../"
 sys.path.append(baseDir)
-sys.path.append("../../../../")
+sys.path.append("../../../../../")
 
 from TestExamples.Util.WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit,\
     GetSampleForceExtension

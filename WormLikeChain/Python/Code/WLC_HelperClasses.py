@@ -7,7 +7,7 @@ import sys
 
 
 from collections import OrderedDict
-from FitUtils.Python import FitClasses
+from FitUtil.FitUtils.Python import FitClasses
 MACHINE_EPSILON = np.finfo(float).eps
 
 

@@ -7,9 +7,9 @@ import sys
 
 import copy
 from collections import OrderedDict
-from FitUtils.Python.FitClasses import Initialization,BoundsObj,\
+from FitClasses import Initialization,BoundsObj,\
     FitInfo,FitReturnInfo,GetFunctionCall,GetFullDictionary
-import FitUtils.Python.FitUtil as FitUtil
+import FitUtil as FitUtil
 from scipy.optimize import brute
 import warnings
 

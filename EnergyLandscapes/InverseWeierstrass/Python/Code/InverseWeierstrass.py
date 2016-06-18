@@ -13,13 +13,15 @@ from collections import defaultdict
 class EnergyLandscape:
 
     def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
-        self.EnergyLandscape = EnergyLandscape
-        self.Extensions = Extensions
+        # sort the energy landscape by the exensions
+        SortIdx = np.argsort(Extensions)
+        self.EnergyLandscape = EnergyLandscape[SortIdx]
+        self.Extensions = Extensions[SortIdx]
         self.ExtensionBins = ExtensionBins
         self.Beta = Beta
 
 class FEC_Pulling_Object:
-    def __init__(self,Time,Extension,Force,StringConstant=0.4e-3,
+    def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
                  ZFunc=None,
                  Velocity=20e-9,Beta=1./(4.1e-21)):
         """
@@ -44,25 +46,15 @@ class FEC_Pulling_Object:
             Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
         """
         self.Time = Time
-        self.Extension = Extension
+        self.Extension = Extension 
         self.Force = Force
-        self.SpringConstant=StringConstant
+        self.SpringConstant=SpringConstant
         self.Velocity= Velocity
         self.Beta=Beta
-        if (ZFunc is None):
-            ZFunc = lambda Obj: Obj.Extension[0] + (Obj.Velocity * Obj.Time)
-        self.ZFunc = ZFunc
         self.Work=None
         self.WorkDigitized=None
-    def GetBias(self):
-        """
-        Returns the bias associated with the given extension, force, and
-        strong constant
-
-        Args:
-            ZFunc: See GetDigitizedBias 
-        """
-        return self.ZFunc(self)-self.Extension
+    def ZFunc(self):
+        return self.Extension[0] + (self.Velocity * self.Time)
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
@@ -81,12 +73,9 @@ class FEC_Pulling_Object:
         Returns:
             The cummulative integral of work, as defined in ibid, before eq18
         """
-        # get the z (position of probe)
-        Z = self.ZFunc(self)
-        # get the bias (z-q)
-        Bias = self.GetBias()
         # compute the forst from the bias 
-        Force = self.SpringConstant * Bias
+        Force = self.Force
+        Z = self.ZFunc()
         ToRet = cumtrapz(x=Z,y=Force,initial=0)
         return ToRet
     def SetWork(self,Work):
@@ -103,10 +92,10 @@ class FEC_Pulling_Object:
             'GetDigitizedBoltzmann'
         """
         NumTimes = Bins.size
-        IdxAdd = np.digitize(self.Extension,bins=Bins)-1
+        IdxAdd = np.digitize(self.Extension,bins=Bins)
         DigitzedMatrix = [[] for _ in range(NumTimes)]
         for i,idx in enumerate(IdxAdd):
-            DigitzedMatrix[idx].append(ToDigitize[i])
+            DigitzedMatrix[idx-1].append(ToDigitize[i])
         return DigitzedMatrix
     def GetDigitizedBoltzmann(self,Bins):
         """
@@ -121,26 +110,6 @@ class FEC_Pulling_Object:
         """
         ToDigitize = np.exp(-self.Beta*self.Work)
         return self._GetDigitizedGen(Bins,ToDigitize)
-    def GetDigitizedBias(Bins,ZFunc):
-        """
-        Gets the digitized bias (q-z), See equation 11 and 'Methods' (above 18)
-        of:
-        
-        Hummer, Gerhard, and Attila Szabo. 
-        "Free Energy Profiles from Single-Molecule Pulling Experiments." 
-        Proceedings of the National Academy of Sciences 
-        107, no. 50 (December 14, 2010)
-
-        Args:
-            Bins: see GetDigitizedBoltzmann
-            ZFunc: Function taking in a time array
-            for the position of the bead, typically z(t) = z0 + v(t)
-        Returns:
-            see GetDigitizedBoltzmann, except Bias is the content
-        """
-        z = ZFunc(self.Time)
-        ToDigitize = self.Extension - z
-        return self._GetDigitizedGen(Bins,ToDigitize)
     def GetDigitizedForce(self,Bins):
         """
         Gets the digitized force within the bins. See materials cited in 
@@ -152,21 +121,6 @@ class FEC_Pulling_Object:
             see GetDigitizedBoltzmann, except Force is the content
         """
         return self._GetDigitizedGen(Bins,self.Force)
-
-def CummulativeWorkIntegral(Z,Force):
-    """
-    Get the integral of the extension from t=0 to t=1,2,3,....etc
-    
-    See last part of 'W_t' equation' Paper cited in "GetWork"
-
-    Args:
-        Z: the probe position as a function of time
-
-        Force: the force to integrate along z
-    Returns:
-        cummulative integral of z from z0 to z
-    """
-    return cumtrapz(x=Z,y=Force,initial=0)
 
 
 def SetAllWorkOfObjects(PullingObjects):
@@ -332,7 +286,15 @@ def GetBoltzmannWeightedAverage(BoltzmannFactors,
         WeightedVals = np.array(BoltzVals) * np.array(TmpValues)
         # get the weighted average at this z
         BoltzmannWeightedAverage[i] = np.mean(WeightedVals)
-    return BoltzmannWeightedAverage/Partition
+    ToRet = np.zeros(BoltzmannWeightedAverage.size)
+    GoodIdx = np.where(np.isfinite(Partition))[0]
+    PartitionGood = Partition[GoodIdx]
+    IdxWhereNonZero = GoodIdx[np.where(PartitionGood > 0)]
+    NonZeroAverages = BoltzmannWeightedAverage[IdxWhereNonZero]/\
+                      Partition[IdxWhereNonZero]
+    ToRet[IdxWhereNonZero] = NonZeroAverages
+    # avoid divide by zero error...
+    return ToRet
 
 def FreeEnergyAtZeroForce(Objs,NumBins):
     """
@@ -397,23 +359,29 @@ def FreeEnergyAtZeroForce(Objs,NumBins):
     """
     VarianceForceBoltzWeighted = BoltzmannWeightedForceSq-\
                                  (BoltzmannWeightedForce**2)
+    GoodIndex = np.where( (VarianceForceBoltzWeighted > 0) &
+                          (np.isfinite(VarianceForceBoltzWeighted)))
+                          
     # now get the free energy from paragraph before eq18, ibid.
     # This is essentially the ensemble-averaged 'partition function' at each z
     Beta = np.mean([o.Beta for o in Objs])
     SpringConst = np.mean([o.SpringConstant for o in Objs])
     Velocities = np.mean([o.Velocity for o in Objs])
     k = SpringConst
-    FreeEnergy_A = (-1/Beta)*np.log(Partition)
+    FreeEnergy_A = (-1/Beta)*np.log(Partition[GoodIndex])
     # write down the terms involving the first and second derivative of A
-    dA_dz = BoltzmannWeightedForce.copy()
+    dA_dz = BoltzmannWeightedForce[GoodIndex].copy()
     # for the second derivative, just use 1-A''/k
-    SecondDerivTerm = Beta *VarianceForceBoltzWeighted/k
+    SecondDerivTerm = Beta *VarianceForceBoltzWeighted[GoodIndex]/k
     # perform the IWT, ibid equation 10
     FreeEnergyAtZeroForce = FreeEnergy_A - (dA_dz)**2/(2*k) + \
                             (1/(2*Beta)) * np.log(SecondDerivTerm)
-    FreeEnergyAtZeroForce -= FreeEnergyAtZeroForce[0]
+    # bottom of well is prettu much arbitrary
+    okIdx =np.isfinite(FreeEnergyAtZeroForce)
+    MinVal = np.nanmin(FreeEnergyAtZeroForce[okIdx])
+    FreeEnergyAtZeroForce -= MinVal
     # write down q, using ibid, 10, argument to G0
-    q = ExtBins-dA_dz/k
+    q = ExtBins[GoodIndex]-dA_dz/k
     return EnergyLandscape(FreeEnergyAtZeroForce,q,ExtBins,Beta)
 
 

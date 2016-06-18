@@ -7,12 +7,12 @@ import sys
 
 import warnings
 import copy
-import FitUtils.Python.FitUtil as FitUtil
+import FitUtil.FitUtils.Python.FitUtil as FitUtil
 
 from collections import OrderedDict
-from FitUtils.Python.FitClasses import Initialization,BoundsObj,FitInfo,\
-    FitOpt
-from FitUtils.Python.FitMain import Fit
+from FitUtil.FitUtils.Python.FitMain import Fit
+from FitUtil.FitUtils.Python.FitClasses import\
+    Initialization,BoundsObj,FitInfo,FitOpt
 
 
 from WLC_HelperClasses import WlcParamValues,BouchiatPolyCoeffs,\
@@ -129,7 +129,7 @@ def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
     if ((extrapX is not None) and (extrapY is not None)):
         plt.plot(extrapX,extrapY,'g-',linewidth=3,label="Extrapolated")
     plt.ylim([-fudgeY,maxY+fudgeY])
-    plt.legend(loc='upper left')
+    plt.legend(loc='best')
     plt.show()
 
 
