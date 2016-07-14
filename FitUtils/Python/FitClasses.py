@@ -468,7 +468,7 @@ class FitReturnInfo:
         Initialize the fit object
 
         Args:
-            inf: WlcFitInfo object from the model fitting, updated with the
+            inf: FitInfo object from the model fitting, updated with the
             parameter values we found
 
             PredictedData: the prediction made by the model
