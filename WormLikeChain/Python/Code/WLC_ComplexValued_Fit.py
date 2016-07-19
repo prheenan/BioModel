@@ -6,17 +6,15 @@ import matplotlib.pyplot as plt
 import sys
 
 
-from FitUtil.FitUtils.Python.FitClasses import\
-    Initialization,BoundsObj,FitInfo,FitOpt
 from WLC_Utils import WlcExtensible_Helper,WlcNonExtensible,WlcPolyCorrect,\
     GetReasonableBounds
 from scipy.interpolate import interp1d
 
 
 def SafeCast(x):
-    if (type(x) is not int) and (type(x) is not float):
+    try:
         return np.array(list(x)).astype(np.complex128)
-    else:
+    except:
         return complex(x)
 
 def Power(x,y):
@@ -51,7 +49,7 @@ def ExtensionPerForce(kbT,Lp,L0,K0,F):
     # this turns out to converge well for what we care about
     return np.real(ToRet)
 
-def SeventhOrderForceAndExtGrid(ext,kbT,Lp,L0,K0,F):
+def SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F):
     """
     Given extension data, parameters, and a force, creates a WLC-based 
     grid, including Bouchiat polynomials. This is essentially the (smooth)
@@ -102,7 +100,7 @@ def IntepolateForceFromGriddedToDataExtensions(ExtGrid,ForceGrid,ExtActual,
     return IntepolationMap(ExtActual)
 
 
-def InvertedWlcForce(ext,F,kbT,Lp,L0,K0):
+def InvertedWlcForce(ext,kbT,Lp,L0,K0,F):
     """
     Function to fit F vs ext using an ext(F). This allows us to get a 
     good initial guess for F(ext). The force is gridded, giving 
@@ -112,8 +110,11 @@ def InvertedWlcForce(ext,F,kbT,Lp,L0,K0):
         ext: the extension data, size N
         F: the force data, size N 
         others: See WLC_Fit.WlcNonExtensible
+    Returns:
+        WLC predicted force at each extension.
     """
-    ExtPred,ForceGrid = SeventhOrderForceAndExtGrid(ext,kbT,Lp,L0,K0,F)
-    return IntepolateForceFromGriddedToDataExtensions(ExtPred,ForceGrid,ext)
+    ExtPred,ForceGrid = SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F)
+    Force = IntepolateForceFromGriddedToDataExtensions(ExtPred,ForceGrid,ext)
+    return Force
 
     

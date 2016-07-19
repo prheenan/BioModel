@@ -23,17 +23,20 @@ class WLC_DEF:
     ValueDictionary = OrderedDict(L0 = 1317.52e-9, # meters
                                   Lp = 40.6e-9, # meters
                                   K0 = 1318e-12, # Newtons
-                                  kbT = 4.11e-21) # 4.1 pN * nm = 4.1e-21 N*m
+                                  kbT = 4.11e-21,
+                                  F=0) # 4.1 pN * nm = 4.1e-21 N*m
     # write down the default bounds; just positive values parameter
     BoundsDictionary = OrderedDict(L0=FitClasses.BoundsObj(0,np.inf),
                                    Lp=FitClasses.BoundsObj(0,np.inf),
                                    K0=FitClasses.BoundsObj(0,np.inf),
-                                   kbT=FitClasses.BoundsObj(0,np.inf))
+                                   kbT=FitClasses.BoundsObj(0,np.inf),
+                                   F=FitClasses.BoundsObj(0,np.inf))
     # default varying dictionary
     VaryDictionary =  OrderedDict(L0=True,
                                   Lp=False,
                                   K0=False,
-                                  kbT=False)
+                                  kbT=False,
+                                  F=False)
 
 class WLC_MODELS:
     """
@@ -41,6 +44,7 @@ class WLC_MODELS:
     """
     EXTENSIBLE_WANG_1997 = 0
     INEXTENSIBLE_BOUICHAT_1999 = 1
+    EXTENSIBLE_BY_INVERSE_WANG_1997 = 2
 
 
 class WlcParamValues(FitClasses.ParamValues):
@@ -60,7 +64,8 @@ class WlcParamValues(FitClasses.ParamValues):
         Params = ["L0",
                   "Lp",
                   "K0",
-                  "kbT"]
+                  "kbT",
+                  "F"]
         return Params
     def Scale(self,xScale,ForceScale):
         """
@@ -76,5 +81,6 @@ class WlcParamValues(FitClasses.ParamValues):
         Scales = dict(L0=xScale,
                       Lp=xScale,
                       K0=ForceScale,
-                      kbT=ForceScale*xScale)
+                      kbT=ForceScale*xScale,
+                      F=ForceScale)
         return Scales

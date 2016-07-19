@@ -67,7 +67,8 @@ def GetMinimizingFunction(xScaled,yScaled,mFittingFunc):
         returning a value for the force.
     """
     # basin hopping funciton actually keeps x fixed, so we just pass it in
-    basinHoppingFunc = lambda *params : mFittingFunc(xScaled,*params)
+    basinHoppingFunc = lambda *params,**kwargs : \
+                       mFittingFunc(xScaled,*params,**kwargs)
     #  minimize sum of the residuals/N. Since the scales are normalized,
     # this should be at most between 0 and 1, so normalizing by N
     # means this will (usually) be bettween 0 and 1 (for any reasonable fit)

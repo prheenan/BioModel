@@ -103,7 +103,6 @@ def run():
     Runs some examples on the WLC fitting
     """
     RunInvertedWLCExample()
-    exit(1)
     RunWLCExample()
     BoundedWLCExample()
     RunBasinHoping()

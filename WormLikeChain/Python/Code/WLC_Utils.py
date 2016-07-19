@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import sys
 
 MACHINE_EPSILON = np.finfo(float).eps
+from FitUtil.FitUtils.Python import FitClasses
+
 
 def BouchiatPolyCoeffs():
     """
@@ -59,7 +61,8 @@ def GetReasonableBounds(ext,force,
                                     K0=TupleK0,
                                     # we typically dont fit temperature,
                                     # really no way to know.
-                                    kbT=[0,np.inf])
+                                    kbT=[0,np.inf],
+                                    F=[0,np.inf])
 
 
 def WlcPolyCorrect(kbT,Lp,lRaw):

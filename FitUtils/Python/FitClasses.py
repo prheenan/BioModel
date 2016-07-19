@@ -337,6 +337,9 @@ class FitOpt:
     def __init__(self,Normalize=False):
         """
         Initialize options for the fitting
+
+        Args:
+            Normalize: if true, normalizs the data
         """
         self.Normalize = Normalize
         self.NormX = None
@@ -507,7 +510,7 @@ class FitReturnInfo:
 def GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args):
     """
     Given names of parmeters to vary, a dictionary of fixed parameters,
-    And the actual argumennts, gets a dictionry of all name:value
+    And the actual arguments, gets a dictionry of all name:value
     arguments (bot varying and fixed)
 
     Useful if we want to 'dynamically' change what we vary. This is probably
@@ -557,5 +560,6 @@ def GetFunctionCall(func,ParamNamesToVary,ParamsFixedDict):
          lambda function like func(extension,arg1,arg2,...), where arg1,
          arg2, etc are the function to varu
     """
-    return lambda ext,*args : func(ext,\
-             **GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args))
+    
+    return lambda ext,*args : \
+        func(ext,**GetFullDictionary(ParamNamesToVary,ParamsFixedDict,*args))

@@ -15,10 +15,13 @@ from FitUtil.FitUtils.Python.FitClasses import\
     Initialization,BoundsObj,FitInfo,FitOpt
 
 
+from WLC_ComplexValued_Fit import InvertedWlcForce
 from WLC_HelperClasses import WlcParamValues,WLC_MODELS,WLC_DEF
 from WLC_Utils import BouchiatPolyCoeffs,\
     GetReasonableBounds,MACHINE_EPSILON
 from WLC_Utils import WlcExtensible_Helper,WlcNonExtensible,WlcPolyCorrect
+
+from WLC_ComplexValued_Fit import InvertedWlcForce
 
 def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
                                extrapX=None,extrapY=None):
@@ -251,21 +254,25 @@ def L0Gradient(params,ext,y,_,VaryNames,FixedDictionary):
     return grad
 
 
-def InitializeParamVals(model,toVary,Values=None,Bounds=None,
+def InitializeParamVals(model,toVary,Force,Values=None,Bounds=None,
                         InitialObj=None):
     """
     Adapter to go to the general fitting method
     """
     function = GetFunctionFromModel(model)
+    # a little extra work (TODO: kludgey) for inverse wang, since
+    # it needs the force too...
     if (Values is None):
         Values = WLC_DEF.ValueDictionary
     if (Bounds is None):
         Bounds = WLC_DEF.BoundsDictionary
     if (InitialObj is None):
         InitialObj = Initialization()
+    Values["F"] = Force
     mVals = WlcParamValues(Vary=toVary,Bounds=Bounds,Values=Values)
     return FitInfo(FunctionToCall=function,ParamVals=mVals,
-                   Initialization=InitialObj,FitOptions=FitOpt(Normalize=True))
+                   Initialization=InitialObj,
+                   FitOptions=FitOpt(Normalize=False))
 
 def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     """
@@ -282,6 +289,7 @@ def NonExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,**kwargs):
     """
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=False,kbT=False)
     mInfo = InitializeParamVals(WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999,
+                                Force=force,
                                 toVary=toVary,**kwargs)
     # call the fitter
     return Fit(ext,force,mInfo)
@@ -296,7 +304,8 @@ def GetFunctionFromModel(model):
     
     ModelToFunc = \
         dict( [(WLC_MODELS.EXTENSIBLE_WANG_1997,WlcExtensible),
-               (WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999,WlcNonExtensible)])
+               (WLC_MODELS.INEXTENSIBLE_BOUICHAT_1999,WlcNonExtensible),
+               (WLC_MODELS.EXTENSIBLE_BY_INVERSE_WANG_1997,InvertedWlcForce)])
     return ModelToFunc[model]
 
 def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
@@ -314,7 +323,7 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
         see WlcFit
     """
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
-    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,
+    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,Force=force,
                                 toVary=toVary,**kwargs)
     return Fit(ext,force,mInfo)
 
@@ -340,7 +349,9 @@ def BoundedWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
         Bounds = GetReasonableBounds(ext,force,**kwargs)
     InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns,finish=finish)
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
-    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,Bounds=Bounds,
+    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_BY_INVERSE_WANG_1997,
+                                Force=force,
+                                Bounds=Bounds,
                                 toVary=toVary,InitialObj=InitialObj)
     return Fit(ext,force,mInfo)
                   
