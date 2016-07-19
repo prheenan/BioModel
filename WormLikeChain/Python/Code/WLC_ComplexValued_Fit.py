@@ -5,6 +5,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+from FitUtil.FitUtils.Python.FitMain import Fit
+from WLC_HelperClasses import GetReasonableBounds
+from FitUtil.FitUtils.Python.FitClasses import\
+    Initialization,BoundsObj,FitInfo,FitOpt
+import WLC_Fit
+from WLC_HelperClasses import WlcParamValues,BouchiatPolyCoeffs,\
+    GetReasonableBounds
+from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
+
+
+
 def SafeCast(x):
     if (type(x) is not int) and (type(x) is not float):
         return np.array(list(x)).astype(np.complex128)
@@ -42,18 +53,34 @@ def ExtensionPerForce(kbT,Lp,L0,K0,F):
     # can have complex extension; we just want the real part. 
     return np.real(ToRet)
 
-def run():
-    Force = np.linspace(0,250,1000) * 1e-12
-    Force += + np.random.rand(Force.size) * 10e-12
-    kbT = 4.1e-21
-    Lp = 10e-9
-    L0 = 650e-9
-    K0 = 1000e-12
-    ExtSixFifty = ExtensionPerForce(kbT,Lp,L0,K0,Force)
-    ExtFiveHundred = ExtensionPerForce(kbT,Lp,500e-9,K0,Force)
-    plt.plot(ExtSixFifty,Force)
-    plt.plot(ExtFiveHundred,Force,color='g',linestyle='--')
-    plt.show()
+def FitExtensionByForce(Force,kbT,Lp,L0,K0,ext):
+    print("aqui")
+    ext = ExtensionPerForce(kbT,Lp,L0,K0,Force)
+    return ext
 
-if __name__ == "__main__":
-    run()
+def GriddedWLCFitByInverse(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
+                           Ns=100,Bounds=None,finish=None,**kwargs):
+    """
+    Uses a Brute-force method to get a coase-grained grid on the data
+    before using a fine-grained local minimizer to find the best solution.
+
+    Args:
+        Args: see WLC_Fit.BoundedWlcFit
+    """
+    if (Bounds is None):
+        Bounds = GetReasonableBounds(ext,force,**kwargs)
+    InitialObj = Initialization(Type=Initialization.BRUTE,Ns=Ns,finish=finish)
+    toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
+    mInfo = WLC_Fit.InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,
+                                        Bounds=Bounds,
+                                        toVary=toVary,InitialObj=InitialObj)
+    mInfo.FunctionToCall = FitExtensionByForce
+    # note we switch the values (ordering) of x and y in this funciton call,
+    # since we are doing an implicit fit 
+    ExtensionFit = Fit(force,ext,mInfo)
+    PredictedExt = ExtensionFit.Predict(force)
+    plt.plot(PredictedExt,force)
+    plt.plot(ext,force)
+    plt.show()
+    
+
