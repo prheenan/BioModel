@@ -80,6 +80,11 @@ def GetMinimizingFunction(xScaled,yScaled,mFittingFunc):
                                                    yScaled))/nPoints
     return minimizeFunc
 
+def SafeCall(f,InfiniteFlag,*args,**kwargs):
+    ToRet = f(*args,**kwargs)
+    ToRet[np.where(~np.isfinite(ToRet))] = InfiniteFlag
+    return ToRet
+
 def Fit(x,y,Options):
     """
     General fiting function.
@@ -159,9 +164,12 @@ def Fit(x,y,Options):
                   bounds=boundsCurvefit,
                   max_nfev=nEval,
                   verbose=0)
+    InfiniteFlag = -max(yScaled)
+    FinalFitFunc = lambda *args,**kwargs: SafeCall(mFittingFunc,InfiniteFlag,
+                                                   *args,**kwargs)
     # note: we use p0 as the initial guess for the parameter values
     params,paramsStd,predicted = FitUtil.GenFit(xScaled,yScaled,
-                                                mFittingFunc,p0=varyGuesses,
+                                                FinalFitFunc,p0=varyGuesses,
                                                 **fitOpt)
     # all done!
     # make a copy of the information object; we will return a new one

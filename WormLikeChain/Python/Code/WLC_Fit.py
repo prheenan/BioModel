@@ -323,7 +323,8 @@ def ExtensibleWlcFit(ext,force,VaryL0=True,VaryLp=False,VaryK0=False,
         see WlcFit
     """
     toVary = dict(L0=VaryL0,Lp=VaryLp,K0=VaryK0,kbT=False)
-    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_WANG_1997,Force=force,
+    mInfo = InitializeParamVals(WLC_MODELS.EXTENSIBLE_BY_INVERSE_WANG_1997,
+                                Force=force,
                                 toVary=toVary,**kwargs)
     return Fit(ext,force,mInfo)
 

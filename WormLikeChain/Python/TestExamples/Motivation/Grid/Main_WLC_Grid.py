@@ -7,7 +7,7 @@ import sys
 
 baseDir = "../../../"
 sys.path.append(baseDir)
-sys.path.append("../../../../../")
+sys.path.append("../../../../../../")
 from scipy import optimize
 
 from TestExamples.Util.WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit,\
@@ -74,7 +74,7 @@ def RunGridAnalysis():
     GridSize =100
     fitInfo = WLC_Fit.BoundedWlcFit(Extension,Noisey,VaryL0=True,VaryLp=True,
                                     Ns=GridSize,finish=optimize.fmin)
-    thresh =10
+    thresh =20
     gridInfo = fitInfo.Info.Initialization.InitializationInfo
     PlotGrid(gridInfo,thresh,"Coarse")
 

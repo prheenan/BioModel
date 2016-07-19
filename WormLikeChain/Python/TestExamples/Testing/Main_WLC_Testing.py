@@ -37,7 +37,7 @@ def RunDataTests():
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
     # note we reverse it so we 'fail fast'
-    IndiviudalFuncs = [BullDataTests,BouchiatDataTests]
+    IndiviudalFuncs = [BouchiatDataTests,BullDataTests]
     StepsArray = []
     FunctionsArray = []
     for testFunc in IndiviudalFuncs:

@@ -61,7 +61,9 @@ def SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F):
     # grid the force uniformly (x vs F is essentially a 1-1 map)
     N = F.size
     UpSample = 10
-    ForceGrid = np.linspace(start=min(F),stop=max(F),num=N*UpSample)
+    ForceRange = max(F)-min(F)
+    Fudge = ForceRange/50
+    ForceGrid = np.linspace(start=min(F)-Fudge,stop=max(F)+Fudge,num=N*UpSample)
     # get the extension predictions on the uniform grid (essentially
     # this is a detailed 1-1 map of how to go between force and ext)
     ExtPred = ExtensionPerForce(kbT,Lp,L0,K0,ForceGrid)
@@ -74,10 +76,9 @@ def SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F):
     # extension / force data
     return ExtPred,ForceGrid
 
-def IntepolateForceFromGriddedToDataExtensions(ExtGrid,ForceGrid,ExtActual,
-                                               bounds_error=False,
-                                               kind="linear",
-                                               fill_value="extrapolate"):
+def InterpolateFromGridToData(XGrid,YGrid,XActual,
+                              bounds_error=False,kind='linear',
+                              fill_value='extrapolate'):
     """
     interpolate the force from the predicted extension grid to the actual
     extensions -- which is what we care about
@@ -88,16 +89,16 @@ def IntepolateForceFromGriddedToDataExtensions(ExtGrid,ForceGrid,ExtActual,
     ok, but the user should be sure this behavior is desired
 
     Args:
-        ExtGrid,ForceGrid: two arrays of the same length; we interpolate
-        along the extension grid. Probably the outputs of 
+        XGrid,YGrid: two arrays of the same length; we interpolate Y
+        along the X grid. Probably the outputs of 
         SeventhOrderForceAndExtGrid
 
-        ExtActual: whatever grid we want 
+        XActual: wherever we want the intepolated y values.
     """
-    IntepolationMap = interp1d(ExtGrid,ForceGrid,bounds_error=bounds_error,
+    IntepolationMap = interp1d(XGrid,YGrid,bounds_error=bounds_error,
                                kind=kind,fill_value=fill_value)
     # do the actual mapping 
-    return IntepolationMap(ExtActual)
+    return IntepolationMap(XActual)
 
 
 def InvertedWlcForce(ext,kbT,Lp,L0,K0,F):
@@ -114,7 +115,7 @@ def InvertedWlcForce(ext,kbT,Lp,L0,K0,F):
         WLC predicted force at each extension.
     """
     ExtPred,ForceGrid = SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F)
-    Force = IntepolateForceFromGriddedToDataExtensions(ExtPred,ForceGrid,ext)
+    Force = InterpolateFromGridToData(ExtPred,ForceGrid,ext)
     return Force
 
     

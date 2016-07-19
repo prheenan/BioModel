@@ -38,25 +38,6 @@ def RunWLCExample():
     # what we have is the fit object; we can get/print the parameters
     PlotWLCFit(Data,extensibleFit)
     plt.show()
-
-def RunInvertedWLCExample():
-    # get the (sample) extension and force
-    Extension,Force,Data = GetSampleForceExtension(StepInNm=5)
-    ## for this example, everything besides contour length is fixed.
-    #Set up initial guesses for the params
-    # (see 'WLC_UnitTest_Data.GetBouichatData' for where these are coming from)
-    InitialGuesses = dict(kbT=4.11e-21, # pN * nm (Room Temp)
-                          L0 =1310e-09, # nm
-                          Lp =40.6e-09, # nm  , again 
-                          K0 =1318e-12) # pN
-    extensibleFit = WLC_ComplexValued_Fit.InvertedWlcForce(Extension,
-                                                           F=Force,
-                                                           **InitialGuesses)
-    plt.plot(Extension,extensibleFit,linestyle='--')
-    plt.plot(Extension,Force,'r.')
-    plt.show()
-
-
     
 def BoundedWLCExample():
     """
@@ -102,7 +83,6 @@ def run():
     """
     Runs some examples on the WLC fitting
     """
-    RunInvertedWLCExample()
     RunWLCExample()
     BoundedWLCExample()
     RunBasinHoping()

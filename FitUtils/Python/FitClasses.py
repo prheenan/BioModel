@@ -74,7 +74,8 @@ class Param:
     """
     Subclass to keep track of parameters.
     """
-    def __init__(self,Value=0,Stdev=None,Bounds=None,Name="",Vary=False):
+    def __init__(self,Value=0,Stdev=None,Bounds=None,Name="",Vary=False,
+                 IsComparable=True):
         """
         Initialize the properties of the parameter
 
@@ -90,6 +91,7 @@ class Param:
         self.Stdev = Stdev
         self.Bounds = Bounds
         self.Vary = Vary
+        self.IsComparable = IsComparable
     """
     Various Setters below, to set the properites
     """
@@ -121,7 +123,11 @@ class Param:
     def __str__(self):
         stdevStr = "+/-{:5.2g}".format(self.Stdev) \
                    if self.Stdev is not None else ""
-        return "{:5.4g}{:s}".format(self.Value,stdevStr)
+        try:
+            ValueStr = "{:5.4g}".format(self.Value)
+        except ValueError:
+            ValueStr = "{:s}".format(self.Value)
+        return "{:s}{:s}".format(ValueStr,stdevStr)
     def __repr__(self):
         return str(self)
 
@@ -213,7 +219,7 @@ class ParamValues:
             **kwargs: See: SetVarying. each value is a float
         """
         self._SetGen(lambda x,y: x.SetValue(y),**kwargs)
-    def CloseTo(self,other,rtol=1e-1,atol=0):
+    def CloseTo(self,other,rtol=5e-1,atol=0):
         """
         Returns true if the other set of parameters is the 'same' as this
 
@@ -247,15 +253,19 @@ class ParamValues:
         Returns an ordered dictionary of the parameter *values*
         """
         return OrderedDict( (k,v.Value) for k,v in self.GetParamDict().items())
-
+    def GetComparableValueDict(self):
+        return OrderedDict( (k,v.Value) for k,v in self.GetParamDict().items()
+                            if v.IsComparable)
     def _GenGetInOrder(self,func):
         """
-        Reutrns some transform on each inorder parameter
+        Reutrns some transform on each inorder parameter, for comparison
+        Does *not* compare parameters which have their "DontCompare" Flag listed
+        (e.g.: force guess)
 
         Args:
            func: takes in a parameter, returns whatever we want from it
         """
-        return [func(v) for v in self.GetParamsInOrder()]
+        return [func(v) for v in self.GetParamsInOrder() if v.IsComparable]
     def GetParamValsInOrder(self):
         """
         Returns:
@@ -459,8 +469,9 @@ class FitInfo:
     def DictToValues(self,Dict):
         return [v for key,v in Dict.items()]
     def __str__(self):
+        MyItems = self.ParamVals.GetParamDict().items()
         return "\n".join("{:10s}\t{:s}".format(k,v) for k,v in
-                         self.ParamVals.GetParamDict().items())
+                         MyItems if v.IsComparable)
 
 class FitReturnInfo:
     """

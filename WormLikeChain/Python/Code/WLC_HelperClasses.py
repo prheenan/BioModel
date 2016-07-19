@@ -57,6 +57,7 @@ class WlcParamValues(FitClasses.ParamValues):
              **kwargs: see FitClasses.ParamValues
         """
         super(WlcParamValues,self).__init__(**kwargs)
+        self.ParamDict["F"].IsComparable = False
     def InitParams(self):
         """
         Initiliaze parameters names, as written in functions
