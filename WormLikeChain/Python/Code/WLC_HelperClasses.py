@@ -8,10 +8,6 @@ import sys
 
 from collections import OrderedDict
 from FitUtil.FitUtils.Python import FitClasses
-MACHINE_EPSILON = np.finfo(float).eps
-
-
-
 
 class WLC_DEF:
     """
@@ -82,57 +78,3 @@ class WlcParamValues(FitClasses.ParamValues):
                       K0=ForceScale,
                       kbT=ForceScale*xScale)
         return Scales
-
-def BouchiatPolyCoeffs():
-    """
-    Gives the polynomial correction coefficients
-
-    See 
-    "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
-    C. Bouchiat, M.D. Wang, et al.
-    Biophysical Journal Volume 76, Issue 1, January 1999, Pages 409-413
-web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
-
-    Returns:
-       list of coefficients; element [i] is the coefficient of term x^(i) in the
-       correction listed above
-    """
-    return [0,
-            0,
-            -.5164228,
-            -2.737418,
-            16.07497,
-            -38.87607,
-            39.49949,
-            -14.17718]
-
-def GetReasonableBounds(ext,force,
-                        c_L0_lower=0.8,c_L0_upper=1.1,
-                        c_Lp_lower=0.0,c_Lp_upper=0.1,
-                        c_K0_lower=10,c_K0_upper=1e4):
-    """
-    Returns a reasonable (ordered) dictionary of bounds, given extensions and 
-    force
-
-    Args:
-        ext: the extesions we are interested in
-        force: the force we are interestd in 
-        c_<xx>_lower: lower bound, in terms of the max of ext/force (depending
-        on which constant, K0 is Force, Lp and L0 are length)
-
-        c_<xx>_upper: upper bound, in terms of the max of ext/force (depending
-        on which constant, K0 is Force, Lp and L0 are length)
-    Returns:
-        Dictionary of <Parameter Name : Bounds> Pairs
-    """
-    MaxX = max(ext)
-    MaxForce = max(force)
-    TupleL0 = np.array([c_L0_lower,c_L0_upper]) * MaxX
-    TupleLp = np.array([c_Lp_lower,c_Lp_upper]) * MaxX
-    TupleK0 = np.array([c_K0_lower,c_K0_upper]) * MaxForce
-    return FitClasses.GetBoundsDict(L0=TupleL0,
-                                    Lp=TupleLp,
-                                    K0=TupleK0,
-                                    # we typically dont fit temperature,
-                                    # really no way to know.
-                                    kbT=[0,np.inf])

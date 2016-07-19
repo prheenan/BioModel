@@ -15,82 +15,10 @@ from FitUtil.FitUtils.Python.FitClasses import\
     Initialization,BoundsObj,FitInfo,FitOpt
 
 
-from WLC_HelperClasses import WlcParamValues,BouchiatPolyCoeffs,\
-    GetReasonableBounds
-from WLC_HelperClasses import WLC_MODELS,WLC_DEF,MACHINE_EPSILON
-
-
-def WlcPolyCorrect(kbT,Lp,lRaw):
-    """
-    From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
-    C. Bouchiat, M.D. Wang, et al.
-    Biophysical Journal Volume 76, Issue 1, January 1999, Pages 409-413
-
-web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
-
-    Args:
-        kbT : the thermal energy in units of [ForceOutput]/Lp
-        Lp  : the persisence length, sensible units of length
-        lRaw   : is either extension/Contour=z/L0 Length (inextensible) or   
-        z/L0 - F/K0, where f is the force and K0 is the bulk modulus. See 
-        Bouchiat, 1999 equation 13
-    Returns:
-        Model-predicted value for the force
-    """
-    # parameters taken from paper cited above
-    l = lRaw.copy()
-    a0=0 
-    a1=0
-    a2=-.5164228
-    a3=-2.737418
-    a4=16.07497
-    a5=-38.87607
-    a6=39.49949
-    a7=-14.17718
-    #http://docs.scipy.org/doc/numpy/reference/generated/numpy.polyval.html
-    #If p is of length N, this function returns the value:a
-    # p[0]*x**(N-1) + p[1]*x**(N-2) + ... + p[N-2]*x + p[N-1]
-    # note: a0 and a1 are zero, including them for easy of use of polyval.
-    # see especially equation 13. Note we reverse the Bouchiat Coefficients...
-    polyValCoeffs = BouchiatPolyCoeffs()[::-1]
-    
-    denom = (1-l)**2
-    inner = 1/(4*denom) -1/4 + l + np.polyval(polyValCoeffs,l)
-    toRet = (kbT/Lp) * inner
-    return toRet
-
-def WlcNonExtensible(ext,kbT,Lp,L0,*args,**kwargs):
-    """
-    Gets the non-extensible model for WLC polymers, given and extension
-
-    Args:
-        kbT : see WlcPolyCorrect
-        Lp: see WlcPolyCorrect
-        L0 : contour length, units of ext
-        ext: the extension, same units as L0
-        *args: extra arguments, ignored (so we can all use the same call sig)
-    Returns:
-        see WlcPolyCorrect
-    """
-    return WlcPolyCorrect(kbT,Lp,ext/L0)
-
-def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
-    """
-    Fits to the (recursively defined) extensible model. Note this will need to
-    be called several times to converge properly
-
-    Args: 
-        kbT,Lp,L0,ext : see WlcPolyCorrect
-        K0: bulk modulus, units of Force
-        ForceGuess: the 'guess' for the force
-    Returns:
-        see WlcPolyCorrect
-    """
-    # get the non-extensible model
-    xNorm = ext/L0
-    yNorm = ForceGuess/K0
-    l = xNorm-yNorm
-    return WlcPolyCorrect(kbT,Lp,l)
+from WLC_HelperClasses import WlcParamValues,WLC_MODELS,WLC_DEF
+from WLC_Utils import BouchiatPolyCoeffs,\
+    GetReasonableBounds,MACHINE_EPSILON
+from WLC_Utils import WlcExtensible_Helper,WlcNonExtensible,WlcPolyCorrect
 
 def DebugExtensibleConvergence(extOrig,yOrig,extNow,yNow,ext,
                                extrapX=None,extrapY=None):

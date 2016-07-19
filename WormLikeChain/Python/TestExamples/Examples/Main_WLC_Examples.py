@@ -7,14 +7,15 @@ import sys
 
 baseDir = "../../"
 sys.path.append(baseDir)
-sys.path.append("../../../../")
+sys.path.append("../../../../../")
 
 from TestExamples.Util.WLC_UnitTest_Util import TestDataWithSteps,PlotWLCFit,\
     GetSampleForceExtension
 from TestExamples.Util.WLC_UnitTest_Data import GetBouichatData,GetBullData
 import Code.WLC_Fit as WLC_Fit
 # for basin hopping, need to initialize to HOP
-from FitUtils.Python.FitClasses import Initialization
+from FitUtil.FitUtils.Python.FitClasses import Initialization
+import Code.WLC_ComplexValued_Fit as WLC_ComplexValued_Fit
 
 
 def RunWLCExample():
@@ -38,6 +39,25 @@ def RunWLCExample():
     PlotWLCFit(Data,extensibleFit)
     plt.show()
 
+def RunInvertedWLCExample():
+    # get the (sample) extension and force
+    Extension,Force,Data = GetSampleForceExtension(StepInNm=5)
+    ## for this example, everything besides contour length is fixed.
+    #Set up initial guesses for the params
+    # (see 'WLC_UnitTest_Data.GetBouichatData' for where these are coming from)
+    InitialGuesses = dict(kbT=4.11e-21, # pN * nm (Room Temp)
+                          L0 =1310e-09, # nm
+                          Lp =40.6e-09, # nm  , again 
+                          K0 =1318e-12) # pN
+    extensibleFit = WLC_ComplexValued_Fit.InvertedWlcForce(Extension,
+                                                           F=Force,
+                                                           **InitialGuesses)
+    plt.plot(Extension,extensibleFit,linestyle='--')
+    plt.plot(Extension,Force,'r.')
+    plt.show()
+
+
+    
 def BoundedWLCExample():
     """
     Suppose you dont have a good idea for the exact parameters of your model.
@@ -82,6 +102,8 @@ def run():
     """
     Runs some examples on the WLC fitting
     """
+    RunInvertedWLCExample()
+    exit(1)
     RunWLCExample()
     BoundedWLCExample()
     RunBasinHoping()
