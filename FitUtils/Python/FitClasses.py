@@ -119,7 +119,11 @@ class Param:
         self.Value /= scale
         if (self.Stdev is not None):
             self.Stdev /= scale
-        self.Bounds.scale(scale)
+        try:
+            self.Bounds.scale(scale)
+        except:
+            # not given a bounds... just pass
+            pass
     def __str__(self):
         stdevStr = "+/-{:5.2g}".format(self.Stdev) \
                    if self.Stdev is not None else ""
@@ -514,7 +518,8 @@ class FitReturnInfo:
         params = paramObj.GetValueDict()
         model = self.Info.FunctionToPredict
         return model(xVals/xNorm,**params)/yNorm
-    
+    def Params(self):
+        return self.Info.ParamVals.GetParamValsInOrder()
     def __str__(self):
         return str(self.Info)
 

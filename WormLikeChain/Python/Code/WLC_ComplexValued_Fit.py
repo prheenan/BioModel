@@ -49,7 +49,7 @@ def ExtensionPerForce(kbT,Lp,L0,K0,F):
     # this turns out to converge well for what we care about
     return np.real(ToRet)
 
-def SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F):
+def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):
     """
     Given extension data, parameters, and a force, creates a WLC-based 
     grid, including Bouchiat polynomials. This is essentially the (smooth)
@@ -61,9 +61,9 @@ def SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F):
     # grid the force uniformly (x vs F is essentially a 1-1 map)
     N = F.size
     UpSample = 10
-    ForceRange = max(F)-min(F)
-    Fudge = ForceRange/50
-    ForceGrid = np.linspace(start=min(F)-Fudge,stop=max(F)+Fudge,num=N*UpSample)
+    if (MaxForce is None):
+        MaxForce = max(F)
+    ForceGrid = np.linspace(start=0,stop=MaxForce,num=N*UpSample)
     # get the extension predictions on the uniform grid (essentially
     # this is a detailed 1-1 map of how to go between force and ext)
     ExtPred = ExtensionPerForce(kbT,Lp,L0,K0,ForceGrid)
@@ -101,7 +101,7 @@ def InterpolateFromGridToData(XGrid,YGrid,XActual,
     return IntepolationMap(XActual)
 
 
-def InvertedWlcForce(ext,kbT,Lp,L0,K0,F):
+def InvertedWlcForce(ext,kbT,Lp,L0,K0,F,ForceSliceToUseForMax=None):
     """
     Function to fit F vs ext using an ext(F). This allows us to get a 
     good initial guess for F(ext). The force is gridded, giving 
@@ -111,10 +111,19 @@ def InvertedWlcForce(ext,kbT,Lp,L0,K0,F):
         ext: the extension data, size N
         F: the force data, size N 
         others: See WLC_Fit.WlcNonExtensible
+        ForceSliceToUseForMax: to do the inversion, we need to know what maximum
+        Force to use. We take the max of the force in this slice to make it 
+        happen
     Returns:
         WLC predicted force at each extension.
     """
-    ExtPred,ForceGrid = SeventhOrderExtAndForceGrid(ext,kbT,Lp,L0,K0,F)
+    if (ForceSliceToUseForMax is None):
+        N = F.size
+        Start = int(N/2)
+        End = N
+        ForceSliceToUseForMax = slice(Start,End)
+    MaxForce = np.max(F[ForceSliceToUseForMax])
+    ExtPred,ForceGrid = SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce)
     Force = InterpolateFromGridToData(ExtPred,ForceGrid,ext)
     return Force
 
