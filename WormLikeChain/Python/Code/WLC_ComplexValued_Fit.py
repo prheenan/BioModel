@@ -49,6 +49,11 @@ def ExtensionPerForce(kbT,Lp,L0,K0,F):
     # this turns out to converge well for what we care about
     return np.real(ToRet)
 
+def ExtensionPerForceOdjik(kbT,Lp,L0,K0,F):
+    # need to cast the sqrt to a real to make this work
+    Sqrt = np.sqrt(kbT/(F.astype(np.complex128)*Lp))
+    return np.real(L0 * (1 - Sqrt/2 + F/K0))
+
 def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):
     """
     Given extension data, parameters, and a force, creates a WLC-based 
@@ -66,7 +71,7 @@ def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):
     ForceGrid = np.linspace(start=0,stop=MaxForce,num=N*UpSample)
     # get the extension predictions on the uniform grid (essentially
     # this is a detailed 1-1 map of how to go between force and ext)
-    ExtPred = ExtensionPerForce(kbT,Lp,L0,K0,ForceGrid)
+    ExtPred = ExtensionPerForceOdjik(kbT,Lp,L0,K0,ForceGrid)
     # use the grided extensions and forces as a prediction for the
     # seventh-order Bouchiat corrections. This should be quite 'smooth'
     # and devoid of any noise or singularities. 

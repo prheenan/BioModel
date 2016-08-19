@@ -42,9 +42,9 @@ class WLC_MODELS:
     """
     Class definining valid models.
     """
-    EXTENSIBLE_WANG_1997 = 0
     INEXTENSIBLE_BOUICHAT_1999 = 1
     EXTENSIBLE_BY_INVERSE_WANG_1997 = 2
+    EXTENSIBLE_ODJIK_1995 = 3
 
 
 class WlcParamValues(FitClasses.ParamValues):
