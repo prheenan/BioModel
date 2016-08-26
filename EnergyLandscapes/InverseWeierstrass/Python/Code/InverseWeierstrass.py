@@ -11,7 +11,6 @@ from collections import defaultdict
 
 
 class EnergyLandscape:
-
     def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
         # sort the energy landscape by the exensions
         SortIdx = np.argsort(Extensions)
@@ -73,7 +72,6 @@ class FEC_Pulling_Object:
         Returns:
             The cummulative integral of work, as defined in ibid, before eq18
         """
-        # compute the forst from the bias 
         Force = self.Force
         Z = self.ZFunc()
         ToRet = cumtrapz(x=Z,y=Force,initial=0)
@@ -303,7 +301,10 @@ def FreeEnergyAtZeroForce(Objs,NumBins):
     Args:
         obj: list of FEC_Pulling_Object
         NumBins: number of bins to put things into
+    Returns:
+        Energy Landscape Object
     """
+    SetAllWorkOfObjects(Objs)
     # get the bounds associated with the times and extensions
     TimeBounds = GetTimeBounds(Objs)
     ExtBounds = GetExtensionBounds(Objs)
