@@ -8,6 +8,7 @@ import sys
 from scipy.integrate import cumtrapz
 import itertools
 from collections import defaultdict
+from scipy.optimize import fminbound
 
 
 class EnergyLandscape:
@@ -50,7 +51,6 @@ class FEC_Pulling_Object:
         self.SpringConstant=SpringConstant
         self.Velocity= Velocity
         self.Beta=Beta
-        
         self.Work=None
         self.WorkDigitized=None
         self.ZFunc = self.ZFuncSimple if ZFunc is None else ZFunc
@@ -260,7 +260,7 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
     return FreeEnergyAtZeroForce
 
 def GetBoltzmannWeightedAverage(BoltzmannFactors,
-                                Values,Partition,Delta):
+                                Values,Partition):
     """
     Given a matrix BoltzmannFactors[i][j] where i refers to
     the bin, and j refers to the FEC label,
@@ -335,6 +335,7 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     Args:
         Forward: List of forward paths
         Reverse: List of reverse paths
+        disp: arugment to root finder: default shows all the steps
     Returns:
         Free energy different, in joules
     """
