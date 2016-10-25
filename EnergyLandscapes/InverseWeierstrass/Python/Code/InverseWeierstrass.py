@@ -11,7 +11,6 @@ from collections import defaultdict
 
 
 class EnergyLandscape:
-
     def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
         # sort the energy landscape by the exensions
         SortIdx = np.argsort(Extensions)
@@ -51,25 +50,26 @@ class FEC_Pulling_Object:
         self.SpringConstant=SpringConstant
         self.Velocity= Velocity
         self.Beta=Beta
+        
         self.Work=None
         self.WorkDigitized=None
-    def ZFunc(self):
+        self.ZFunc = self.ZFuncSimple if ZFunc is None else ZFunc
+    def ZFuncSimple(self):
         return self.Extension[0] + (self.Velocity * self.Time)
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
-
         Args:
-            ZFunc: see GetDigitizedBias
+            ZFunc: see GetDigitizedBoltzmann
         """
         return self.SpringConstant,self.Velocity,self.Time,self.Extension
     def CalculateForceCummulativeWork(self):
         """
         Gets the position-averaged work, see methods section of 
-        paper cited in GetDigitizedBias
+        paper cited in GetDigitizedBoltzmann
          
         Args:
-            ZFunc: See GetDigitizedBias
+            ZFunc: See GetDigitizedBoltzmann
         Returns:
             The cummulative integral of work, as defined in ibid, before eq18
         """
@@ -100,7 +100,14 @@ class FEC_Pulling_Object:
     def GetDigitizedBoltzmann(self,Bins):
         """
         Gets the digitized boltzmann factor np.exp(-beta*W)
-        (averaged in a bin), given the Bins
+        (averaged in a bin), given the Bins. For nomenclature, see:
+        
+        Hummer, G. & Szabo, A. 
+        Free energy profiles from single-molecule pulling experiments. 
+        PNAS 107, 21441-21446 (2010).
+
+        Especially equaitons 11-12 and 18-19 and relevant discussion
+
 
         Args:
             Bins: the bins to use
@@ -113,7 +120,7 @@ class FEC_Pulling_Object:
     def GetDigitizedForce(self,Bins):
         """
         Gets the digitized force within the bins. See materials cited in 
-        GetDigitizedBias
+        GetDigitizedBoltzmann
 
         Args:
             Bins: see ibid
@@ -253,11 +260,10 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
     return FreeEnergyAtZeroForce
 
 def GetBoltzmannWeightedAverage(BoltzmannFactors,
-                                Values,
-                                Partition):
+                                Values,Partition,Delta):
     """
     Given a matrix BoltzmannFactors[i][j] where i refers to
-    the time, and j refers to the FEC label,
+    the bin, and j refers to the FEC label,
     and a matrix Values[i][j] with the same index but referring
     to a physical constant (e.g. force or force squared), returns
     the boltzmann-weighted force a la Hummer2010, just after Equation 11
@@ -296,7 +302,106 @@ def GetBoltzmannWeightedAverage(BoltzmannFactors,
     # avoid divide by zero error...
     return ToRet
 
-def FreeEnergyAtZeroForce(Objs,NumBins):
+def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
+    """
+    Gives the distance to the root in equation 18 (see NumericallyGetDeltaA)
+
+    Args:
+        Beta,DeltaA: See ibid
+        FowardWork,ReverseWork: list of the works as defined in ibid, same
+        Units as DeltaA
+    """
+    nf = len(ForwardWork)
+    nr = len(ReverseWork)
+    # get the forward and reverse 'factor': difference should be zero
+    Forward = np.mean(1/(nr + nf * np.exp(Beta * (ForwardWork-DeltaA))))
+    Reverse = np.mean(1/(nf + nr * np.exp(Beta * (ReverseWork+DeltaA))))
+    # we really only case about the abolute value of the expression, since
+    # we want the two sides to be equal...
+    return np.abs(Forward-Reverse)
+
+def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
+    """
+    Numerically solves for DeltaA, as in equation 18 of 
+
+    Hummer, G. & Szabo, A. 
+    Free energy profiles from single-molecule pulling experiments. 
+    PNAS 107, 21441-21446 (2010).
+
+    Note that we use a root finder to find the difference in units of kT,
+    then convert back (avoiding large floating point problems associated with
+    1e-21)
+
+    Args:
+        Forward: List of forward paths
+        Reverse: List of reverse paths
+    Returns:
+        Free energy different, in joules
+    """
+    # XXX should fix/ not hard code
+    beta = 1/(4.1e-21)
+    # get the work in terms of beta, should make it easier to converge
+    Fwd = [f.Work*beta for f in Forward]
+    Rev = [f.Work*beta for f in Reverse]
+    MaxWorks = [np.max(np.abs(Fwd)),
+                np.max(np.abs(Rev))]
+    MinWorks = [np.min(Fwd),
+                np.min(Rev)]
+    Max = max(MaxWorks)
+    Min = min(MinWorks)
+    # only look between +/- the max. Note that range is guarenteed positive
+    Range = Max-Min
+    FMinArgs = dict(x1=-Range,x2=Range,full_output=True,disp=disp,**kwargs)
+    # note we set beta to one, since it is easier to solve in units of kT
+    ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
+    xopt,fval,ierr,nfunc = fminbound(ToMin,**FMinArgs)
+    return xopt/beta
+
+def FoldUnfoldAverage(ValueFunction,Unfolding,Refolding,DeltaA):
+    """
+    Given unfolding and refolding data, gets the average of the property given
+    by Valuefunction. Note that we average over the first axis (assumed to be
+    the ensemble of measurements) 
+
+    Args:
+        ValueFunction: takes in an item from Unfolding or folding, returns the 
+        value we want (e.g. force, forcesq, probably as a function of Z)
+
+        Unfolding:  list of FEC_Pulling_Object, representing unfolding curves
+        Refolding: list of FEC_Pulling_Object, representing folding curves
+        DeltaA: from NumericallyGetDeltaA
+    Returns:
+        Average at each value of z
+    """
+    nf = len(Folding)
+    nu = len(Unfolding)
+    value_folded =[ValueFunction(o) for o in Folding]
+    value_unfolded =[ValueFunction(o) for o in Unfolding]
+    """
+    get the boltzmann factors, following  equaition 18 of
+
+    Hummer, G. & Szabo, A. 
+    Free energy profiles from single-molecule pulling experiments. 
+    PNAS 107, 21441-21446 (2010).
+
+    and equation 6 of 
+    
+    Minh, D. D. L. & Adib, A. B. 
+    Optimized Free Energies from Bidirectional Single-Molecule 
+    Force Spectroscopy. Phys. Rev. Lett. 100, 180602 (2008).
+
+    Noting the average is boltzmann weighted (eg: 19 reduces to 1 when 
+    nr=0, meaning no unfolding is available)
+    """
+    boltz_fold = [np.exp(-o.Beta*(o.Work-DeltaX)) for o in Folding]
+    boltz_unfold = [np.exp(-o.Beta*(o.Work+DeltaX)) for o in Unfolding]
+    # get the averaged value, noting 
+    value_folded = nf * value_folded       / (nf + nr * boltz_fold)
+    value_unfold = nr * value_unfoldfolded / (nr + nf * boltz_unfold)
+    return np.mean(value_folded,axis=0) + np.mean(value_unfold,axis=0)
+
+
+def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=None):
     """
     Wrapper to make it easier to get the weighted histograms, etcs.
 
@@ -305,8 +410,8 @@ def FreeEnergyAtZeroForce(Objs,NumBins):
         NumBins: number of bins to put things into
     """
     # get the bounds associated with the times and extensions
-    TimeBounds = GetTimeBounds(Objs)
-    ExtBounds = GetExtensionBounds(Objs)
+    TimeBounds = GetTimeBounds(UnfoldingObjs)
+    ExtBounds = GetExtensionBounds(UnfoldingObjs)
     # Create the time and position bins using a helper function
     BinIt= lambda x,n: np.linspace(start=x[0],
                                    stop=x[1],
@@ -321,7 +426,7 @@ def FreeEnergyAtZeroForce(Objs,NumBins):
     GetForceSqFunc = lambda x : x._GetDigitizedGen(BinDataTo,
                                                    x.Force**2)
     # get the (per-instance) boltmann factors, for weighing
-    BoltzByFEC = [BoltzmanFunc(o) for o in Objs]
+    BoltzByFEC = [BoltzmanFunc(o) for o in UnfoldingObjs]
     # get the (flattend) boltmann factors
     FlatFunc = lambda objs,bins : [ [item
                                      for x in objs
@@ -342,8 +447,8 @@ def FreeEnergyAtZeroForce(Objs,NumBins):
     Especially  right after equation 12 (<exp(-Beta(W(z)))> is the denominator)
     """
     # do the same, for the force and force squared
-    ForcePerEnsemble = [ForceFunc(o) for o in Objs]
-    ForceSquaredPerEnsemble = [GetForceSqFunc(o) for o in Objs]
+    ForcePerEnsemble = [ForceFunc(o) for o in UnfoldingObjs]
+    ForceSquaredPerEnsemble = [GetForceSqFunc(o) for o in UnfoldingObjs]
     # Get the histograms by time
     ForcePerTime = FlatFunc(ForcePerEnsemble,NBins)
     ForceSqPerTime = FlatFunc(ForceSquaredPerEnsemble,NBins)
@@ -361,12 +466,11 @@ def FreeEnergyAtZeroForce(Objs,NumBins):
                                  (BoltzmannWeightedForce**2)
     GoodIndex = np.where( (VarianceForceBoltzWeighted > 0) &
                           (np.isfinite(VarianceForceBoltzWeighted)))
-                          
     # now get the free energy from paragraph before eq18, ibid.
     # This is essentially the ensemble-averaged 'partition function' at each z
-    Beta = np.mean([o.Beta for o in Objs])
-    SpringConst = np.mean([o.SpringConstant for o in Objs])
-    Velocities = np.mean([o.Velocity for o in Objs])
+    Beta = np.mean([o.Beta for o in UnfoldingObjs])
+    SpringConst = np.mean([o.SpringConstant for o in UnfoldingObjs])
+    Velocities = np.mean([o.Velocity for o in UnfoldingObjs])
     k = SpringConst
     FreeEnergy_A = (-1/Beta)*np.log(Partition[GoodIndex])
     # write down the terms involving the first and second derivative of A
