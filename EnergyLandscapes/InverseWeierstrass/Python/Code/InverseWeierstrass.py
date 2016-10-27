@@ -266,6 +266,31 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
     FreeEnergyAtZeroForce = -np.log(np.array(Numer)/np.array(Denom))/Beta
     return FreeEnergyAtZeroForce
 
+def ForwardWeighted(nf,nr,vf,Wf,DeltaA,Beta):
+    return (vf*nf*Exp(-Beta*Wf))/(nf + nr*Exp(-Beta*(Wfn - DeltaA)))
+
+def ReverseWeighed(nf,nr,vr,Wr,DeltaA,Beta):
+    return (vr*nr*Exp(-Beta*(Wr + DeltaA)))/(nr + nf*Exp(-Beta*(Wfn + DeltaA)))
+
+def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,Beta,DeltaA,nf,nr):
+    # get the weights for the fwd
+    common_args = dict(Beta=Beta,DeltaA=DeltaA,nf=nf,nr=nr)
+    Fwd = [ForwardWeighted(vf=v,Wf=W,**common_args)
+           for v,W in zip(v_fwd,w_fwd)]
+    # get the weights for the reverse, if we have any
+    if (nr > 0):
+        Rev = [ReverseWeighed(vr=v,Wr=W,**common_args)
+               for v,W in zip(v_ref,w_rev)]
+    else:
+        Rev = [ [0 for i in range(len(v))] for v in v_fwd]
+    # Concatenate all the forward and reverse arrays
+    fwd_concat = np.concatenate(Fwd)
+    rev_concat = np.concatenate(Ref)
+    # now we have all the values from the entire ensemble; we just average
+    # across forard and reverse (separately!), then add
+    Total = np.mean(fwd_concat) + np.mean(rev_concat)
+    return Total
+
 def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction):
     """
     Given a matrix BoltzmannFactors[i][j] where i refers to
