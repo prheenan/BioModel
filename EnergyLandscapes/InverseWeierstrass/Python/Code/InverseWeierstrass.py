@@ -286,18 +286,26 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction):
          Weighted average as a function of extension, as an *array*, defined
          by Hummer and Szabo, 2010, PNAS, after equation 12
     """
+    # function which converts an array x like x[i,j,k]
+    # is FEC i, bin j, value k, to an array like y[l,m], bin l and ensemble m
+    FlatFunc = lambda objs,bins : [ [item
+                                     for x in objs
+                                     for item in x[i]]
+                                    for i in range(bins)]
+    # function to convert ibid into array like [i,j,k] where
+    # i is bin i, j is FEC, k is value
+    ByBinFunc = lambda objs,bins : [ [[item for item in x[i]]
+                                      for x in objs]
+                                      for i in range(bins)]
     nf = len(Forward)
     assert nf > 0 , "No Forward Curves"
     v_fwd = [ValueFunction(f) for f in Forward]
     NumBins = len(v_fwd[0])
     assert len(v_fwd) > 0 ,"No Bins"
+
     v_rev = [ValueFunction(f) for f in Reverse]
     work_fwd = [WorkFunction(f) for f in Forward]
     work_rev = [WorkFunction(f) for f in Reverse]
-    FlatFunc = lambda objs,bins : [ [item
-                                     for x in objs
-                                     for item in x[i]]
-                                    for i in range(bins)]
     beta = np.mean([f.Beta for f in Forward])
     Work = FlatFunc(work_fwd,NumBins)
     BoltzmannFactors = [np.exp(-beta*np.array(w))
