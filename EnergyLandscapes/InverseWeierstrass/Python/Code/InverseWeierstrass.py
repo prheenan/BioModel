@@ -266,32 +266,47 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
     FreeEnergyAtZeroForce = -np.log(np.array(Numer)/np.array(Denom))/Beta
     return FreeEnergyAtZeroForce
 
-def ForwardWeighted(nf,nr,vf,Wf,DeltaA,Beta):
+def Exp(x):
+    return np.exp(x)
+
+def ForwardWeighted(nf,nr,vf,Wf,Wfn,DeltaA,Beta):
     return (vf*nf*Exp(-Beta*Wf))/(nf + nr*Exp(-Beta*(Wfn - DeltaA)))
 
-def ReverseWeighed(nf,nr,vr,Wr,DeltaA,Beta):
+def ReverseWeighed(nf,nr,vr,Wr,Wrn,DeltaA,Beta):
     return (vr*nr*Exp(-Beta*(Wr + DeltaA)))/(nr + nf*Exp(-Beta*(Wfn + DeltaA)))
 
-def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,Beta,DeltaA,nf,nr):
+def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     # get the weights for the fwd
+    pre = lambda x: np.array(x)
     common_args = dict(Beta=Beta,DeltaA=DeltaA,nf=nf,nr=nr)
-    Fwd = [ForwardWeighted(vf=v,Wf=W,**common_args)
-           for v,W in zip(v_fwd,w_fwd)]
+    Fwd = [ForwardWeighted(vf=pre(v),Wf=pre(W),Wfn=pre(Wfn),**common_args)
+           for v,W,Wfn in zip(v_fwd,w_fwd,w_fwd_n)]
     # get the weights for the reverse, if we have any
     if (nr > 0):
-        Rev = [ReverseWeighed(vr=v,Wr=W,**common_args)
-               for v,W in zip(v_ref,w_rev)]
+        Rev = [ReverseWeighed(vr=pre(v),Wr=pre(W),Wrn=pre(Wrn),**common_args)
+               for v,W,Wrn in zip(v_ref,w_rev,w_rev_n)]
     else:
         Rev = [ [0 for i in range(len(v))] for v in v_fwd]
     # Concatenate all the forward and reverse arrays
     fwd_concat = np.concatenate(Fwd)
-    rev_concat = np.concatenate(Ref)
+    rev_concat = np.concatenate(Rev)
     # now we have all the values from the entire ensemble; we just average
     # across forard and reverse (separately!), then add
     Total = np.mean(fwd_concat) + np.mean(rev_concat)
+    # check that 'forward only' did exactly what we want 
+    if (nr == 0):
+        cat_work = np.concatenate(w_fwd)
+        cat_vals = np.concatenate(v_fwd)
+        expected = cat_vals * np.exp(-Beta*cat_work)
+        av_expected = np.mean(expected)
+        # now go to relative space, so our error checking is better
+        Relative = lambda x: (x-min(expected))/(max(expected)-min(expected))
+        Div = np.max(expected)
+        np.testing.assert_allclose(Relative(Total),Relative(av_expected))
     return Total
 
-def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction):
+def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
+                                DeltaA,PartitionDivision):
     """
     Given a matrix BoltzmannFactors[i][j] where i refers to
     the bin, and j refers to the FEC label,
@@ -323,41 +338,36 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction):
                                       for x in objs]
                                       for i in range(bins)]
     nf = len(Forward)
+    nr = len(Reverse)
     assert nf > 0 , "No Forward Curves"
     v_fwd = [ValueFunction(f) for f in Forward]
     NumBins = len(v_fwd[0])
     assert len(v_fwd) > 0 ,"No Bins"
-
-    v_rev = [ValueFunction(f) for f in Reverse]
-    work_fwd = [WorkFunction(f) for f in Forward]
-    work_rev = [WorkFunction(f) for f in Reverse]
     beta = np.mean([f.Beta for f in Forward])
-    Work = FlatFunc(work_fwd,NumBins)
-    BoltzmannFactors = [np.exp(-beta*np.array(w))
-                        for w in zip(Work)]
-    Partition = np.array([np.mean(b) for b in BoltzmannFactors])
-    Values = FlatFunc(v_fwd,NumBins)
-    # get the mean boltzmann factor (partition function) at each bin
-    NumExt = len(Partition)
-    # create an array for storing everything.
-    BoltzmannWeightedAverage = np.zeros(NumExt)
-    # loop through each extension and get the weights
-    for i,BoltzVals in enumerate(BoltzmannFactors):
-        # get the associated values
-        TmpValues = Values[i]
-        # get the mean, weighted value at this z
-        WeightedVals = np.array(BoltzVals) * np.array(TmpValues)
-        # get the weighted average at this z
-        BoltzmannWeightedAverage[i] = np.mean(WeightedVals)
-    ToRet = np.zeros(BoltzmannWeightedAverage.size)
-    GoodIdx = np.where(np.isfinite(Partition))[0]
-    PartitionGood = Partition[GoodIdx]
-    IdxWhereNonZero = GoodIdx[np.where(PartitionGood > 0)]
-    NonZeroAverages = BoltzmannWeightedAverage[IdxWhereNonZero]/\
-                      Partition[IdxWhereNonZero]
-    ToRet[IdxWhereNonZero] = NonZeroAverages
-    # avoid divide by zero error...
-    return ToRet,Partition
+    ValueByBins = lambda objs : ByBinFunc([ValueFunction(f) for f in objs],
+                                          NumBins)
+    WorkByBins = lambda objs : ByBinFunc([WorkFunction(f) for f in objs],
+                                         NumBins)
+    value_fwd,value_rev = ValueByBins(Forward),ValueByBins(Reverse)
+    work_fwd,work_rev = WorkByBins(Forward),WorkByBins(Reverse)
+    wfn = [np.mean(w[-1]) for w in work_fwd]
+    wrn = [np.mean(w[-1]) if len(w) > 0 else 0 for w in work_rev ]
+    ToRet = []
+    for vf,vr,wf,wr,wf_n,wr_n, in zip(value_fwd,value_rev,work_fwd,work_rev,
+                                      work_fwd,work_rev):
+        val = EnsembleAverage(v_fwd=vf,
+                              v_rev=vr,
+                              w_fwd=wf,
+                              w_rev=wr,
+                              w_fwd_n=wf_n,
+                              w_rev_n=wr_n,
+                              Beta=beta,
+                              DeltaA=DeltaA,
+                              nf=nf,
+                              nr=nr)
+        ToRet.append(val)
+    # XXX loop through each bin, ensemble average one at a time. 
+    return np.array(ToRet)/np.array(PartitionDivision)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -433,14 +443,15 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
                                    stop=x[1],
                                    endpoint=False,
                                    num=n)
+    DeltaA = NumericallyGetDeltaA(UnfoldingObjs,RefoldingObjs)
     # create the extension bins 
     ExtBins = BinIt(ExtBounds,NumBins)
     # Set up functions for getting the force and boltzmann factors
     BinDataTo = ExtBins
     BoltzmanFunc = lambda o : o.GetDigitizedBoltzmann(BinDataTo)
     ForceFunc = lambda o: o.GetDigitizedForce(BinDataTo)
-    ForceSqFunc = lambda o : o._GetDigitizedGen(BinDataTo,
-                                                o.Force**2)
+    ForceSqFunc = lambda o : o._GetDigitizedGen(BinDataTo,o.Force**2)
+    OnesFunc = lambda o: o.GetDigitizedOnes(BinDataTo)
     WorkFunc = lambda o : o._GetDigitizedGen(BinDataTo,o.Work)
     # get the (per-instance) boltmann factors, for weighing
     BoltzByFEC = [BoltzmanFunc(o) for o in UnfoldingObjs]
@@ -459,11 +470,16 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     # do the same, for the force and force squared
     weight_kwargs = dict(Forward=UnfoldingObjs,
                          Reverse=RefoldingObjs,
-                         WorkFunction=WorkFunc)
-    BoltzmannWeightedForce,Partition = \
-        GetBoltzmannWeightedAverage(ValueFunction=ForceFunc,**weight_kwargs)
-    BoltzmannWeightedForceSq,_ = \
-        GetBoltzmannWeightedAverage(ValueFunction=ForceSqFunc,**weight_kwargs)
+                         WorkFunction=WorkFunc,DeltaA=DeltaA)
+    Partition = GetBoltzmannWeightedAverage(ValueFunction=OnesFunc,
+                                            PartitionDivision=1,
+                                            **weight_kwargs)
+    BoltzmannWeightedForce = \
+        GetBoltzmannWeightedAverage(ValueFunction=ForceFunc,
+                                    PartitionDivision=Partition,**weight_kwargs)
+    BoltzmannWeightedForceSq = \
+        GetBoltzmannWeightedAverage(ValueFunction=ForceSqFunc,
+                                    PartitionDivision=Partition,**weight_kwargs)
     """
     for the second derivative, we really just want the
     variance at each z,  see equation 12 of ibid
