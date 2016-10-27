@@ -273,7 +273,7 @@ def ForwardWeighted(nf,nr,vf,Wf,Wfn,DeltaA,Beta):
     return (vf*nf*Exp(-Beta*Wf))/(nf + nr*Exp(-Beta*(Wfn - DeltaA)))
 
 def ReverseWeighed(nf,nr,vr,Wr,Wrn,DeltaA,Beta):
-    return (vr*nr*Exp(-Beta*(Wr + DeltaA)))/(nr + nf*Exp(-Beta*(Wfn + DeltaA)))
+    return (vr*nr*Exp(-Beta*(Wr + DeltaA)))/(nr + nf*Exp(-Beta*(Wrn + DeltaA)))
 
 def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     # get the weights for the fwd
@@ -284,7 +284,7 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     # get the weights for the reverse, if we have any
     if (nr > 0):
         Rev = [ReverseWeighed(vr=pre(v),Wr=pre(W),Wrn=pre(Wrn),**common_args)
-               for v,W,Wrn in zip(v_ref,w_rev,w_rev_n)]
+               for v,W,Wrn in zip(v_rev,w_rev,w_rev_n)]
     else:
         Rev = [ [0 for i in range(len(v))] for v in v_fwd]
     # Concatenate all the forward and reverse arrays
@@ -293,6 +293,12 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     # now we have all the values from the entire ensemble; we just average
     # across forard and reverse (separately!), then add
     Total = np.mean(fwd_concat) + np.mean(rev_concat)
+    Max = max(fwd_concat)
+    plt.subplot(2,1,1)
+    plt.hist(fwd_concat/Max)
+    plt.subplot(2,1,2)
+    plt.hist(rev_concat/Max)
+    plt.show()
     # check that 'forward only' did exactly what we want 
     if (nr == 0):
         cat_work = np.concatenate(w_fwd)
@@ -350,8 +356,9 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
                                          NumBins)
     value_fwd,value_rev = ValueByBins(Forward),ValueByBins(Reverse)
     work_fwd,work_rev = WorkByBins(Forward),WorkByBins(Reverse)
-    wfn = [np.mean(w[-1]) for w in work_fwd]
-    wrn = [np.mean(w[-1]) if len(w) > 0 else 0 for w in work_rev ]
+    LastWork = lambda o : o.Work[-1]
+    wfn = np.array([o.Work[-1] for o in Forward])
+    wrn = np.array([o.Work[-1] for o in Reverse])
     ToRet = []
     for vf,vr,wf,wr,wf_n,wr_n, in zip(value_fwd,value_rev,work_fwd,work_rev,
                                       work_fwd,work_rev):
@@ -411,8 +418,8 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     # XXX should fix/ not hard code
     beta = 1/(4.1e-21)
     # get the work in terms of beta, should make it easier to converge
-    Fwd = [f.Work*beta for f in Forward]
-    Rev = [f.Work*beta for f in Reverse]
+    Fwd = [f.Work[-1]*beta for f in Forward]
+    Rev = [f.Work[-1]*beta for f in Reverse]
     MaxWorks = [np.max(np.abs(Fwd)),
                 np.max(np.abs(Rev))]
     MinWorks = [np.min(Fwd),
