@@ -8,7 +8,7 @@ import sys
 from scipy.integrate import cumtrapz
 import itertools
 from collections import defaultdict
-from scipy.optimize import fminbound
+from scipy.optimize import fminbound,newton
 
 
 class EnergyLandscape:
@@ -388,11 +388,11 @@ def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     nf = len(ForwardWork)
     nr = len(ReverseWork)
     # get the forward and reverse 'factor': difference should be zero
-    Forward = np.mean(1/(nr + nf * np.exp(Beta * (ForwardWork-DeltaA))))
-    Reverse = np.mean(1/(nf + nr * np.exp(Beta * (ReverseWork+DeltaA))))
+    Forward = 1/(nr + nf * np.exp(Beta * (ForwardWork-DeltaA)))
+    Reverse = 1/(nf + nr * np.exp(Beta * (ReverseWork+DeltaA)))
     # we really only case about the abolute value of the expression, since
     # we want the two sides to be equal...
-    return np.abs(Forward-Reverse)
+    return np.mean(Forward)-np.mean(Reverse)
 
 def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     """
@@ -428,10 +428,10 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     Min = min(MinWorks)
     # only look between +/- the max. Note that range is guarenteed positive
     Range = Max-Min
-    FMinArgs = dict(x1=-Range,x2=Range,full_output=True,disp=disp,**kwargs)
+    FMinArgs = dict(x0=(Max-Min)/2,**kwargs)
     # note we set beta to one, since it is easier to solve in units of kT
     ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
-    xopt,fval,ierr,nfunc = fminbound(ToMin,**FMinArgs)
+    xopt = newton(ToMin,**FMinArgs)
     return xopt/beta
 
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
