@@ -266,8 +266,7 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
     FreeEnergyAtZeroForce = -np.log(np.array(Numer)/np.array(Denom))/Beta
     return FreeEnergyAtZeroForce
 
-def GetBoltzmannWeightedAverage(BoltzmannFactors,
-                                Values,Partition):
+def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction):
     """
     Given a matrix BoltzmannFactors[i][j] where i refers to
     the bin, and j refers to the FEC label,
@@ -287,6 +286,24 @@ def GetBoltzmannWeightedAverage(BoltzmannFactors,
          Weighted average as a function of extension, as an *array*, defined
          by Hummer and Szabo, 2010, PNAS, after equation 12
     """
+    nf = len(Forward)
+    assert nf > 0 , "No Forward Curves"
+    v_fwd = [ValueFunction(f) for f in Forward]
+    NumBins = len(v_fwd[0])
+    assert len(v_fwd) > 0 ,"No Bins"
+    v_rev = [ValueFunction(f) for f in Reverse]
+    work_fwd = [WorkFunction(f) for f in Forward]
+    work_rev = [WorkFunction(f) for f in Reverse]
+    FlatFunc = lambda objs,bins : [ [item
+                                     for x in objs
+                                     for item in x[i]]
+                                    for i in range(bins)]
+    beta = np.mean([f.Beta for f in Forward])
+    Work = FlatFunc(work_fwd,NumBins)
+    BoltzmannFactors = [np.exp(-beta*np.array(w))
+                        for w in zip(Work)]
+    Partition = np.array([np.mean(b) for b in BoltzmannFactors])
+    Values = FlatFunc(v_fwd,NumBins)
     # get the mean boltzmann factor (partition function) at each bin
     NumExt = len(Partition)
     # create an array for storing everything.
@@ -307,7 +324,7 @@ def GetBoltzmannWeightedAverage(BoltzmannFactors,
                       Partition[IdxWhereNonZero]
     ToRet[IdxWhereNonZero] = NonZeroAverages
     # avoid divide by zero error...
-    return ToRet
+    return ToRet,Partition
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -367,51 +384,7 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     xopt,fval,ierr,nfunc = fminbound(ToMin,**FMinArgs)
     return xopt/beta
 
-def FoldUnfoldAverage(ValueFunction,Unfolding,Refolding,DeltaA):
-    """
-    Given unfolding and refolding data, gets the average of the property given
-    by Valuefunction. Note that we average over the first axis (assumed to be
-    the ensemble of measurements) 
-
-    Args:
-        ValueFunction: takes in an item from Unfolding or folding, returns the 
-        value we want (e.g. force, forcesq, probably as a function of Z)
-
-        Unfolding:  list of FEC_Pulling_Object, representing unfolding curves
-        Refolding: list of FEC_Pulling_Object, representing folding curves
-        DeltaA: from NumericallyGetDeltaA
-    Returns:
-        Average at each value of z
-    """
-    nf = len(Folding)
-    nu = len(Unfolding)
-    value_folded =[ValueFunction(o) for o in Folding]
-    value_unfolded =[ValueFunction(o) for o in Unfolding]
-    """
-    get the boltzmann factors, following  equaition 18 of
-
-    Hummer, G. & Szabo, A. 
-    Free energy profiles from single-molecule pulling experiments. 
-    PNAS 107, 21441-21446 (2010).
-
-    and equation 6 of 
-    
-    Minh, D. D. L. & Adib, A. B. 
-    Optimized Free Energies from Bidirectional Single-Molecule 
-    Force Spectroscopy. Phys. Rev. Lett. 100, 180602 (2008).
-
-    Noting the average is boltzmann weighted (eg: 19 reduces to 1 when 
-    nr=0, meaning no unfolding is available)
-    """
-    boltz_fold = [np.exp(-o.Beta*(o.Work-DeltaX)) for o in Folding]
-    boltz_unfold = [np.exp(-o.Beta*(o.Work+DeltaX)) for o in Unfolding]
-    # get the averaged value, noting 
-    value_folded = nf * value_folded       / (nf + nr * boltz_fold)
-    value_unfold = nr * value_unfoldfolded / (nr + nf * boltz_unfold)
-    return np.mean(value_folded,axis=0) + np.mean(value_unfold,axis=0)
-
-
-def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=None):
+def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
     Wrapper to make it easier to get the weighted histograms, etcs.
 
@@ -433,18 +406,12 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=None):
     BinDataTo = ExtBins
     BoltzmanFunc = lambda o : o.GetDigitizedBoltzmann(BinDataTo)
     ForceFunc = lambda o: o.GetDigitizedForce(BinDataTo)
-    GetForceSqFunc = lambda x : x._GetDigitizedGen(BinDataTo,
-                                                   x.Force**2)
+    ForceSqFunc = lambda o : o._GetDigitizedGen(BinDataTo,
+                                                o.Force**2)
+    WorkFunc = lambda o : o._GetDigitizedGen(BinDataTo,o.Work)
     # get the (per-instance) boltmann factors, for weighing
     BoltzByFEC = [BoltzmanFunc(o) for o in UnfoldingObjs]
-    # get the (flattend) boltmann factors
-    FlatFunc = lambda objs,bins : [ [item
-                                     for x in objs
-                                     for item in x[i]]
-                                    for i in range(bins)]
     NBins = len(BinDataTo)
-    BoltzHistogramByTime = FlatFunc(BoltzByFEC,NBins)
-    Partition = np.array([np.mean(b) for b in BoltzHistogramByTime])
     """
     Get the mean boltzmann factor, <exp(-Beta*W(z))>, like a partition
     function, see 
@@ -457,17 +424,13 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=None):
     Especially  right after equation 12 (<exp(-Beta(W(z)))> is the denominator)
     """
     # do the same, for the force and force squared
-    ForcePerEnsemble = [ForceFunc(o) for o in UnfoldingObjs]
-    ForceSquaredPerEnsemble = [GetForceSqFunc(o) for o in UnfoldingObjs]
-    # Get the histograms by time
-    ForcePerTime = FlatFunc(ForcePerEnsemble,NBins)
-    ForceSqPerTime = FlatFunc(ForceSquaredPerEnsemble,NBins)
-    BoltzmannWeightedForce = GetBoltzmannWeightedAverage(BoltzHistogramByTime,
-                                                         ForcePerTime,
-                                                         Partition)
-    BoltzmannWeightedForceSq = GetBoltzmannWeightedAverage(BoltzHistogramByTime,
-                                                           ForceSqPerTime,
-                                                           Partition)
+    weight_kwargs = dict(Forward=UnfoldingObjs,
+                         Reverse=RefoldingObjs,
+                         WorkFunction=WorkFunc)
+    BoltzmannWeightedForce,Partition = \
+        GetBoltzmannWeightedAverage(ValueFunction=ForceFunc,**weight_kwargs)
+    BoltzmannWeightedForceSq,_ = \
+        GetBoltzmannWeightedAverage(ValueFunction=ForceSqFunc,**weight_kwargs)
     """
     for the second derivative, we really just want the
     variance at each z,  see equation 12 of ibid
