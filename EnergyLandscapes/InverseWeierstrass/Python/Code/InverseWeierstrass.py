@@ -292,7 +292,9 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     rev_concat = np.concatenate(Rev)
     # now we have all the values from the entire ensemble; we just average
     # across forard and reverse (separately!), then add
-    Total = np.mean(fwd_concat) + np.mean(rev_concat)
+    MeanFwd = np.mean(fwd_concat)
+    MeanRev = np.mean(rev_concat)
+    Total = MeanFwd + MeanRev
     return Total
 
 def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
@@ -388,7 +390,9 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
 
     Note that we use a root finder to find the difference in units of kT,
     then convert back (avoiding large floating point problems associated with
-    1e-21)
+    1e-21). 
+
+    Unit Tested by : MainTesting.TestForwardBackward
 
     Args:
         Forward: List of forward paths

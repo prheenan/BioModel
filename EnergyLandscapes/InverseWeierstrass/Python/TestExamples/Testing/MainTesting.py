@@ -18,13 +18,13 @@ def AddNoise(signal,SNR,function=None):
     return signal + function(signal)
 
 def GetEnsemble(cantilever_spring_pN_nm=10,
-                force_spring_constant_pN_nm=(20-5)/(18-12),
-                force_offset_pN = 15,
+                force_spring_constant_pN_nm=(22-15)/(65-59),
+                force_offset_pN=15,
                 snr=(10)**2,
-                num_points = 1000,
+                num_points=50,
                 num_ensemble = 5,
-                z0_nm=18,
-                z1_nm=24,
+                z0_nm=59,
+                z1_nm=65,
                 DeltaA_kT=10):
     """
     Gets an ensemble of FEC with the given statistics.
@@ -86,7 +86,10 @@ def TestForwardBackward():
     """
     tolerance_deltaA = 0.01
     np.random.seed(42)
-    fwd_objs,rev_objs,deltaA_true= GetEnsemble()
+    num_points=500
+    points_per_bin=1
+    num_bins = num_points/points_per_bin
+    fwd_objs,rev_objs,deltaA_true= GetEnsemble(num_points=num_points)
     delta_A_calc = InverseWeierstrass.NumericallyGetDeltaA(fwd_objs,
                                                            rev_objs)
     kT = 4.1e-21
@@ -96,9 +99,9 @@ def TestForwardBackward():
     # POST: correct DeltaA to within tolerance. For small DeltaA,
     # Exp(DeltaA +/- Err)/Exp(DeltaA)=Exp(+/- Err)~1+Err, so
     # we should have very small errors in the energy landscape
-    landscape = InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,50,[])
+    landscape = InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,num_bins,[])
     landscape_rev = \
-        InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,50,rev_objs)
+        InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,num_bins,rev_objs)
     plt.plot(landscape.Extensions,landscape.EnergyLandscape)
     plt.plot(landscape_rev.Extensions,landscape_rev.EnergyLandscape)
     plt.show()
