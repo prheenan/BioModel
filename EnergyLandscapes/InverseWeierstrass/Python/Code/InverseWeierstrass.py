@@ -293,22 +293,6 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     # now we have all the values from the entire ensemble; we just average
     # across forard and reverse (separately!), then add
     Total = np.mean(fwd_concat) + np.mean(rev_concat)
-    Max = max(fwd_concat)
-    plt.subplot(2,1,1)
-    plt.hist(fwd_concat/Max)
-    plt.subplot(2,1,2)
-    plt.hist(rev_concat/Max)
-    plt.show()
-    # check that 'forward only' did exactly what we want 
-    if (nr == 0):
-        cat_work = np.concatenate(w_fwd)
-        cat_vals = np.concatenate(v_fwd)
-        expected = cat_vals * np.exp(-Beta*cat_work)
-        av_expected = np.mean(expected)
-        # now go to relative space, so our error checking is better
-        Relative = lambda x: (x-min(expected))/(max(expected)-min(expected))
-        Div = np.max(expected)
-        np.testing.assert_allclose(Relative(Total),Relative(av_expected))
     return Total
 
 def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
@@ -443,7 +427,6 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
         NumBins: number of bins to put things into
     """
     # get the bounds associated with the times and extensions
-    TimeBounds = GetTimeBounds(UnfoldingObjs)
     ExtBounds = GetExtensionBounds(UnfoldingObjs)
     # Create the time and position bins using a helper function
     BinIt= lambda x,n: np.linspace(start=x[0],
@@ -483,10 +466,12 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
                                             **weight_kwargs)
     BoltzmannWeightedForce = \
         GetBoltzmannWeightedAverage(ValueFunction=ForceFunc,
-                                    PartitionDivision=Partition,**weight_kwargs)
+                                    PartitionDivision=Partition,
+                                    **weight_kwargs)
     BoltzmannWeightedForceSq = \
         GetBoltzmannWeightedAverage(ValueFunction=ForceSqFunc,
-                                    PartitionDivision=Partition,**weight_kwargs)
+                                    PartitionDivision=Partition,
+                                    **weight_kwargs)
     """
     for the second derivative, we really just want the
     variance at each z,  see equation 12 of ibid
