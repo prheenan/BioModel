@@ -270,12 +270,37 @@ def Exp(x):
     return np.exp(x)
 
 def ForwardWeighted(nf,nr,vf,Wf,Wfn,DeltaA,Beta):
+    """
+    Returns the weighted value for the forward part of the bi-directionary free
+    energy landscape
+    
+    Args: see EnsembleAverage
+    """
     return (vf*nf*Exp(-Beta*Wf))/(nf + nr*Exp(-Beta*(Wfn - DeltaA)))
 
-def ReverseWeighed(nf,nr,vr,Wr,Wrn,DeltaA,Beta):
+def ReverseWeighted(nf,nr,vr,Wr,Wrn,DeltaA,Beta):
+    """
+    Returns the weighted value for a reverse step
+
+    Args: see EnsembleAverage
+    """
     return (vr*nr*Exp(-Beta*(Wr + DeltaA)))/(nr + nf*Exp(-Beta*(Wrn + DeltaA)))
 
 def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
+    """
+    Ensemble averages a forward and (possibly empty) reverse section
+    
+    Args:
+        v_fwd: values for the forward
+        w_fwd: work for the forward process, at a single Z value
+        w_fwn_n: work for the 'final' state (see GetBoltzmannWeightedAverage)
+        <x>_rev_<y>: same as forward, but for thr reverse process
+        Beta: 1/(k*T), where T is temprature and k is boltzmann constant
+        DeltaA: output of NumericallyGetDeltaA, free eneegyr difference
+        nf/nr: number of forward/reverse trials
+    Returns:
+        ensemble-averaged values. 
+    """
     # get the weights for the fwd
     pre = lambda x: np.array(x)
     common_args = dict(Beta=Beta,DeltaA=DeltaA,nf=nf,nr=nr)
@@ -283,7 +308,7 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
            for v,W,Wfn in zip(v_fwd,w_fwd,w_fwd_n)]
     # get the weights for the reverse, if we have any
     if (nr > 0):
-        Rev = [ReverseWeighed(vr=pre(v),Wr=pre(W),Wrn=pre(Wrn),**common_args)
+        Rev = [ReverseWeighted(vr=pre(v),Wr=pre(W),Wrn=pre(Wrn),**common_args)
                for v,W,Wrn in zip(v_rev,w_rev,w_rev_n)]
     else:
         Rev = [ [0 for i in range(len(v))] for v in v_fwd]
@@ -291,7 +316,7 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     fwd_concat = np.concatenate(Fwd)
     rev_concat = np.concatenate(Rev)
     # now we have all the values from the entire ensemble; we just average
-    # across forard and reverse (separately!), then add
+    # across forard and reverse (separately!), then add (fine if adding zeros)
     MeanFwd = np.mean(fwd_concat)
     MeanRev = np.mean(rev_concat)
     Total = MeanFwd + MeanRev
@@ -346,30 +371,33 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
     wfn = np.array([o.Work[-1] for o in Forward])
     wrn = np.array([o.Work[-1] for o in Reverse])
     ToRet = []
-    for vf,vr,wf,wr,wf_n,wr_n, in zip(value_fwd,value_rev,work_fwd,work_rev,
-                                      work_fwd,work_rev):
+    for vf,vr,wf,wr in zip(value_fwd,value_rev,work_fwd,work_rev):
+        # XXX need to actually get forward and reverse parts
         val = EnsembleAverage(v_fwd=vf,
                               v_rev=vr,
                               w_fwd=wf,
                               w_rev=wr,
-                              w_fwd_n=wf_n,
-                              w_rev_n=wr_n,
+                              w_fwd_n=wfn,
+                              w_rev_n=wrn,
                               Beta=beta,
                               DeltaA=DeltaA,
                               nf=nf,
                               nr=nr)
         ToRet.append(val)
-    # XXX loop through each bin, ensemble average one at a time. 
     return np.array(ToRet)/np.array(PartitionDivision)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
     Gives the distance to the root in equation 18 (see NumericallyGetDeltaA)
 
+    Unit Tested by : MainTesting.TestForwardBackward
+
     Args:
         Beta,DeltaA: See ibid
         FowardWork,ReverseWork: list of the works as defined in ibid, same
         Units as DeltaA
+    Returns:
+        difference between forward and reverse
     """
     nf = len(ForwardWork)
     nr = len(ReverseWork)

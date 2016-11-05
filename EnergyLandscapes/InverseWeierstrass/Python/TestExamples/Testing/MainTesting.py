@@ -22,7 +22,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                 force_offset_pN=15,
                 snr=(10)**2,
                 num_points=50,
-                num_ensemble = 5,
+                num_ensemble=5,
                 z0_nm=59,
                 z1_nm=65,
                 DeltaA_kT=10):
@@ -79,32 +79,83 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
     InverseWeierstrass.SetAllWorkOfObjects(rev_objs)
     return fwd_objs,rev_objs,DeltaA
     
+def TestWeighting():
+    """
+    Tests the forward and reverse weighing function from equation 18 
+    of (noting this generalized accd to equations 2 and discussion after 12)
+    Hummer, G. & Szabo, A. 
+    Free energy profiles from single-molecule pulling experiments. 
+    PNAS 107, 21441-21446 (2010)
+    """
+    Fwd = InverseWeierstrass.ForwardWeighted
+    Rev = InverseWeierstrass.ReverseWeighted
+    # test one and zero conditions for forward
+    fwd_is_one = dict(nf=1,vf=1,Wfn=0,Wf=0,Beta=0,DeltaA=0,nr=0)
+    fwd_is_zero = dict(nf=1,vf=0,Wfn=0,Wf=0,Beta=0,DeltaA=0,nr=0)
+    np.testing.assert_allclose(1,Fwd(**fwd_is_one))
+    np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
+    # test one and zero conditions for revese
+    rev_is_one = dict(nr=1,vr=1,Wrn=0,Wr=0,Beta=0,DeltaA=0,nf=0)
+    rev_is_zero = dict(nr=1,vr=0,Wrn=0,Wr=0,Beta=0,DeltaA=0,nf=0)
+    np.testing.assert_allclose(1,Rev(**rev_is_one))
+    np.testing.assert_allclose(0,Rev(**rev_is_zero))
+    # POST: very simple conditions work. now try ones with still no deltaA
+    np.testing.assert_allclose(np.exp(-1)/2,
+                               Fwd(vf=1,nf=1,nr=1,Wfn=0,Wf=1,Beta=1,DeltaA=0))
+    np.testing.assert_allclose(np.exp(1)/2,
+                               Rev(vr=1,nf=1,nr=1,Wrn=0,Wr=-1,Beta=1,DeltaA=0))
+    # POST: no delta A works, check with DeltaA
+    np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
+                               Fwd(vf=1,nf=2,nr=3,Wfn=1,Wf=1,Beta=1,DeltaA=-1))
+    # XXX reverse is broken? typo between hummer and etc...
+    np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),
+                               Rev(vr=1,nf=3,nr=2,Wrn=-3,Wr=-2,Beta=1,DeltaA=1))
+    # POST: also works with DeltaA... pretty convincing imo
 
+def TestEnsembleAverage():
+    """
+    Tests InverseWeierstass.EnsembleAevraex
+    """
+    
 def TestForwardBackward():
     """
     Tests that the forward and backward schemes work fine 
+
+    Asserts;
+        (1) DeltaA is calculated correctly wrt forward and backwards (within
+        some small tolerance) for a one-state system (noisy spring)
+        (2) the "forward-only" and bi-directional trajectories give the same 
+        energy landscape for the same setup as (1)
     """
     tolerance_deltaA = 0.01
     np.random.seed(42)
     num_points=500
-    points_per_bin=1
+    points_per_bin=10
     num_bins = num_points/points_per_bin
     fwd_objs,rev_objs,deltaA_true= GetEnsemble(num_points=num_points)
     delta_A_calc = InverseWeierstrass.NumericallyGetDeltaA(fwd_objs,
                                                            rev_objs)
     kT = 4.1e-21
     deltaA = deltaA_true[-1]
+    diff = deltaA-delta_A_calc
     np.testing.assert_allclose(deltaA/kT,delta_A_calc/kT,atol=0,
                                rtol=tolerance_deltaA)
     # POST: correct DeltaA to within tolerance. For small DeltaA,
     # Exp(DeltaA +/- Err)/Exp(DeltaA)=Exp(+/- Err)~1+Err, so
     # we should have very small errors in the energy landscape
+    # the forward and reverse landscapes should be pretty much identical (?)
     landscape = InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,num_bins,[])
-    landscape_rev = \
-        InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,num_bins,rev_objs)
-    plt.plot(landscape.Extensions,landscape.EnergyLandscape)
-    plt.plot(landscape_rev.Extensions,landscape_rev.EnergyLandscape)
+    landscape_rev = InverseWeierstrass.\
+        FreeEnergyAtZeroForce(fwd_objs,num_bins,rev_objs)
+    # XXX debugging, plot in terms of k_b * T
+    yplot = lambda x: x/kT
+    plt.axhline(yplot(diff))
+    plt.axhline(-yplot(diff))
+    plt.plot(landscape.Extensions,
+             yplot(landscape.EnergyLandscape-landscape_rev.EnergyLandscape))
     plt.show()
+
+    
 
     
 def run():
@@ -117,6 +168,7 @@ def run():
     Returns:
         This is a description of what is returned.
     """
+    TestWeighting()
     TestForwardBackward()
 
 if __name__ == "__main__":
