@@ -5,27 +5,45 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-sys.path.append("../../")
-from Code import InverseWeierstrass
-from scipy.integrate import cumtrapz 
+sys.path.append("../../../../../../")
+from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
+    InverseWeierstrass
+from scipy.integrate import cumtrapz
+import copy
+from GeneralUtil.python import PlotUtilities
 
-def AddNoise(signal,SNR,function=None):
+def AddNoise(signal,snr,function=None):
     size = signal.size
     # by default, white noise uniformly distributed about 0 with the SNR
     if (function is None):
-        amplitude = np.sqrt(1/SNR)
-        function = lambda x: (np.random.rand(size)-0.5)*2*amplitude*x
+        amplitude = np.sqrt(1/snr)
+        function = lambda x: (np.random.rand(size)-0.5)*2*amplitude*np.mean(x)
     return signal + function(signal)
+
+def Force_pN(x_nm,k_pN_nm,f_offset_pN):
+    """
+    Gets and extension and force offset force function 
+
+    Args:
+        x_nm: extension, in nm
+        k_pN_nm: spring constant, in pN/nm
+        f_offset_pN: force offset, in pN
+    Returns: 
+        Simple harmonic force in pN
+    """
+    return (x_nm-x_nm[0]) * k_pN_nm + f_offset_pN
 
 def GetEnsemble(cantilever_spring_pN_nm=10,
                 force_spring_constant_pN_nm=(22-15)/(65-59),
+                reverse_force_spring_constant_pN_nm=None,
+                reverse_force_offset_pN=None,
                 force_offset_pN=15,
                 snr=(10)**2,
                 num_points=50,
                 num_ensemble=5,
                 z0_nm=59,
                 z1_nm=65,
-                DeltaA_kT=10):
+                noise_function=None):
     """
     Gets an ensemble of FEC with the given statistics.
 
@@ -37,19 +55,26 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
         the spring constant for that local region
 
         force_offset_pN: where we start in force at the starting extension
-        snr: signal-to-noise ratio (default to white noise)
+        snr: signal-to-noise ratio (default to white noise). 
+     
+        reverse_force_spring_constant_pN_nm: if not None, used to generate
+        the reverse. otherwise, just use forward (only pulling spring 
 
+        reverse_force_offset_pN: offset for the reverse force, only used 
+        if we have a different spring constant (recquired)
+    
         num_points: how many extension,force points
         num_ensemble: how many copies in the ensemble
         z0_nm, z1_nm: starting and ending extensions in nm
+
+        noise_function: passed to AddNoise
     Returns:
         tuple of <list of forward objects,list of reverse objects,
         free energy different in J>
     """
     ext_nm = np.linspace(z0_nm,z1_nm,num=num_points)
     # get the force by a simpe spring constant
-    force_pN = (ext_nm-ext_nm[0]) * force_spring_constant_pN_nm + \
-               force_offset_pN
+    force_pN = Force_pN(ext_nm,force_spring_constant_pN_nm,force_offset_pN)
     # okay, convert everything to 'real' units
     force_N =  force_pN * 1e-12
     ext_m = ext_nm * 1e-9
@@ -60,11 +85,22 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
     fwd_objs,rev_objs = [],[]
     # reverse the force and add the free energy difference to it...
     reversed_force = force_N[::-1].copy()
+    reversed_ext_nm = ext_nm[::-1]
     DeltaA =cumtrapz(x=ext_m,y=force_N,initial=0)
+    noise_args = dict(snr=snr,
+                      function=noise_function)
     for i in range(num_ensemble):
         # add noise to each member of the ensemble separately
-        force_N_noise = AddNoise(force_N,snr)
-        force_N_noise_rev =  AddNoise(reversed_force,snr)
+        force_N_noise = AddNoise(force_N,**noise_args)
+        if (reverse_force_spring_constant_pN_nm is None):
+            force_N_noise_rev =  AddNoise(reversed_force,**noise_args)
+        else:
+            assert reverse_force_offset_pN is not None ,\
+                   "Must provide a reverse offset if using"
+            force_rev_pN = Force_pN(reversed_ext_nm,
+                                    force_spring_constant_pN_nm,
+                                    reverse_force_offset_pN)
+            force_N_noise_rev = AddNoise(force_rev_pN*1e-12,**noise_args)
         fwd=InverseWeierstrass.\
             FEC_Pulling_Object(None,ext_m,force_N_noise,
                                SpringConstant=cantilever_spring_N_m,
@@ -158,11 +194,6 @@ def TestBidirectionalEnsemble(seed=42,tolerance_deltaA=0.01,snr=10,
                         landscape_rev.EnergyLandscape/kT,
                         atol=tol_energy_atol_kT,
                         rtol=tol_energy_rtol)
-    plt.plot(landscape.EnergyLandscape/kT-landscape_rev.EnergyLandscape/kT)
-    plt.show()
-
-
-    
     
 def TestForwardBackward():
     """
@@ -176,7 +207,7 @@ def TestForwardBackward():
     """
     # 'normal' snr should have normal toleance
     TestBidirectionalEnsemble(snr=10,
-                              tol_energy_atol_kT=0.5,
+                              tol_energy_atol_kT=1,
                               tol_energy_rtol=0)
     # high SNR, should match OK...
     TestBidirectionalEnsemble(snr=200,
@@ -187,6 +218,97 @@ def TestForwardBackward():
                               tol_energy_atol_kT=0.0,
                               tol_energy_rtol=1e-9)
 
+    
+def Swap(switch_m,tau_m,swap_from,swap_to,sign):
+    """
+    Simple way of swapping between states based on a 'switching location'
+    in extension (weighed exponentially from there)
+      
+    Args:
+       switch_m: where the exponential is offset in m
+       tau_m: decay constant in meters 
+       swap_from: object to swap from (initial state)
+       swap_to: object to swp to (final state) 
+       sign: for the argument of the exponential
+    Returns:
+       new object, which transitions between the two states
+    """
+    ext = swap_from.Extension
+    uniform_random = np.random.uniform(size=ext.size)
+    probability = np.minimum(1,np.exp(sign*(ext-switch_m)/tau_m))
+    print(probability)
+    New = copy.deepcopy(swap_from)
+    Idx = np.where(probability >= uniform_random)[0]
+    New.Force[Idx] = swap_to.Force[::-1][Idx]
+    return New
+
+
+def TestHummer2010():
+    """
+    Recreates the simulation from Figure 3 of 
+
+    Hummer, G. & Szabo, A. 
+    Free energy profiles from single-molecule pulling experiments. 
+    PNAS 107, 21441-21446 (2010).
+    """
+    # estmate nose amplitude, Figure 3 A ibid
+    snr = (10/2)**2
+    k = (15-8)/(225-200)
+    # noise for force
+    noise_N = 2e-12
+    noise_function = lambda x: (np.random.rand(x.size) - 0.5) * 2 * noise_N
+    # get the 'normal' ensemble (no state switching)
+    ensemble_kwargs = dict(cantilever_spring_pN_nm=10,
+                           force_spring_constant_pN_nm=k,
+                           reverse_force_spring_constant_pN_nm=k,
+                           reverse_force_offset_pN=20,
+                           force_offset_pN=8,
+                           num_ensemble=5,
+                           z0_nm=190,
+                           z1_nm=265,
+                           snr=snr,
+                           num_points=500,
+                           noise_function=noise_function)
+    fwd_objs,rev_objs,DeltaA = GetEnsemble(**ensemble_kwargs)
+    # really stupid way of flipping: just exponential increase/decrease from
+    # 'switch' location on forward and reverse 
+    # determine the 
+    fwd_switch_m = 225e-9
+    rev_switch_m = ((250+225)/2) * 1e-9
+    tau = 5e-9
+    state_fwd = []
+    state_rev = []
+    debug = False
+    for fwd,rev in zip(fwd_objs,rev_objs):
+        N = fwd.Force.size
+        fwd_switch = Swap(switch_m=fwd_switch_m,swap_from=fwd,
+                          swap_to=rev,sign=1,tau_m=tau)
+        rev_switch = Swap(switch_m=rev_switch_m,swap_from=rev,
+                          swap_to=fwd,sign=-1,tau_m=tau)
+        state_fwd.append(fwd_switch)
+        state_rev.append(rev_switch)
+        # XXX debuging
+        if (debug):
+            plt.plot(fwd_switch.Extension,fwd_switch.Force,color='r',alpha=0.3)
+            plt.plot(rev_switch.Extension,rev_switch.Force,color='b',alpha=0.3)
+            plt.show()
+    # POST: fwd and reverse have the forward and reverse trajectories 
+    # go ahead and made the energy landscapes
+    num_bins=100
+    landscape = InverseWeierstrass.FreeEnergyAtZeroForce(state_fwd,num_bins,[])
+    landscape_rev = InverseWeierstrass.\
+                    FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
+    landscape_fwd_kT = landscape.EnergyLandscape/4.1e-21
+    landscape_rev_kT = landscape_rev.EnergyLandscape/4.1e-21
+    ToX = lambda x: x*1e9
+    plt.plot(ToX(landscape_rev.Extensions),landscape_rev_kT,color='r',alpha=0.6,
+             linestyle='-',linewidth=3,label="Bi-directional")
+    plt.plot(ToX(landscape.Extensions),landscape_fwd_kT,color='g',
+             linestyle='--',label="Only Forward")
+
+    PlotUtilities.lazyLabel("Extension q (nm)","Free Energy (kT)",
+                            "Hummer 2010, Figure 3")
+    plt.show()
 
     
 def run():
@@ -199,8 +321,10 @@ def run():
     Returns:
         This is a description of what is returned.
     """
+    TestHummer2010()
     TestWeighting()
     TestForwardBackward()
+
 
 if __name__ == "__main__":
     run()
