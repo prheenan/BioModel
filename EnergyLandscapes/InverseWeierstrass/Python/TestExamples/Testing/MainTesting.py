@@ -337,19 +337,22 @@ def TestHummer2010():
     np.testing.assert_allclose(barrier_delta,
                                5,atol=1)
     # POST: should be quite close to 5
-
     ToX = lambda x: x*1e9
-    fig = PlotUtilities.figure()
+    xlim = lambda: plt.xlim([190,265])
+    fig = PlotUtilities.figure(figsize=(8,16))
     plt.subplot(2,1,1)
     plt.plot(ToX(ext_fwd),landscape_rev_kT,color='r',alpha=0.6,
              linestyle='-',linewidth=3,label="Bi-directional")
     plt.plot(ToX(ext_rev),landscape_fwd_kT,color='g',
              linestyle='--',label="Only Forward")
+    plt.ylim([0,300])
+    xlim()
     PlotUtilities.lazyLabel("","Free Energy (kT)",
                             "Hummer 2010, Figure 3")
     plt.subplot(2,1,2)
     plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
     plt.ylim([0,25])
+    xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
     PlotUtilities.savefig(fig,"out.png")
 
