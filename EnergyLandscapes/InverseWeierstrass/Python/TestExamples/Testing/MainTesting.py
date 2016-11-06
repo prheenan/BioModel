@@ -236,7 +236,6 @@ def Swap(switch_m,tau_m,swap_from,swap_to,sign):
     ext = swap_from.Extension
     uniform_random = np.random.uniform(size=ext.size)
     probability = np.minimum(1,np.exp(sign*(ext-switch_m)/tau_m))
-    print(probability)
     New = copy.deepcopy(swap_from)
     Idx = np.where(probability >= uniform_random)[0]
     New.Force[Idx] = swap_to.Force[::-1][Idx]
@@ -253,19 +252,23 @@ def TestHummer2010():
     """
     # estmate nose amplitude, Figure 3 A ibid
     snr = (10/2)**2
-    k = (15-8)/(225-200)
+    k_fwd = (15-8)/(225-200)
+    k_rev = (20-14)/(265-237)
     # noise for force
     noise_N = 2e-12
     noise_function = lambda x: (np.random.rand(x.size) - 0.5) * 2 * noise_N
     # get the 'normal' ensemble (no state switching)
-    ensemble_kwargs = dict(cantilever_spring_pN_nm=10,
-                           force_spring_constant_pN_nm=k,
-                           reverse_force_spring_constant_pN_nm=k,
+    # note: hummer and Szabo do a complicated simulation of the bead + linkers
+    # I can't do that, so I just assume we have a super stiff spring (meaning
+    # the ensemble extensions are close to the molecular)
+    ensemble_kwargs = dict(cantilever_spring_pN_nm=100,
+                           force_spring_constant_pN_nm=k_fwd,
+                           reverse_force_spring_constant_pN_nm=k_rev,
                            reverse_force_offset_pN=20,
                            force_offset_pN=8,
-                           num_ensemble=5,
-                           z0_nm=190,
-                           z1_nm=265,
+                           num_ensemble=10,
+                           z0_nm=195,
+                           z1_nm=262,
                            snr=snr,
                            num_points=500,
                            noise_function=noise_function)
@@ -274,8 +277,8 @@ def TestHummer2010():
     # 'switch' location on forward and reverse 
     # determine the 
     fwd_switch_m = 225e-9
-    rev_switch_m = ((250+225)/2) * 1e-9
-    tau = 5e-9
+    rev_switch_m = 240e-9
+    tau = 2e-9
     state_fwd = []
     state_rev = []
     debug = False
@@ -298,32 +301,67 @@ def TestHummer2010():
     landscape = InverseWeierstrass.FreeEnergyAtZeroForce(state_fwd,num_bins,[])
     landscape_rev = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
-    landscape_fwd_kT = landscape.EnergyLandscape/4.1e-21
-    landscape_rev_kT = landscape_rev.EnergyLandscape/4.1e-21
-    ToX = lambda x: x*1e9
-    plt.plot(ToX(landscape_rev.Extensions),landscape_rev_kT,color='r',alpha=0.6,
-             linestyle='-',linewidth=3,label="Bi-directional")
-    plt.plot(ToX(landscape.Extensions),landscape_fwd_kT,color='g',
-             linestyle='--',label="Only Forward")
+    kT = 4.1e-21
+    # See figure 3b inset, inid, for f_(1/2)... but they actually use 14pN (
+    # test)
+    f_one_half = 14e-12
+    # for some reason, they offset the energies?... Figure 3A
+    energy_offset_kT = 20
+    landscape_fwd_kT = landscape.EnergyLandscape/kT + energy_offset_kT
+    landscape_rev_kT = landscape_rev.EnergyLandscape/kT + energy_offset_kT
+    ext_fwd = landscape_rev.Extensions
+    ext_rev = landscape.Extensions
+    # should be very close before 230nm
+    CloseIdxFwd = np.where(ext_fwd < 230e-9)[0]
+    CloseIdxRev = np.where(ext_rev < 230e-9)[0]
+    limit = min(CloseIdxFwd.size,CloseIdxRev.size)
+    assert limit > num_bins/4 , "Should have roughly half of data before 230nm"
+    # want landscapees before 230nm to be within 10% of each other
+    np.testing.assert_allclose(landscape_fwd_kT[CloseIdxFwd[:limit]],
+                               landscape_rev_kT[CloseIdxRev[:limit]],
+                               rtol=0.1)
+    # POST: 'early' region is fine
+    # check the bound on the last points
+    np.testing.assert_allclose(landscape_fwd_kT[-1],300,rtol=0.05)
+    np.testing.assert_allclose(landscape_rev_kT[-1],250,rtol=0.05)
+    # POST: endpoints match Figure 3 bounds
+    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
+    # get the relative landscape hummer and szabo plot
+    landscape_fonehalf_kT_rel =  \
+        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + 2.5
+    # make sure the barrier height is about right
+    idx_barrier = np.where( (ext_rev > 220e-9) &
+                            (ext_rev < 240e-9) )
+    barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
+    barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
+    np.testing.assert_allclose(barrier_delta,
+                               5,atol=1)
+    # POST: should be quite close to 5
 
-    PlotUtilities.lazyLabel("Extension q (nm)","Free Energy (kT)",
+    ToX = lambda x: x*1e9
+    fig = PlotUtilities.figure()
+    plt.subplot(2,1,1)
+    plt.plot(ToX(ext_fwd),landscape_rev_kT,color='r',alpha=0.6,
+             linestyle='-',linewidth=3,label="Bi-directional")
+    plt.plot(ToX(ext_rev),landscape_fwd_kT,color='g',
+             linestyle='--',label="Only Forward")
+    PlotUtilities.lazyLabel("","Free Energy (kT)",
                             "Hummer 2010, Figure 3")
-    plt.show()
+    plt.subplot(2,1,2)
+    plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
+    plt.ylim([0,25])
+    PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
+    PlotUtilities.savefig(fig,"out.png")
 
     
 def run():
     """
-    <Description>
-
-    Args:
-        param1: This is the first param.
-    
-    Returns:
-        This is a description of what is returned.
+    Runs all IWT unit tests
     """
-    TestHummer2010()
     TestWeighting()
     TestForwardBackward()
+    TestHummer2010()
+
 
 
 if __name__ == "__main__":
