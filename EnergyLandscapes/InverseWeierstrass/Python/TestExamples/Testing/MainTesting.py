@@ -112,27 +112,33 @@ def TestWeighting():
                                Rev(vr=1,nf=3,nr=2,Wrn=-3,Wr=-2,Beta=1,DeltaA=1))
     # POST: also works with DeltaA... pretty convincing imo
 
-def TestEnsembleAverage():
+def TestBidirectionalEnsemble(seed=42,tolerance_deltaA=0.01,snr=10,
+                              tol_energy_atol_kT = 0.5,num_points=1000,
+                              num_bins=50,
+                              tol_energy_rtol = 0,ensemble_kwargs=dict()):
     """
-    Tests InverseWeierstass.EnsembleAevraex
-    """
-    
-def TestForwardBackward():
-    """
-    Tests that the forward and backward schemes work fine 
+    Tests that a (simple) Bi directional ensemble gives the correct energy
 
-    Asserts;
-        (1) DeltaA is calculated correctly wrt forward and backwards (within
-        some small tolerance) for a one-state system (noisy spring)
-        (2) the "forward-only" and bi-directional trajectories give the same 
-        energy landscape for the same setup as (1)
+    Args:
+        seed: what to seed the PRNG with
+        tolerances_deltaA: what tolerance to allow for energy differences
+        snr: signal to noise ratio for the enesemble FECs
+        num_points: number of points in each FEC
+        num_bins: number of bins (energy landscape points)
+
+        tol_energy_atol_kT/ tol_energy_rtol: the absolute and relative energy 
+        tolerance; all point on the forward and reverse curves should be the 
+        same up to these tolerances
+        
+        ensemble_kwargs: passed to the ensemble
+    Returns:  
+        nothing, but fails if DeltaA is calculated wrong, of if the forward
+        and revese parts dont quite work...
     """
-    tolerance_deltaA = 0.01
-    np.random.seed(42)
-    num_points=500
-    points_per_bin=10
-    num_bins = num_points/points_per_bin
-    fwd_objs,rev_objs,deltaA_true= GetEnsemble(num_points=num_points)
+    # keep a common seed (could iterate)
+    np.random.seed(seed)
+    fwd_objs,rev_objs,deltaA_true= GetEnsemble(num_points=num_points,
+                                               snr=snr,**ensemble_kwargs)
     delta_A_calc = InverseWeierstrass.NumericallyGetDeltaA(fwd_objs,
                                                            rev_objs)
     kT = 4.1e-21
@@ -147,15 +153,40 @@ def TestForwardBackward():
     landscape = InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,num_bins,[])
     landscape_rev = InverseWeierstrass.\
         FreeEnergyAtZeroForce(fwd_objs,num_bins,rev_objs)
-    # XXX debugging, plot in terms of k_b * T
-    yplot = lambda x: x/kT
-    plt.axhline(yplot(diff))
-    plt.axhline(-yplot(diff))
-    plt.plot(landscape.Extensions,
-             yplot(landscape.EnergyLandscape-landscape_rev.EnergyLandscape))
+    np.testing.\
+        assert_allclose(landscape.EnergyLandscape/kT,
+                        landscape_rev.EnergyLandscape/kT,
+                        atol=tol_energy_atol_kT,
+                        rtol=tol_energy_rtol)
+    plt.plot(landscape.EnergyLandscape/kT-landscape_rev.EnergyLandscape/kT)
     plt.show()
 
+
     
+    
+def TestForwardBackward():
+    """
+    Tests that the forward and backward schemes work fine 
+
+    Asserts;
+        (1) DeltaA is calculated correctly wrt forward and backwards (within
+        some small tolerance) for a one-state system (noisy spring)
+        (2) the "forward-only" and bi-directional trajectories give the same 
+        energy landscape for the same setup as (1)
+    """
+    # 'normal' snr should have normal toleance
+    TestBidirectionalEnsemble(snr=10,
+                              tol_energy_atol_kT=0.5,
+                              tol_energy_rtol=0)
+    # high SNR, should match OK...
+    TestBidirectionalEnsemble(snr=200,
+                              tol_energy_atol_kT=0.2,
+                              tol_energy_rtol=0)
+    # infinite SNR, should match pretty much exactly
+    TestBidirectionalEnsemble(snr=np.inf,
+                              tol_energy_atol_kT=0.0,
+                              tol_energy_rtol=1e-9)
+
 
     
 def run():
