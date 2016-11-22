@@ -127,7 +127,7 @@ def Fit(x,y,Options):
     varyGuesses = varyDict.values()
     # force all parameters to be positive
     # number of evaluations should depend on the number of things we are fitting
-    nEval = 500*len(varyNames)
+    nEval = 1000*len(varyNames)
     mFittingFunc = GetFunctionCall(func,varyNames,fixed)
     # set up things for basin / brute force initalization
     toMin = GetMinimizingFunction(xScaled,yScaled,mFittingFunc)

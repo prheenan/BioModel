@@ -68,7 +68,6 @@ def RunWoodsideFigure6():
 def RunSchlierf2006Figure1a():
     DataToTest = Data.Schlierf2006Figure1a()
     Forces,Folding = (DataToTest.Forces,DataToTest.RatesFold)
-    print(Forces,Folding)
     # everything in SI initially
     vary = dict(beta=False,
                 k0=True,
@@ -81,7 +80,6 @@ def RunSchlierf2006Figure1a():
     opt = dict(Values=GuessDict,
                Vary=vary)
     infFold = BellModel.BellZurkovFit(Forces,Folding,**opt)
-    print(infFold)
     
 def run():
     """
