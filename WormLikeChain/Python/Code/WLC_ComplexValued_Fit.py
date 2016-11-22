@@ -61,7 +61,8 @@ def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):
     fit to the data.
 
     Args:
-        
+        kbt,lP,L0,f0,F: see InvertedWlcForce
+        MaxForce: the maximum ofrce to use. 
     """
     # grid the force uniformly (x vs F is essentially a 1-1 map)
     N = F.size

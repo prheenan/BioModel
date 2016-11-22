@@ -118,20 +118,20 @@ def WlcNonExtensible(ext,kbT,Lp,L0,*args,**kwargs):
     """
     return WlcPolyCorrect(kbT,Lp,ext/L0)
 
-def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,ForceGuess):
+def WlcExtensible_Helper(ext,kbT,Lp,L0,K0,F):
     """
     Fits to the (recursively defined) extensible model. 
 
     Args: 
         kbT,Lp,L0,ext : see WlcPolyCorrect
         K0: bulk modulus, units of Force
-        ForceGuess: the 'guess' for the force
+        F0: the 'guess' for the force
     Returns:
         see WlcPolyCorrect
     """
     # get the non-extensible model
     xNorm = ext/L0
-    yNorm = ForceGuess/K0
+    yNorm = F/K0
     # I follow convention of Wang 1997, in terms of 'l' or 'z'
     # which is defined as L/L0-F/K0
     l = xNorm-yNorm

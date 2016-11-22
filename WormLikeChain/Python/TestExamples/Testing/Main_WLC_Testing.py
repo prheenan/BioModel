@@ -30,14 +30,14 @@ def BullDataTests():
     toTest =  GetBullData
     return StepNm,toTest
  
-def RunDataTests():
+def RunDataTests(limit):
     """
     Runs the unit tests, and generates the plots
     """
     # really, the only thing we have control over is how much we interpolate
     # over the given literature values
     # note we reverse it so we 'fail fast'
-    IndiviudalFuncs = [BouchiatDataTests,BullDataTests]
+    IndiviudalFuncs = [BullDataTests,BouchiatDataTests]
     StepsArray = []
     FunctionsArray = []
     for testFunc in IndiviudalFuncs:
@@ -45,13 +45,13 @@ def RunDataTests():
         StepsArray.append(tmpStep)
         FunctionsArray.append(tmpFunc)
     for Steps,Function in zip(StepsArray,FunctionsArray):
-        TestDataWithSteps(Steps,Function)
+        TestDataWithSteps(Steps,Function,limit)
 
-def run():
+def run(limit=4):
     """
     Runs some unit testing on the WLC fitting. 
     """
-    RunDataTests()
+    RunDataTests(limit)
 
 
 if __name__ == "__main__":

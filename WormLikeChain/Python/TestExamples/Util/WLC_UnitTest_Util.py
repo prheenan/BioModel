@@ -82,13 +82,18 @@ def CheckDataObj(DataObj,OutName=None):
     # get an extensible and non-extensible model, choose whether to varying L0
     # and Lp
     extensibleFit = WLC_Fit.BoundedWlcFit(x,y,VaryL0=True,
-                                          VaryLp=True,VaryK0=False,Ns=40)
+                                          VaryLp=True,VaryK0=False,Ns=50)
     print("Extensible Parameters")
     print(extensibleFit)
     # make sure the parameters match what the model says it should
     ParamVals  = extensibleFit.Info.ParamVals
-    #
-    #assert ParamVals.CloseTo(params) , "{:s}\nVS\n{:s}".format(ParamVals,params)
+    # XXX fix parameters?
+    params_to_check = ["L0","Lp","kbT","K0"]
+    param_1 = params.GetParamDict()
+    param_2 = ParamVals.GetParamDict()
+    for p in params_to_check:
+        np.testing.assert_allclose(param_1[p].Value,param_2[p].Value,
+                                   rtol=0.5,atol=0)
     # try to get the non-extensible fit (possible it fails)
     try:
         nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(x,y,VaryL0=True,
@@ -112,8 +117,10 @@ def CheckDataObj(DataObj,OutName=None):
             plt.legend(loc='upper left')
         fig.savefig(OutName + ".png")
 
-def TestDataWithSteps(Steps,DataFunction):
+def TestDataWithSteps(Steps,DataFunction,limit=np.inf):
     for i,step in enumerate(Steps):
+        if (i >= limit):
+            break
         DataObj = DataFunction(step)
         CheckDataObj(DataObj,OutName=DataObj.name + \
                      "_{:d}_DeltaX={:.4g}nm".format(i,step))

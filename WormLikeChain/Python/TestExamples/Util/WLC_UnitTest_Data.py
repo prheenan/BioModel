@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-import Code.WLC_Fit as WLC_Fit
+from Code import WLC_Fit,WLC_Utils,WLC_ComplexValued_Fit
 
 class ModelData:
     """
@@ -51,7 +51,15 @@ def GetDataObj(x,ParamValues,noiseAmplitude,ylim,expectedMax,Name,rol=0.015):
     # for the non-extensible model, really only want to fit up to
     # some high percentage of the contour length
     values = dict([(k,v.Value) for k,v in params.GetParamDict().items()])
-    y = WLC_Fit.WlcExtensible(x,**values)
+    # create a guess, just based on our expected max and parameters
+    values["F"] = np.zeros(x.size)
+    _,force_guess = WLC_ComplexValued_Fit.\
+              SeventhOrderExtAndForceGrid(MaxForce=expectedMax,**values)
+    # remove any non-finite data (probably just the first point
+    force_guess[np.where(~np.isfinite(force_guess))] = 0
+    values["F"] = force_guess
+    # update the force guess
+    y = WLC_ComplexValued_Fit.InvertedWlcForce(x,**values)
     # note, by the inset in figure 1 inset / 3 error bars, 2pN is an upper
     # bound on the error we have everywhere
     # make the limits based on their plot
