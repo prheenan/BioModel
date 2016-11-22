@@ -131,6 +131,10 @@ def InvertedWlcForce(ext,kbT,Lp,L0,K0,F,ForceSliceToUseForMax=None):
     MaxForce = np.max(F[ForceSliceToUseForMax])
     ExtPred,ForceGrid = SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce)
     Force = InterpolateFromGridToData(ExtPred,ForceGrid,ext)
-    return Force
+    # use the odjik as a guess to the higher-order wang fit
+    # XXX make optional?
+    ForceWang = WlcExtensible_Helper(ext=ext,kbT=kbT,Lp=Lp,L0=L0,K0=K0,
+                                     F=Force)
+    return ForceWang
 
     

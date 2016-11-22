@@ -93,7 +93,7 @@ def CheckDataObj(DataObj,OutName=None):
     param_2 = ParamVals.GetParamDict()
     for p in params_to_check:
         np.testing.assert_allclose(param_1[p].Value,param_2[p].Value,
-                                   rtol=0.5,atol=0)
+                                   rtol=0.4,atol=0)
     # try to get the non-extensible fit (possible it fails)
     try:
         nonExtensibleFit = WLC_Fit.NonExtensibleWlcFit(x,y,VaryL0=True,
