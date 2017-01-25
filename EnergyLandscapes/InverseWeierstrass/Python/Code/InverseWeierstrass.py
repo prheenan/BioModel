@@ -53,9 +53,22 @@ class FEC_Pulling_Object:
         self.Beta=Beta
         self.Work=None
         self.WorkDigitized=None
+        self.Offset = self.Extension[0]
         self.ZFunc = self.ZFuncSimple if ZFunc is None else ZFunc
     def ZFuncSimple(self):
-        return self.Extension[0] + (self.Velocity * self.Time)
+        return self.Offset + (self.Velocity * self.Time)
+    def SetVelocityAndOffset(self,Offset,Velocity):
+        """
+        Sets the velocity and offset used in ZFuncSimple
+
+        Args:
+            Offset:  offset in distance (same units of extension)
+            Velocity: slope (essentially, effective approach/retract rate).
+        Returns:
+            Nothing
+        """
+        self.Velocity = Velocity
+        self.Offset = Offset
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
@@ -449,7 +462,6 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
     xopt = newton(ToMin,**FMinArgs)
     return xopt/beta
-
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
     Wrapper to make it easier to get the weighted histograms, etcs.

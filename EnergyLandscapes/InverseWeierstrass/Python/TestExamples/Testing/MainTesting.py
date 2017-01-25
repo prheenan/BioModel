@@ -252,10 +252,12 @@ def TestHummer2010():
     """
     # estmate nose amplitude, Figure 3 A ibid
     snr = (10/2)**2
+    #estimate stifness of system in forward and reverse
     k_fwd = (15-8)/(225-200)
     k_rev = (20-14)/(265-237)
     # noise for force
     noise_N = 2e-12
+    # noise is uniform
     noise_function = lambda x: (np.random.rand(x.size) - 0.5) * 2 * noise_N
     # get the 'normal' ensemble (no state switching)
     # note: hummer and Szabo do a complicated simulation of the bead + linkers
@@ -290,7 +292,6 @@ def TestHummer2010():
                           swap_to=fwd,sign=-1,tau_m=tau)
         state_fwd.append(fwd_switch)
         state_rev.append(rev_switch)
-        # XXX debuging
         if (debug):
             plt.plot(fwd_switch.Extension,fwd_switch.Force,color='r',alpha=0.3)
             plt.plot(rev_switch.Extension,rev_switch.Force,color='b',alpha=0.3)
@@ -361,6 +362,7 @@ def run():
     """
     Runs all IWT unit tests
     """
+    np.random.seed(42)
     TestWeighting()
     TestForwardBackward()
     TestHummer2010()
