@@ -86,7 +86,6 @@ class FEC_Pulling_Object:
         Returns:
             The cummulative integral of work, as defined in ibid, before eq18
         """
-        # compute the forst from the bias 
         Force = self.Force
         Z = self.ZFunc()
         ToRet = cumtrapz(x=Z,y=Force,initial=0)
@@ -469,7 +468,10 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     Args:
         obj: list of FEC_Pulling_Object
         NumBins: number of bins to put things into
+    Returns:
+        Energy Landscape Object
     """
+    SetAllWorkOfObjects(Objs)
     # get the bounds associated with the times and extensions
     ExtBounds = GetExtensionBounds(UnfoldingObjs)
     # Create the time and position bins using a helper function
