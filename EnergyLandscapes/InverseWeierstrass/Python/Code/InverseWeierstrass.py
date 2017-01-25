@@ -471,7 +471,7 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     Returns:
         Energy Landscape Object
     """
-    SetAllWorkOfObjects(Objs)
+    SetAllWorkOfObjects(UnfoldingObjs)
     # get the bounds associated with the times and extensions
     ExtBounds = GetExtensionBounds(UnfoldingObjs)
     # Create the time and position bins using a helper function
