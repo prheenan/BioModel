@@ -4,11 +4,8 @@ from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import FitUtils.Python.FitMain as FitMain
-from FitUtils.Python.FitClasses import Initialization,BoundsObj,FitInfo,\
-    GetBoundsDict
-from FitUtils.Python.FitMain import Fit
-from FJC_Helper import FJCValues
+from FitUtil import fit_base
+from scipy.interpolate import interp1d
 
 
 # cutoff foudn empircally for mathemtica for the LangevinSmall function
@@ -60,7 +57,7 @@ def LangevinSmall(x):
     coeffs = [2/93555,-1/4725,0,2/945,0,-1/45,0,1/3,0]
     return np.polyval(coeffs,x)
 
-def FJCModel(force,L0,b_kuhn,S_modulus,kbT):
+def fjc_extension(F,L0,Lp,kbT,K0):
     """
     Freely jointed chain model, which gets the extension as a function of force.
     From the last equation in :  
@@ -69,37 +66,49 @@ def FJCModel(force,L0,b_kuhn,S_modulus,kbT):
     "Overstretching B-DNA: The Elastic Response of Individual Double-Stranded 
     and Single-Stranded DNA Molecules."
     Science 271, no. 5250 (February 9, 1996): 795.
+    
+    also:
+    
+    Wang, M. D., Yin, H., Landick, R., Gelles, J. & Block, S. M. 
+    Stretching DNA with optical tweezers. Biophys J 72, 1335-1346 (1997)
 
     Args:
         force: force, in units of kbT/b_kuhn
         L0: the contour length, in units of b_kuhn (or equivalently, extension)
-        b_kuhn: the kuhn length, units of extension
-        S_modulus: the stretch modulus, units of force
+        Lp: the persistance length, units of extension
+        K0: the stretch modulus, units of force
         kbT : the boltmann constant times temperature. Room temp: 4.1 pN . nm
     """
-    gamma = (force * b_kuhn) / (kbT)
-    return L0 * Langevin(gamma) * (1+force/S_modulus)
+    gamma = (2*F * Lp) / (kbT)
+    return L0 * Langevin(gamma) * (1+F/K0)
+    
+def fjc_predicted_force_at_ext(separation,force,*args,**kwargs):
+    ext_modelled,force_modelled = fjc_model_ext_and_force(force,*args,**kwargs)
+    # interpolate back onto the grid we care about 
+    interp = interp1d(ext_modelled,force_modelled,bounds_error=False,
+                      fill_value="extrapolate")
+    predicted_force = interp(separation)
+    return predicted_force
 
-def FreelyJointedChainFit(Extensions,Force,Values,Vary=None,
-                          Bounds=None,Initial=None):
-    if (Vary is None):
-        Vary = dict(L0=True,
-                    b_kuhn=False,
-                    S_modulus=False,
-                    kbT=False)
-    if (Bounds is None):
-        Bounds = GetBoundsDict(L0=[0,np.inf],
-                               b_kuhn=[0,np.inf],
-                               S_modulus=[0,np.inf],
-                               kbT=[0,np.inf])
-    if (Initial is None):
-        Initial = Initialization(Type=Initialization.GUESS,disp=False,
-                                 stepsize=1e-9)
-    Model = FJCModel
-    mVals = FJCValues(Vary=Vary,Bounds=Bounds,Values=Values)
-    Options = FitInfo(FunctionToCall=Model,ParamVals=mVals,
-                      Initialization=Initial)
-    toRet =  FitMain.Fit(Force,Extensions,Options)
-    return toRet
+    
+def fjc_model_force(F,*args,**kwargs):
+    force_range = [min(F),max(F)]
+    return np.linspace(*force_range,num=F.size)
+    
+def fjc_model_ext_and_force(F,*args,**kwargs):
+    force_modelled = fjc_model_force(F,*args,**kwargs)
+    ext_modelled = fjc_extension(force_modelled,*args,**kwargs)
+    return ext_modelled,force_modelled
+
+def fit_fjc_contour(separation,force,brute_dict,**kwargs):
+    func = lambda *args: \
+        fjc_predicted_force_at_ext(separation,force,*args,**kwargs)
+    brute_dict['full_output']=False
+    x0 = fit_base.brute_optimize(func,force,
+                                 brute_dict=brute_dict)
+    model_x, model_y = fjc_model_ext_and_force(force,*x0,**kwargs)
+    min_sep = min(separation)
+    idx = np.where(model_x >= min_sep)
+    return x0,model_x[idx],model_y[idx]
 
 

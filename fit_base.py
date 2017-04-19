@@ -31,7 +31,7 @@ def objective_l2(func_predict,true_values,*args,**kwargs):
         normalized L2 
     """
     # XXX ?...
-    predicted_values = func_predict(*(args[0]),**kwargs)
+    predicted_values = func_predict(*args,**kwargs)
     values = np.abs(predicted_values-true_values)**2
     to_ret =  sum(np.log(values))
     return to_ret

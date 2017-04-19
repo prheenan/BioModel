@@ -541,7 +541,10 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     FreeEnergyAtZeroForce = FreeEnergy_A - (dA_dz)**2/(2*k) + \
                             (1/(2*Beta)) * np.log(SecondDerivTerm)
     # bottom of well is prettu much arbitrary
-    okIdx =np.isfinite(FreeEnergyAtZeroForce)
+    okIdx = np.where(np.isfinite(FreeEnergyAtZeroForce))[0]
+    assert (okIdx.size > 0) , \
+        "IWT failed; transform resulted in an infinite energy landscape"
+    # POST: at least one point
     MinVal = np.nanmin(FreeEnergyAtZeroForce[okIdx])
     FreeEnergyAtZeroForce -= MinVal
     # write down q, using ibid, 10, argument to G0
