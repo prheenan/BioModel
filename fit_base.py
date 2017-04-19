@@ -8,9 +8,15 @@ import sys
 from scipy.optimize import brute
 
 class fit:
-    def __init__(func_fit,func_predict,fit_dict,fit_result):
-        pass
-
+    def __init__(self,func_fit,func_predict,fit_dict,fit_result,fixed_kwargs):
+        self.func_fit = func_fit,
+        self.func_predict = func_predict
+        self.fit_dict = fit_dict
+        self.fit_result = fit_result
+        self.fixed_kwargs = fixed_kwargs
+    def predict(self,x):
+        print(self.fit_result)
+        return self.func_predict(x,*(self.fit_result),**self.fixed_kwargs)
     
 def objective_l2(func_predict,true_values,*args,**kwargs):
     """
@@ -24,12 +30,14 @@ def objective_l2(func_predict,true_values,*args,**kwargs):
     Returns:
         normalized L2 
     """
-    predicted_values = func_predict(*args,**kwargs)
+    # XXX ?...
+    predicted_values = func_predict(*(args[0]),**kwargs)
     values = np.abs(predicted_values-true_values)**2
-    to_ret =  sum(values)/sum(true_values**2)
+    to_ret =  sum(np.log(values))
     return to_ret
 
-def brute_optimize(func_to_call,true_values,brute_dict=dict()):
+def brute_optimize(func_to_call,true_values,loss=objective_l2,
+                   brute_dict=dict()):
     """
     given a function to call, gets the brute-optimized parameter values
     
@@ -43,7 +51,8 @@ def brute_optimize(func_to_call,true_values,brute_dict=dict()):
     objective = lambda *args: objective_l2(func_to_call,true_values,*args)
     return brute(objective,disp=False,**brute_dict)
 
-def brute_fit(func_to_call,true_values,func_predict=None,**kwargs):
+def brute_fit(func_to_call,true_values,func_predict=None,fixed_kwargs=dict(),
+              fit_dict=dict()):
     """
     given a function for fiting and a function for predicting, calls 
     brute_optimize and returns a fit object
@@ -55,7 +64,8 @@ def brute_fit(func_to_call,true_values,func_predict=None,**kwargs):
     Returns:
         output of brute_optimize, wrapped to a fit object
     """
-    brute_result = brute_optimize(func_to_call,true_values,**kwargs)
-    return fit(func_to_call,func_predict=func_predict,fit_dit=kwargs,
+    brute_result = brute_optimize(func_to_call,true_values,brute_dict=fit_dict)
+    return fit(func_fit=func_to_call,
+               func_predict=func_predict,
+               fit_dict=fit_dict,fixed_kwargs=fixed_kwargs,
                fit_result=brute_result)
-    
