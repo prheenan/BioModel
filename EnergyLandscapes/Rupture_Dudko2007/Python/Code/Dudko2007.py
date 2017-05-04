@@ -117,7 +117,13 @@ def normalized_model(loading_rate,rupture_forces,**kwargs):
 
 def free_energy_landscape(x,delta_G_ddagger,x_ddagger,nu):
     """
-    The 
+    The energy landscape as a function of extension
+
+    Args:
+       x: the extension, same units as x_ddagger
+       others: see escape_rate
+    Returns:
+      list of energies in units of delta_G_ddagger
     """
     tol = 1e-3
     x_rel = x/x_ddagger
