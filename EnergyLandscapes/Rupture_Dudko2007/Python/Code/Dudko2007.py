@@ -21,7 +21,7 @@ All equations referenced are from this paper
 
 """
 
-def escape_rate(loading_rate,rupture_force,delta_G_dagger,x_dagger,k0,
+def escape_rate(loading_rate,rupture_force,delta_G_ddagger,x_ddagger,k0,
                 nu,beta):
     """
     Equation 1, the escape rate k(F) for irreversible rupture under a 
@@ -34,10 +34,10 @@ def escape_rate(loading_rate,rupture_force,delta_G_dagger,x_dagger,k0,
          
          rupture_force: Units of <Force>, the forces we want the rates at
 
-         delta_G_dagger: the activation free energy of the single-well energy
+         delta_G_ddagger: the activation free energy of the single-well energy
          landscape, in <Force>*<Distance> = <Energy> units
 
-         x_dagger: the distance from the well to the landscape barrier, units
+         x_ddagger: the distance from the well to the landscape barrier, units
          of <Distance>
 
          k0: the 'intrinsic rate' (rate of escape at zero force), units of
@@ -51,11 +51,11 @@ def escape_rate(loading_rate,rupture_force,delta_G_dagger,x_dagger,k0,
     Returns:
          array of escape rates, given the inputs. 
     """
-    a = (1-nu*rupture_force*x_dagger/delta_G_dagger)
+    a = (1-nu*rupture_force*x_ddagger/delta_G_ddagger)
     b = 1-a**(1/nu)
-    return k0 * (a ** (1/nu -1)) * np.exp(beta*delta_G_dagger * b)
+    return k0 * (a ** (1/nu -1)) * np.exp(beta*delta_G_ddagger * b)
 
-def dudko_model(loading_rate,rupture_force,delta_G_dagger,x_dagger,k0,nu,beta):
+def dudko_model(loading_rate,rupture_force,delta_G_ddagger,x_ddagger,k0,nu,beta):
     """
     Equation 2: the probability of a given rupture force, given a fixed pulling
     speed (or loading rate).
@@ -65,13 +65,13 @@ def dudko_model(loading_rate,rupture_force,delta_G_dagger,x_dagger,k0,nu,beta):
     Returns:
        array of (unnormalized) probabilities at each given rupture force.
     """
-    k_F = escape_rate(loading_rate,rupture_force,delta_G_dagger,x_dagger,
+    k_F = escape_rate(loading_rate,rupture_force,delta_G_ddagger,x_ddagger,
                       k0,nu,beta)
-    c = beta*x_dagger*loading_rate                      
-    d = (1-nu * rupture_force * x_dagger/delta_G_dagger)**(1-1/nu)
+    c = beta*x_ddagger*loading_rate                      
+    d = (1-nu * rupture_force * x_ddagger/delta_G_ddagger)**(1-1/nu)
     return (1/loading_rate) * k_F * np.exp(k0/c) * np.exp( (-k_F/c) * d)
             
-def mean_rupture_force(loading_rate,delta_G_dagger,x_dagger,k0,nu,beta):
+def mean_rupture_force(loading_rate,delta_G_ddagger,x_ddagger,k0,nu,beta):
     """
     Equation 3: the expected value of the rupture force, given a fixed pulling
     speed (or loading rate).
@@ -81,12 +81,12 @@ def mean_rupture_force(loading_rate,delta_G_dagger,x_dagger,k0,nu,beta):
     Returns:
        array of expected rupture forces as 
     """
-    c0 = delta_G_dagger*beta
+    c0 = delta_G_ddagger*beta
     gamma = 0.577
-    f = (1/c0) * np.log(k0*np.exp(c0+gamma)/(beta*x_dagger*loading_rate))
-    return delta_G_dagger/(nu*x_dagger) * (1- f**nu)
+    f = (1/c0) * np.log(k0*np.exp(c0+gamma)/(beta*x_ddagger*loading_rate))
+    return delta_G_ddagger/(nu*x_ddagger) * (1- f**nu)
     
-def stdev_rupture_force(loading_rate,delta_G_dagger,x_dagger,k0,nu,beta):
+def stdev_rupture_force(loading_rate,delta_G_ddagger,x_ddagger,k0,nu,beta):
     """
     Equation 4: the standard deviation of the rupture force, 
     given a fixed pulling speed (or loading rate).
@@ -96,10 +96,10 @@ def stdev_rupture_force(loading_rate,delta_G_dagger,x_dagger,k0,nu,beta):
     Returns:
        array of standard deviations
     """
-    c0 = delta_G_dagger*beta
+    c0 = delta_G_ddagger*beta
     gamma_t = 1.064
-    f = np.log(k0*np.exp(c0+gamma_t)/(beta*x_dagger*loading_rate))
-    variance = (np.pi**2/(6*(beta*x_dagger)**2)) * (1/c0 * f)**(2*nu-2)
+    f = np.log(k0*np.exp(c0+gamma_t)/(beta*x_ddagger*loading_rate))
+    variance = (np.pi**2/(6*(beta*x_ddagger)**2)) * (1/c0 * f)**(2*nu-2)
     return np.sqrt(variance)
             
 def normalized_model(loading_rate,rupture_forces,**kwargs):
@@ -114,3 +114,20 @@ def normalized_model(loading_rate,rupture_forces,**kwargs):
     model = dudko_model(loading_rate,rupture_forces,**kwargs)
     model = model/sum(model)                            
     return model
+
+def free_energy_landscape(x,delta_G_ddagger,x_ddagger,nu):
+    """
+    The 
+    """
+    tol = 1e-3
+    x_rel = x/x_ddagger
+    # XXX should do bell...
+    if abs(nu-2/3) <= tol:
+        # linear-cubic
+        to_ret = 3/2 * delta_G_ddagger * x_rel - 2 * delta_G_ddagger * x_rel**3
+    elif abs(nu-1/2) <= tol:
+        # cusp
+        to_ret = delta_G_ddagger * x_rel**2
+    else:
+        assert False , "Value of nu does not have known landscape"
+    return to_ret
