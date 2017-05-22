@@ -420,7 +420,7 @@ def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     # we want the two sides to be equal...
     return np.mean(Forward)-np.mean(Reverse)
 
-def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
+def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     """
     Numerically solves for DeltaA, as in equation 18 of 
 
@@ -438,6 +438,7 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
         Forward: List of forward paths
         Reverse: List of reverse paths
         disp: arugment to root finder: default shows all the steps
+        kwargs: passed to newton
     Returns:
         Free energy different, in joules
     """
@@ -456,11 +457,12 @@ def NumericallyGetDeltaA(Forward,Reverse,disp=3,**kwargs):
     Min = min(MinWorks)
     # only look between +/- the max. Note that range is guarenteed positive
     Range = Max-Min
-    FMinArgs = dict(x0=(Max-Min)/2,**kwargs)
+    FMinArgs = dict(x0=(Max-Min)/2,maxiter=maxiter,**kwargs)
     # note we set beta to one, since it is easier to solve in units of kT
     ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
     xopt = newton(ToMin,**FMinArgs)
     return xopt/beta
+    
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
     Wrapper to make it easier to get the weighted histograms, etcs.
