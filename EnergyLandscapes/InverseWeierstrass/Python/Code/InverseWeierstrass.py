@@ -9,8 +9,7 @@ from scipy.integrate import cumtrapz
 import itertools
 from collections import defaultdict
 from scipy.optimize import fminbound,newton
-
-
+from scipy import sparse
 class EnergyLandscape:
     def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
         # sort the energy landscape by the exensions
@@ -55,6 +54,9 @@ class FEC_Pulling_Object:
         self.WorkDigitized=None
         self.Offset = self.Extension[0]
         self.ZFunc = self.ZFuncSimple if ZFunc is None else ZFunc
+    @property
+    def Separation(self):
+        return self.Extension
     def ZFuncSimple(self):
         return self.Offset + (self.Velocity * self.Time)
     def SetVelocityAndOffset(self,Offset,Velocity):
@@ -104,11 +106,17 @@ class FEC_Pulling_Object:
             'GetDigitizedBoltzmann'
         """
         NumTimes = Bins.size
-        IdxAdd = np.digitize(self.Extension,bins=Bins)
-        DigitzedMatrix = [[] for _ in range(NumTimes)]
-        for i,idx in enumerate(IdxAdd):
-            DigitzedMatrix[idx-1].append(ToDigitize[i])
-        return DigitzedMatrix
+        bin_idx_for_each_point = np.digitize(self.Extension,bins=Bins)
+        n_points = ToDigitize.size
+        # get a digitized matrix where
+        # full[ [Bin Idx, Point Idx] ] = Value of the point 
+        idx_arr = np.arange(n_points)
+        full = sparse.csr_matrix((ToDigitize,(bin_idx_for_each_point,idx_arr)),
+                                  shape=(NumTimes+1,n_points))
+        # concatenate the columns together 
+        data_by_rows = [full.data[full.indptr[i]:full.indptr[i+1]]
+                        for i in range(NumTimes+1)]
+        return data_by_rows
     def GetDigitizedOnes(self,Bins):
         """
         see GetDigitizedBoltzmann, except returns the 
