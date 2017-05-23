@@ -310,9 +310,10 @@ def TestHummer2010():
     landscape_rev_kT = landscape_rev.EnergyLandscape/kT + energy_offset_kT
     ext_fwd = landscape_rev.Extensions
     ext_rev = landscape.Extensions
-    # should be very close before 230nm
-    CloseIdxFwd = np.where(ext_fwd < 230e-9)[0]
-    CloseIdxRev = np.where(ext_rev < 230e-9)[0]
+    # should be very close before XXXnm
+    split_point_meters = 230e-9
+    CloseIdxFwd = np.where(ext_fwd < split_point_meters)[0]
+    CloseIdxRev = np.where(ext_rev < split_point_meters)[0]
     limit = min(CloseIdxFwd.size,CloseIdxRev.size)
     assert limit > num_bins/4 , "Should have roughly half of data before 230nm"
     # want landscapees before 230nm to be within 10% of each other
@@ -320,25 +321,32 @@ def TestHummer2010():
                                landscape_rev_kT[CloseIdxRev[:limit]],
                                rtol=0.1)
     # POST: 'early' region is fine
-    # check the bound on the last points
-    np.testing.assert_allclose(landscape_fwd_kT[-1],300,rtol=0.05)
-    np.testing.assert_allclose(landscape_rev_kT[-1],250,rtol=0.05)
+    # check the bound on the last points (just estimate these by eye)
+    forward_maximum_energy_kT = 300
+    reverse_maximum_energy_kT = 250
+    np.testing.assert_allclose(landscape_fwd_kT[-1],forward_maximum_energy_kT,
+                               rtol=0.05)
+    np.testing.assert_allclose(landscape_rev_kT[-1],reverse_maximum_energy_kT,
+                               rtol=0.05)
     # POST: endpoints match Figure 3 bounds
     landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
-    # get the relative landscape hummer and szabo plot
+    # get the relative landscape hummer and szabo plot (their min is about
+    # 2.5kT offset from zero)
+    offset_kT_tilted = 2.5
     landscape_fonehalf_kT_rel =  \
-        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + 2.5
+        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
     # make sure the barrier height is about right
     idx_barrier = np.where( (ext_rev > 220e-9) &
                             (ext_rev < 240e-9) )
     barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
+    expected_barrier_height_kT = 5
     barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
     np.testing.assert_allclose(barrier_delta,
-                               5,atol=1)
-    # POST: should be quite close to 5
+                               expected_barrier_height_kT,atol=1)
+    # POST: height should be quite close to Figure 3
     ToX = lambda x: x*1e9
     xlim = lambda: plt.xlim([190,265])
-    fig = PlotUtilities.figure(figsize=(8,16))
+    fig = PlotUtilities.figure(figsize=(4,7))
     plt.subplot(2,1,1)
     plt.plot(ToX(ext_fwd),landscape_rev_kT,color='r',alpha=0.6,
              linestyle='-',linewidth=3,label="Bi-directional")
