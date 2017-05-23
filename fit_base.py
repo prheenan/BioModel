@@ -15,7 +15,6 @@ class fit:
         self.fit_result = fit_result
         self.fixed_kwargs = fixed_kwargs
     def predict(self,x):
-        print(self.fit_result)
         return self.func_predict(x,*(self.fit_result),**self.fixed_kwargs)
     
 def objective_l2(func_predict,true_values,*args,**kwargs):
@@ -35,7 +34,10 @@ def objective_l2(func_predict,true_values,*args,**kwargs):
     values = np.abs(predicted_values-true_values)**2
     to_ret =  sum(np.log(values))
     return to_ret
-
+    
+def _prh_brute(objective,disp=False,full_output=False,**kwargs):
+    return brute(objective,disp=disp,full_output=full_output,**kwargs)
+    
 def brute_optimize(func_to_call,true_values,loss=objective_l2,
                    brute_dict=dict()):
     """
@@ -49,7 +51,7 @@ def brute_optimize(func_to_call,true_values,loss=objective_l2,
         output of scipy.optimize
     """
     objective = lambda *args: objective_l2(func_to_call,true_values,*args)
-    return brute(objective,disp=False,**brute_dict)
+    return _prh_brute(objective,**brute_dict)
 
 def brute_fit(func_to_call,true_values,func_predict=None,fixed_kwargs=dict(),
               fit_dict=dict()):

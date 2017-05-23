@@ -103,7 +103,6 @@ def fjc_model_ext_and_force(F,*args,**kwargs):
 def fit_fjc_contour(separation,force,brute_dict,**kwargs):
     func = lambda *args: \
         fjc_predicted_force_at_ext(separation,force,*args,**kwargs)
-    brute_dict['full_output']=False
     x0 = fit_base.brute_optimize(func,force,
                                  brute_dict=brute_dict)
     model_x, model_y = fjc_model_ext_and_force(force,*x0,**kwargs)

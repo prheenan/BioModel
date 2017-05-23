@@ -87,45 +87,67 @@ def _inverted_wlc_full(ext,kbT,Lp,L0,K0,F,max_force=None,odjik_as_guess=True):
         happen
         
         odjik_as_guess: if true, uses the odjik_as_guess as an initial (smooth)
-        guess to the force
+        guess to the force for the Wang 1997 fit 
     Returns:
-        tuple of <predicted x, predicted y>
+        tuple of <gridded x, gridded y, y value at each ext>
     """
     if (max_force is None):
         max_force = np.max(F)
     ExtGrid,ForceGrid = SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,max_force)
     Force = InterpolateFromGridToData(ExtGrid,ForceGrid,ext)
     # reslice the grid to be within the useful range of the data
-    min_x,max_x = min(ext),max(ext)
+    min_x,max_x = np.nanmin(ext),np.nanmax(ext)
     # only look at points on the grid which are within the original bounds of 
     # the data 
     ext_safe_idx = np.where(np.isfinite(ExtGrid))[0]
-    ext_safe = ExtGrid[ext_safe_idx]
-    grid_idx_of_interest = ext_safe_idx[np.where( (ext_safe >= min_x) &
-                                                  (ext_safe <= max_x))]
-    ExtGrid = ExtGrid[grid_idx_of_interest]                                       
-    ForceGrid = ForceGrid[grid_idx_of_interest]
+    ext_grid_final = ExtGrid[ext_safe_idx]       
+    force_grid_final = ForceGrid[ext_safe_idx]
+    grid_idx_of_interest = np.where( (ext_grid_final >= min_x) &
+                                     (ext_grid_final <= max_x))[0]
+    ext_grid_final = ext_grid_final[grid_idx_of_interest]                         
+    force_grid_final = force_grid_final[grid_idx_of_interest]
+    print("Ext,force")
+    print(min_x,max_x)
+    print(ext_safe_idx)
+    print(grid_idx_of_interest)
+    print(ext_grid_final)  
+    print(force_grid_final)
+    print(kbT,Lp,L0,K0)
+    plt.subplot(2,1,1)
+    plt.plot(F)
+    plt.subplot(2,1,2)
+    plt.plot(ext_grid_final,force_grid_final,'r--')
+    plt.plot(ExtGrid,ForceGrid,'k-',alpha=0.3)
+    plt.axvline(min_x)
+    plt.axvline(max_x)
+    plt.show()    
+    # POST: the grid is within the original bounds. Update if need be 
     if (odjik_as_guess):
         # use the odjik as a guess to the higher-order wang fit
         wang_dict = dict(kbT=kbT,Lp=Lp,L0=L0,K0=K0)
         Force = WlcExtensible_Helper(ext=ext,F=Force,**wang_dict)
-        ForceGrid = WlcExtensible_Helper(ext=ExtGrid,F=ForceGrid,**wang_dict)
-    return ExtGrid,ForceGrid,Force
+        force_grid_final = WlcExtensible_Helper(ext=ext_grid_final,
+                                                F=force_grid_final,
+                                                **wang_dict)
+    return ext_grid_final,force_grid_final,Force
 
 def inverted_wlc(ext,force,L0,Lp,K0,kbT,**kwargs):
     return _inverted_wlc_full(ext=ext,kbT=kbT,Lp=Lp,L0=L0,K0=K0,F=force,**kwargs)
     
 def inverted_wlc_force(*args,**kwargs):
     ext_grid,force_grid,force_predicted = inverted_wlc(*args,**kwargs)
-    return f
+    exit(1)
+    return force_predicted
     
 def wlc_contour(separation,force,brute_dict,**kwargs):
+    plt.plot(separation,force)
+    plt.show()  
     func = lambda *args: inverted_wlc_force(separation,force,*args,**kwargs)
     brute_dict['full_output']=False
     x0 = fit_base.brute_optimize(func,force,brute_dict=brute_dict)
     model_x, model_y,_ = inverted_wlc(separation,force,*x0,**kwargs)
-    good_idx = np.where( (model_x > min(separation)) &
-                         (model_x < max(separation)))
+    good_idx = np.where( (model_x >= min(separation)) &
+                         (model_x <= max(separation)))
     return x0,model_x[good_idx],model_y[good_idx]
 
     
