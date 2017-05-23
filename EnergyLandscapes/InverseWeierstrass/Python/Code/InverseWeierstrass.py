@@ -50,10 +50,10 @@ class FEC_Pulling_Object:
         self.SpringConstant=SpringConstant
         self.Velocity= Velocity
         self.Beta=Beta
-        self.Work=None
-        self.WorkDigitized=None
         self.Offset = self.Extension[0]
         self.ZFunc = self.ZFuncSimple if ZFunc is None else ZFunc
+        self.SetWork(self.CalculateForceCummulativeWork())
+        self.WorkDigitized=None
     @property
     def Separation(self):
         return self.Extension
@@ -483,9 +483,6 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     Returns:
         Energy Landscape Object
     """
-    #SetAllWorkOfObjects(UnfoldingObjs)
-    #if (len(RefoldingObjs) > 0):
-    #    SetAllWorkOfObjects(RefoldingObjs)
     # get the bounds associated with the times and extensions
     ExtBounds = GetExtensionBounds(UnfoldingObjs)
     # Create the time and position bins using a helper function

@@ -111,8 +111,6 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                                 ZFunc = lambda: ext_rev_m)
         fwd_objs.append(fwd)
         rev_objs.append(rev)
-    InverseWeierstrass.SetAllWorkOfObjects(fwd_objs)
-    InverseWeierstrass.SetAllWorkOfObjects(rev_objs)
     return fwd_objs,rev_objs,DeltaA
     
 def TestWeighting():
