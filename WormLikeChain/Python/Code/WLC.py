@@ -1,0 +1,131 @@
+# force floating point division. Can still use integer with //
+from __future__ import division
+# other good compatibility recquirements for python3
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
+# This file is used for importing the common utilities classes.
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+
+
+from FitUtil import fit_base
+
+from FitUtil.WormLikeChain.Python.Code.WLC_Utils import \
+    WlcExtensible_Helper
+    
+from scipy.interpolate import interp1d
+
+def ExtensionPerForceOdjik(kbT,Lp,L0,K0,F):
+    # need to cast the sqrt to a real to make this work
+    sqrt_safe = np.sqrt(kbT/(F.astype(np.complex128)*Lp))
+    to_ret = np.real(L0 * (1 - sqrt_safe/2 + F/K0))
+    return to_ret
+
+def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):
+    """
+    Given extension data, parameters, and a force, creates a WLC-based 
+    grid, including Bouchiat polynomials. This is essentially the (smooth)
+    fit to the data.
+
+    Args:
+        kbt,lP,L0,f0,F: see InvertedWlcForce
+        MaxForce: the maximum ofrce to use. 
+    """
+    # grid the force uniformly (x vs F is essentially a 1-1 map)
+    N = F.size
+    UpSample = 10
+    if (MaxForce is None):
+        MaxForce = max(F)
+    ForceGrid = np.linspace(start=0,stop=MaxForce,num=N*UpSample)
+    # get the extension predictions on the uniform grid (essentially
+    # this is a detailed 1-1 map of how to go between force and ext)
+    ExtPred = ExtensionPerForceOdjik(kbT,Lp,L0,K0,ForceGrid)
+    # return the extension and force on the *grid*. These are smooth, and
+    # (for fitting purposes) should be interpolated back to the original
+    # extension / force data
+    return ExtPred,ForceGrid
+
+def InterpolateFromGridToData(XGrid,YGrid,XActual,
+                              bounds_error=False,kind='linear',
+                              fill_value='extrapolate'):
+    """
+    interpolate the force from the predicted extension grid to the actual
+    extensions -- which is what we care about
+
+    Note: by default this linearly extrapolates for edge cases.
+    Considering the WLC is linear at the start (hooke) and the end 
+    (stretching backbone), this is probably 
+    ok, but the user should be sure this behavior is desired
+
+    Args:
+        XGrid,YGrid: two arrays of the same length; we interpolate Y
+        along the X grid. Probably the outputs of 
+        SeventhOrderForceAndExtGrid
+
+        XActual: wherever we want the intepolated y values.
+    """
+    IntepolationMap = interp1d(XGrid,YGrid,bounds_error=bounds_error,
+                               kind=kind,fill_value=fill_value)
+    # do the actual mapping 
+    return IntepolationMap(XActual)
+
+
+def _inverted_wlc_full(ext,kbT,Lp,L0,K0,F,max_force=None,odjik_as_guess=True):
+    """
+    Function to fit F vs ext using an ext(F). This allows us to get a 
+    good initial guess for F(ext). The force is gridded, giving 
+    a smooth interpolation. 
+
+    Args:
+        ext: the extension data, size N
+        F: the force data, size N 
+        others: See WLC_Fit.WlcNonExtensible
+        max_force: to do the inversion, we need to know what maximum
+        Force to use. We take the max of the force in this slice to make it 
+        happen
+        
+        odjik_as_guess: if true, uses the odjik_as_guess as an initial (smooth)
+        guess to the force
+    Returns:
+        tuple of <predicted x, predicted y>
+    """
+    if (max_force is None):
+        max_force = np.max(F)
+    ExtGrid,ForceGrid = SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,max_force)
+    Force = InterpolateFromGridToData(ExtGrid,ForceGrid,ext)
+    # reslice the grid to be within the useful range of the data
+    min_x,max_x = min(ext),max(ext)
+    # only look at points on the grid which are within the original bounds of 
+    # the data 
+    ext_safe_idx = np.where(np.isfinite(ExtGrid))[0]
+    ext_safe = ExtGrid[ext_safe_idx]
+    grid_idx_of_interest = ext_safe_idx[np.where( (ext_safe >= min_x) &
+                                                  (ext_safe <= max_x))]
+    ExtGrid = ExtGrid[grid_idx_of_interest]                                       
+    ForceGrid = ForceGrid[grid_idx_of_interest]
+    if (odjik_as_guess):
+        # use the odjik as a guess to the higher-order wang fit
+        wang_dict = dict(kbT=kbT,Lp=Lp,L0=L0,K0=K0)
+        Force = WlcExtensible_Helper(ext=ext,F=Force,**wang_dict)
+        ForceGrid = WlcExtensible_Helper(ext=ExtGrid,F=ForceGrid,**wang_dict)
+    return ExtGrid,ForceGrid,Force
+
+def inverted_wlc(ext,force,L0,Lp,K0,kbT,**kwargs):
+    return _inverted_wlc_full(ext=ext,kbT=kbT,Lp=Lp,L0=L0,K0=K0,F=force,**kwargs)
+    
+def inverted_wlc_force(*args,**kwargs):
+    ext_grid,force_grid,force_predicted = inverted_wlc(*args,**kwargs)
+    return f
+    
+def wlc_contour(separation,force,brute_dict,**kwargs):
+    func = lambda *args: inverted_wlc_force(separation,force,*args,**kwargs)
+    brute_dict['full_output']=False
+    x0 = fit_base.brute_optimize(func,force,brute_dict=brute_dict)
+    model_x, model_y,_ = inverted_wlc(separation,force,*x0,**kwargs)
+    good_idx = np.where( (model_x > min(separation)) &
+                         (model_x < max(separation)))
+    return x0,model_x[good_idx],model_y[good_idx]
+
+    
