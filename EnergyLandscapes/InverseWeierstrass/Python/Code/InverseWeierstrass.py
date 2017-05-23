@@ -107,15 +107,17 @@ class FEC_Pulling_Object:
         """
         NumTimes = Bins.size
         bin_idx_for_each_point = np.digitize(self.Extension,bins=Bins)
+        # force bin idx to be between 0 and N_bins-1
+        bin_idx_for_each_point = np.minimum(NumTimes-1,bin_idx_for_each_point)
         n_points = ToDigitize.size
         # get a digitized matrix where
         # full[ [Bin Idx, Point Idx] ] = Value of the point 
         idx_arr = np.arange(n_points)
         full = sparse.csr_matrix((ToDigitize,(bin_idx_for_each_point,idx_arr)),
-                                  shape=(NumTimes+1,n_points))
+                                  shape=(NumTimes,n_points))
         # concatenate the columns together 
         data_by_rows = [full.data[full.indptr[i]:full.indptr[i+1]]
-                        for i in range(NumTimes+1)]
+                        for i in range(NumTimes)]
         return data_by_rows
     def GetDigitizedOnes(self,Bins):
         """
