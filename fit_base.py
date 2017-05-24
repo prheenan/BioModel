@@ -42,7 +42,7 @@ def objective_l2(func_predict,true_values,*args,**kwargs):
     # where we are value, determine the actual penalty
     values[valid_idx] = \
         np.abs(predicted_values[valid_idx]-true_values[valid_idx])**2
-    to_ret =  sum(np.log10(values))
+    to_ret =  sum(np.log(values))
     return to_ret
     
 def _prh_brute(objective,disp=False,full_output=False,**kwargs):

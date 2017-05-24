@@ -19,8 +19,14 @@ from scipy.interpolate import interp1d
 
 def ExtensionPerForceOdjik(kbT,Lp,L0,K0,F):
     # need to cast the sqrt to a real to make this work
-    sqrt_safe = np.sqrt(kbT/(F.astype(np.complex128)*Lp))
-    to_ret = np.real(L0 * (1 - sqrt_safe/2 + F/K0))
+    f_complex = F.astype(np.complex128)
+    # determine where F > 0 (this is where we can use Odjik)
+    safe_idx = np.where(F > 0)
+    sqrt_safe = np.sqrt(kbT/(f_complex[safe_idx]*Lp))
+    # everywhere we can't use Odjik (F=0), set the value to nan
+    to_ret = np.ones(F.size) * np.nan
+    # elsewhere, determine the actual extension
+    to_ret[safe_idx] = np.real(L0 * (1 - sqrt_safe/2 + F[safe_idx]/K0))
     return to_ret
 
 def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):

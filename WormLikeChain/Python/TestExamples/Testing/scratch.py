@@ -21,7 +21,8 @@ class test_object:
 
 
 def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
-                                      noise_amplitude_N,**brute_kwargs):
+                                      noise_amplitude_N,ranges,Ns=40,
+                                      **brute_kwargs):
     """
     Gets the fitting parameters after corrupting a known signal with noise
 
@@ -30,6 +31,8 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
         force_grid: the y values for the fitting
         params_fit: to be passed to wc_contour
         noise_amplitude_N: the (assumed uniformly normal) noise
+        ranges: for parameters to fit, passed to brute
+        Ns: number of points to use, for brute
         **brute_kwargs: passed to scipy.optimize.brute
     Returns:
         tuple of <fit parameters, predicted y, noisy y>
@@ -38,8 +41,7 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
     uniform_noise = 2 * (np.random.uniform(size=force_grid.size) - 0.5)
     noise = noise_amplitude_N * uniform_noise 
     force_noise = force_grid + noise
-    ranges = [ [np.nanmax(ext_pred)/5,5*np.nanmax(ext_pred)]]
-    brute_dict = dict(ranges=ranges,Ns=40,**brute_kwargs)
+    brute_dict = dict(ranges=ranges,Ns=Ns,**brute_kwargs)
     x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
                            brute_dict=brute_dict,
                            **params_fit)
@@ -69,6 +71,7 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
     """
     if (noise_ampl_N is None):
         noise_ampl_N = [0,1e-12,5e-12,10e-12,20e-12]
+    # determine the noiseless curve
     L0 = param_values["L0"]
     ext = np.linspace(L0/100,L0,num=1000)
     force = np.linspace(0,max_force_N)
@@ -77,16 +80,24 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
     x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
                                             force=force_grid,
                                             **param_values)
+    # do the fitting; we use a series of noise amplitudes to check for
+    # robustness. 
     params_fit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
     for noise_tmp in noise_ampl_N:
+        # make the dictionary with all the fitting information
+        ranges = [ [np.nanmax(ext_pred)/5,5*np.nanmax(ext_pred)]]
         fit_dict = dict(ext_pred=ext_pred,
                         force_grid=force_grid,
                         params_fit=params_fit,
+                        ranges = ranges,
                         noise_amplitude_N=noise_tmp)
         x0,y,force_noise = get_fitting_parameters_with_noise(**fit_dict)
-        L0_relative_error = abs((x0-L0)/L0)
+        # ensure the error is within the bounds
+        L0_relative_error = (abs((x0-L0)/L0))[0]
+        print(L0_relative_error)
         assert L0_relative_error < L0_relative_tolerance , \
             "Error {:.2g} not in tolerance".format(L0_relative_error)
+    # POST: all errors in bounds
     if (debug_plot_base is not None):
         fig = PlotUtilities.figure(figsize=(4,7))
         ext_pred_plot = ext_pred * 1e9
