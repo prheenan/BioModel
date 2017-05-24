@@ -38,10 +38,9 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
     Returns:
         tuple of <fit parameters, predicted y, noisy y>
     """
-    # make the uniform noise go from -1 to 1
-    uniform_noise = 2 * (np.random.uniform(size=force_grid.size) - 0.5)
-    noise = noise_amplitude_N * uniform_noise 
-    force_noise = force_grid + noise
+    noise_unitless = (np.random.normal(size=force_grid.size))
+    noise_N = noise_amplitude_N * noise_unitless
+    force_noise = force_grid + noise_N
     brute_dict = dict(ranges=ranges,Ns=Ns,**brute_kwargs)
     x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
                            brute_dict=brute_dict,
@@ -50,7 +49,7 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
 
 
 def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
-                       L0_relative_tolerance = 10e-2,noise_ampl_N=None):
+                       L0_relative_tolerance = 1e-2,noise_ampl_N=None):
     """
     Tests the given parameter set. throws an error if it failss
 
@@ -71,14 +70,18 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
         nothing, throws an error if it fails
     """
     if (noise_ampl_N is None):
-        noise_ampl_N = [0,1e-12,5e-12,10e-12,20e-12]
+        noise_ampl_N = [0,1e-12,5e-12,10e-12]
     # determine the noiseless curve
     L0 = param_values["L0"]
-    print(L0,"L0")
-    ext = np.linspace(L0/100,L0*1.2,num=1000)
+    ext = np.linspace(0,L0*1.2,num=1000)
     force = np.linspace(0,max_force_N)
     ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(F=force,
                                                           **param_values)
+    idx_finite = np.where(np.isfinite(ext_pred))[0]
+    idx_good = np.where( (ext_pred[idx_finite] >= min(ext)) & 
+                         (ext_pred[idx_finite] <= max(ext)) )[0]
+    ext_pred = ext_pred[idx_finite[idx_good]]
+    force_grid = force_grid[idx_finite[idx_good]]
     x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
                                             force=force_grid,
                                             **param_values)
@@ -96,6 +99,7 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
         x0,y,force_noise = get_fitting_parameters_with_noise(**fit_dict)
         # ensure the error is within the bounds
         L0_relative_error = (abs((x0-L0)/L0))[0]
+        print(L0_relative_error)
         assert L0_relative_error < L0_relative_tolerance , \
             "Error {:.2g} not in tolerance".format(L0_relative_error)
     # POST: all errors in bounds
