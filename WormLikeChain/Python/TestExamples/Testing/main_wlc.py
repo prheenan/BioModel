@@ -39,15 +39,7 @@ def test_parameter_set(test_obj,debug_plot_base=None,
     param_values,max_force_N = test_obj.param_values,test_obj.max_force_N
     # determine the noiseless curve
     L0 = param_values["L0"]
-    ext = test_obj.ext
-    force = np.linspace(0,test_obj.max_force_N,ext.size)
-    ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(F=force,
-                                                          **param_values)
-    idx_finite = np.where(np.isfinite(ext_pred))[0]
-    idx_good = np.where( (ext_pred[idx_finite] >= min(ext)) & 
-                         (ext_pred[idx_finite] <= max(ext)) )[0]
-    ext_pred = ext_pred[idx_finite[idx_good]]
-    force_grid = force_grid[idx_finite[idx_good]]
+    ext_pred,force_grid = util.get_ext_and_force(test_obj)
     x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
                                             force=force_grid,
                                             **param_values)
