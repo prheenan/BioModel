@@ -99,7 +99,6 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
         x0,y,force_noise = get_fitting_parameters_with_noise(**fit_dict)
         # ensure the error is within the bounds
         L0_relative_error = (abs((x0-L0)/L0))[0]
-        print(L0_relative_error)
         assert L0_relative_error < L0_relative_tolerance , \
             "Error {:.2g} not in tolerance".format(L0_relative_error)
     # POST: all errors in bounds
@@ -131,16 +130,19 @@ def run():
     """
     kbT = 4.11e-21
     K0 = 1200e-12
+    np.random.seed(42)
     params_dsDNA   = dict(kbT=kbT,K0=K0,L0=500e-9,Lp=50e-9)
     params_ssDNA   = dict(kbT=kbT,K0=K0,L0=60e-9,Lp=0.7e-9)
-    params_protein = dict(kbT=kbT,K0=K0,L0=60e-9,Lp=0.3e-9)
+    params_protein = dict(kbT=kbT,K0=K0,L0=40e-9,Lp=0.3e-9)
     test_objects = [test_object(name="ssDNA",
                                 max_force_N=65e-12,
                                 **params_ssDNA),
                     test_object(name="dsDNA",
                                 max_force_N=65e-12,
                                 **params_dsDNA),
-                    ]
+                    test_object(name="protein",
+                                max_force_N=100e-12,
+                                **params_protein)]
     for t in test_objects:
         test_parameter_set(param_values=t.param_values,
                            max_force_N=t.max_force_N,
