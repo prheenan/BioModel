@@ -105,6 +105,7 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
 
 
 def test_parameter_set(test_obj,debug_plot_base=None,
+                       Lp_relative_tolerance= 5e-2,
                        L0_relative_tolerance = 1e-2,noise_ampl_N=None):
     """
     Tests the given parameter set. throws an error if it failss
@@ -152,7 +153,7 @@ def test_parameter_set(test_obj,debug_plot_base=None,
         max_x = np.nanmax(ext_pred)
         # # Fit L0
         # make the dictionary with all the fitting information
-        ranges_L0 = [ [max_x/factor_L0,factor_L0*max_x]]
+        ranges_L0 = [ (max_x/factor_L0,factor_L0*max_x) ]
         fit_dict_L0 = dict(params_fit=params_L0_fit,
                            ranges=ranges_L0,
                            **common_kwargs)
@@ -162,7 +163,26 @@ def test_parameter_set(test_obj,debug_plot_base=None,
         assert L0_relative_error < L0_relative_tolerance , \
             "Error {:.2g} not in tolerance".format(L0_relative_error)
         # # Fit L0 and Lp
-        ranges_L0_and_Lp = ranges_L0 + [ [0,max_x/factor_Lp]]
+        ranges_L0_and_Lp = ranges_L0 + [ (0,max_x/factor_Lp) ]
+        Lp = param_values["Lp"]
+        fit_dict_L0_and_Lp = dict(params_fit=params_L0_and_Lp_fit,
+                                  ranges=ranges_L0_and_Lp,
+                                  **common_kwargs)
+        """
+        print(ranges_L0_and_Lp)
+        x0,y,force_noise = \
+                get_fitting_parameters_with_noise(**fit_dict_L0_and_Lp)
+        # ensure the error is within the bounds
+        L0_relative_error = (abs((x0-L0)/L0))[0]
+        assert L0_relative_error < L0_relative_tolerance , \
+            "Error {:.2g} not in tolerance".format(L0_relative_error)
+        # check Lp, also
+        Lp_relative_error = (abs((x0-Lp)/Lp))[1]
+        assert Lp_relative_error < Lp_relative_tolerance , \
+            "Error {:.2g} not in tolerance".format(Lp_relative_error)
+        """
+
+
     # POST: all errors in bounds
     if (debug_plot_base is not None):
         fig = PlotUtilities.figure(figsize=(4,7))
