@@ -27,20 +27,20 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
     force = np.linspace(0,max_force_N)
     ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(F=force,
                                                           **param_values)
+    x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
+                                            force=force_grid,
+                                            **param_values)
     force_amplitude_pN = 20e-12
     # make the uniform noise go from -1 to 1
     uniform_noise = 2 * (np.random.uniform(size=force_grid.size) - 0.5)
     noise = force_amplitude_pN * uniform_noise 
     force_noise = force_grid + noise
-    ranges = [ [max(ext)/5,5*max(ext)]]
+    ranges = [ [np.nanmax(ext_pred)/5,5*np.nanmax(ext_pred)]]
     brute_dict = dict(ranges=ranges,Ns=40)
-    x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
-                                            force=force_grid,
-                                            **param_values)
     ParamsFit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
     x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
-                             brute_dict=brute_dict,
-                             **ParamsFit)
+                           brute_dict=brute_dict,
+                           **ParamsFit)
     L0_relative_error = abs((x0-L0)/L0)
     assert L0_relative_error < L0_relative_tolerance , \
         "Error {:.2g} not in tolerance".format(L0_relative_error)
