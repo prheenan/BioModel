@@ -20,6 +20,20 @@ class test_object:
         self.param_values = dict(**kwargs)
 
 
+def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
+                                      noise_amplitude_N):
+    # make the uniform noise go from -1 to 1
+    uniform_noise = 2 * (np.random.uniform(size=force_grid.size) - 0.5)
+    noise = noise_amplitude_N * uniform_noise 
+    force_noise = force_grid + noise
+    ranges = [ [np.nanmax(ext_pred)/5,5*np.nanmax(ext_pred)]]
+    brute_dict = dict(ranges=ranges,Ns=40)
+    x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
+                           brute_dict=brute_dict,
+                           **params_fit)
+    return x0,y,force_noise
+
+
 def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
                        L0_relative_tolerance = 1e-2):
     L0 = param_values["L0"]
@@ -30,17 +44,13 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
     x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
                                             force=force_grid,
                                             **param_values)
-    force_amplitude_pN = 20e-12
-    # make the uniform noise go from -1 to 1
-    uniform_noise = 2 * (np.random.uniform(size=force_grid.size) - 0.5)
-    noise = force_amplitude_pN * uniform_noise 
-    force_noise = force_grid + noise
-    ranges = [ [np.nanmax(ext_pred)/5,5*np.nanmax(ext_pred)]]
-    brute_dict = dict(ranges=ranges,Ns=40)
-    ParamsFit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
-    x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
-                           brute_dict=brute_dict,
-                           **ParamsFit)
+    noise_ampl_N = 20e-12
+    params_fit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
+    fit_dict = dict(ext_pred=ext_pred,
+                    force_grid=force_grid,
+                    params_fit=params_fit,
+                    noise_amplitude_N=noise_ampl_N)
+    x0,y,force_noise = get_fitting_parameters_with_noise(**fit_dict)
     L0_relative_error = abs((x0-L0)/L0)
     assert L0_relative_error < L0_relative_tolerance , \
         "Error {:.2g} not in tolerance".format(L0_relative_error)
