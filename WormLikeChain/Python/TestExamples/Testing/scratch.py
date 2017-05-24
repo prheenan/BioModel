@@ -15,7 +15,8 @@ import FitUtil.WormLikeChain.Python.Code.WLC as WLC
 from GeneralUtil.python import PlotUtilities
 
 class test_object:
-    def __init__(self,max_force_N,**kwargs):
+    def __init__(self,name,max_force_N,**kwargs):
+        self.name = name
         self.max_force_N = max_force_N
         self.param_values = dict(**kwargs)
 
@@ -124,12 +125,19 @@ def run():
     Edwards, Devin T., Jaevyn K. Faulk et al 
     "Optimizing 1-mus-Resolution Single-Molecule Force Spectroscopy..."
     """
-    params_DNA = dict(kbT=4.11e-21,L0=500e-9,Lp=50e-9,K0=1200e-12)
-    test_objects = [test_object(max_force_N=65e-12,**params_DNA)]
+    params_dsDNA = dict(kbT=4.11e-21,L0=500e-9,Lp=50e-9,K0=1200e-12)
+    params_ssDNA = dict(kbT=4.11e-21,L0=60e-9,Lp=0.7e-9,K0=1200e-12)
+    test_objects = [test_object(name="ssDNA",
+                                max_force_N=65e-12,
+                                **params_dsDNA),
+                    test_object(name="dsDNA",
+                                max_force_N=65e-12,
+                                **params_dsDNA),
+                    ]
     for t in test_objects:
         test_parameter_set(param_values=t.param_values,
                            max_force_N=t.max_force_N,
-                           debug_plot_base="./out")
+                           debug_plot_base=t.name)
 
 if __name__ == "__main__":
     run()
