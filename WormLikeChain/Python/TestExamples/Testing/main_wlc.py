@@ -78,7 +78,7 @@ web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
 
 
 def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
-                                      noise_amplitude_N,ranges,Ns=40,
+                                      noise_amplitude_N,ranges,Ns=10,
                                       **brute_kwargs):
     """
     Gets the fitting parameters after corrupting a known signal with noise
@@ -144,8 +144,8 @@ def test_parameter_set(test_obj,debug_plot_base=None,
     params_L0_fit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
     params_L0_and_Lp_fit = dict([  [k,v] for k,v in param_values.items() 
                                    if (k != "L0" and k != "Lp")])
-    factor_L0 = 5
-    factor_Lp = 10
+    factor_L0 = 2
+    factor_Lp = 5
     for noise_tmp in noise_ampl_N:
         common_kwargs = dict(ext_pred=ext_pred,
                              force_grid=force_grid,
@@ -169,7 +169,6 @@ def test_parameter_set(test_obj,debug_plot_base=None,
                                   ranges=ranges_L0_and_Lp,
                                   **common_kwargs)
         """
-        print(ranges_L0_and_Lp)
         x0,y,force_noise = \
                 get_fitting_parameters_with_noise(**fit_dict_L0_and_Lp)
         # ensure the error is within the bounds
@@ -180,9 +179,8 @@ def test_parameter_set(test_obj,debug_plot_base=None,
         Lp_relative_error = (abs((x0-Lp)/Lp))[1]
         assert Lp_relative_error < Lp_relative_tolerance , \
             "Error {:.2g} not in tolerance".format(Lp_relative_error)
+        print(L0_relative_error,Lp_relative_error)
         """
-
-
     # POST: all errors in bounds
     if (debug_plot_base is not None):
         fig = PlotUtilities.figure(figsize=(4,7))

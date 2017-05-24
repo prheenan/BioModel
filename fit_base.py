@@ -29,7 +29,14 @@ def objective_l2(func_predict,true_values,*args,**kwargs):
     Returns:
         normalized L2 
     """
-    # XXX ?...
+    # brute gives the fitting arguments like
+    # tuple(array(arg1,arg2,...),)
+    # so the first element is the (possibly single-element) array that
+    # we want to pass as a *list*. may be a more elegant way of doing this 
+    try:
+        args = list(args[0])
+    except TypeError:
+        args = list([args[0]])
     predicted_values = func_predict(*args,**kwargs)
     finite_pred = np.isfinite(predicted_values)
     finite_true = np.isfinite(true_values)
