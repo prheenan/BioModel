@@ -14,7 +14,8 @@ sys.path.append("../../../../../")
 import FitUtil.WormLikeChain.Python.Code.WLC as WLC
 from GeneralUtil.python import PlotUtilities
 
-def test_parameter_set(param_values,max_force_N,debug_plot_base=None):
+def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
+                       L0_relative_tolerance = 1e-2):
     L0 = param_values["L0"]
     ext = np.linspace(L0/100,L0,num=1000)
     force = np.linspace(0,max_force_N)
@@ -34,7 +35,9 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None):
     x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
                              brute_dict=brute_dict,
                              **ParamsFit)
-    print( (x0-L0)/L0 * 100)
+    L0_relative_error = abs((x0-L0)/L0)
+    assert L0_relative_error < L0_relative_tolerance , \
+        "Error {:.2g} not in tolerance".format(L0_relative_error)
     if (debug_plot_base is not None):
         fig = PlotUtilities.figure(figsize=(4,7))
         ext_pred_plot = ext_pred * 1e9
