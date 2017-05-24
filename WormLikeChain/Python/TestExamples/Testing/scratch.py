@@ -50,7 +50,7 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
 
 
 def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
-                       L0_relative_tolerance = 1e-2,noise_ampl_N=None):
+                       L0_relative_tolerance = 10e-2,noise_ampl_N=None):
     """
     Tests the given parameter set. throws an error if it failss
 
@@ -74,7 +74,8 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
         noise_ampl_N = [0,1e-12,5e-12,10e-12,20e-12]
     # determine the noiseless curve
     L0 = param_values["L0"]
-    ext = np.linspace(L0/100,L0,num=1000)
+    print(L0,"L0")
+    ext = np.linspace(L0/100,L0*1.2,num=1000)
     force = np.linspace(0,max_force_N)
     ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(F=force,
                                                           **param_values)
@@ -131,7 +132,7 @@ def run():
     params_protein = dict(kbT=kbT,K0=K0,L0=60e-9,Lp=0.3e-9)
     test_objects = [test_object(name="ssDNA",
                                 max_force_N=65e-12,
-                                **params_dsDNA),
+                                **params_ssDNA),
                     test_object(name="dsDNA",
                                 max_force_N=65e-12,
                                 **params_dsDNA),
