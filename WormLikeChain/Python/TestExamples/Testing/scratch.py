@@ -26,26 +26,32 @@ def run():
     L0 = Lp * 10
     kbT = 4.11e-21
     K0 = 1200e-12
-    ParamValues = dict(kbT =kbT,
+    ParamValues = dict(kbT =kbT,L0=L0,
                        Lp =  Lp,K0 = K0)
     ext = np.linspace(L0/100,L0,num=1000)
-    force = np.linspace(0,20e-12)
-    ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F=force)
-    force_grid += force_grid * 0.05 *(np.random.normal(size=force_grid.size))
-    ranges = [ [max(ext)/5,max(ext)]]
-    brute_dict = dict(ranges=ranges)
-    x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext,force=force_grid,L0=L0,
+    force = np.linspace(0,50e-12)
+    ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(F=force,**ParamValues)
+    force_amplitude_pN = 20e-12
+    # make the uniform noise go from -1 to 1
+    uniform_noise = 2 * (np.random.uniform(size=force_grid.size) - 0.5)
+    noise = force_amplitude_pN * uniform_noise 
+    force_noise = force_grid + noise
+    ranges = [ [max(ext)/5,5*max(ext)]]
+    brute_dict = dict(ranges=ranges,Ns=40)
+    x_grid,y_grid,y_pred = WLC.inverted_wlc(ext=ext_pred,
+                                            force=force_grid,
                                             **ParamValues)
-    x0,x,y = WLC.wlc_contour(separation=ext,force=y_pred,
+    ParamsFit = dict([  [k,v] for k,v in ParamValues.items() if k != "L0"])
+    x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
                              brute_dict=brute_dict,
-                             **ParamValues)                                            
-    print(x0,x,y)
+                             **ParamsFit)
+    print( (x0-L0)/L0 * 100)
     plt.subplot(2,1,1)
-    #plt.plot(ext_pred,force_grid,'k-',alpha=0.3)
-    plt.plot(x,y,'b--')    
+    plt.plot(ext_pred,force_noise,'k-',alpha=0.3)
+    plt.plot(ext_pred,y,'b--')    
     plt.subplot(2,1,2)
-    plt.plot(ext,y_pred,'b--')
-    plt.plot(x_grid,y_grid,'k-',alpha=0.3)
+    plt.plot(ext_pred,y_pred,'b--')
+    plt.plot(ext_pred,force_noise,'k-',alpha=0.3)
     plt.show()
 
 if __name__ == "__main__":

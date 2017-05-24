@@ -31,8 +31,18 @@ def objective_l2(func_predict,true_values,*args,**kwargs):
     """
     # XXX ?...
     predicted_values = func_predict(*args,**kwargs)
-    values = np.abs(predicted_values-true_values)**2
-    to_ret =  sum(np.log(values))
+    finite_pred = np.isfinite(predicted_values)
+    finite_true = np.isfinite(true_values)
+    valid_idx = np.where(finite_pred & finite_true)
+    assert sum(finite_true) > 0 , "Brute giving completely non-finite objective"
+    # POST: have at least one value; use the squared sum of all of them as
+    # the penalty for infinite values
+    worst_penalty = sum(np.abs(true_values[np.where(finite_true)])**2)
+    values = np.ones(true_values.size) * worst_penalty
+    # where we are value, determine the actual penalty
+    values[valid_idx] = \
+        np.abs(predicted_values[valid_idx]-true_values[valid_idx])**2
+    to_ret =  sum(np.log10(values))
     return to_ret
     
 def _prh_brute(objective,disp=False,full_output=False,**kwargs):
