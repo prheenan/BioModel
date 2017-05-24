@@ -7,6 +7,7 @@ import sys
 
 sys.path.append("../../../../../")
 from FitUtil.WormLikeChain.Python.TestExamples import util
+from FitUtil.WormLikeChain.Python.Code import WLC
 
 import cProfile
 
