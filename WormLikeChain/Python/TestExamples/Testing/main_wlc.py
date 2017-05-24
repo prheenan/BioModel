@@ -12,13 +12,69 @@ import sys
 sys.path.append("../../../../../")
 
 import FitUtil.WormLikeChain.Python.Code.WLC as WLC
-from GeneralUtil.python import PlotUtilities
+from GeneralUtil.python import PlotUtilities,GenUtilities
 
 class test_object:
-    def __init__(self,name,max_force_N,**kwargs):
+    def __init__(self,name,max_force_N,ext=None,**kwargs):
+        if (ext is None):
+            L0 = dict(**kwargs)["L0"]
+            ext = np.linspace(0,L0,500)
         self.name = name
         self.max_force_N = max_force_N
+        self.ext = ext
         self.param_values = dict(**kwargs)
+
+def GetBullData(StepInNm=0.05):
+    """
+    Returns samples from first unfold of Figure S2.a 
+    http://pubs.acs.org/doi/suppl/10.1021/nn5010588
+
+    Bull, Matthew S., Ruby May A. Sullan, Hongbin Li, and Thomas T. Perkins.
+"Improved Single Molecule Force Spectroscopy Using Micromachined Cantilevers"
+    """
+    # get the extensions used
+    maxXnm = 19
+    nSteps= maxXnm/StepInNm
+    x = np.linspace(0,maxXnm,num=nSteps) * 1e-9
+    L0 = 0.34e-9 * 64
+    """
+    # note: from Supplemental, pp 14 of 
+    Edwards, Devin T., Jaevyn K. Faulk et al 
+    "Optimizing 1-mus-Resolution Single-Molecule Force Spectroscopy..."
+    """
+    Lp = 0.4e-9
+    ParamValues = dict(kbT = 4.11e-21,L0 = L0,
+                       Lp =  Lp,K0 = 1318.e-12)
+    Name = "Bull_2014_FigureS2"
+    noiseN = 6.8e-12
+    expectedMax=80e-12
+    return test_object(name="Bull",max_force_N=expectedMax,ext=x,**ParamValues)
+    
+def GetBouichatData(StepInNm=1):
+    """
+    Returns samples from data from Figure 1
+    From "Estimating the Persistence Length of a Worm-Like Chain Molecule ..."
+    C. Bouchiat, M.D. Wang, et al.
+    Biophysical Journal Volume 76, Issue 1, January 1999, Pages 409-413
+
+web.mit.edu/cortiz/www/3.052/3.052CourseReader/38_BouchiatBiophysicalJ1999.pdf
+    
+    Returns:
+        tuple of <z,F> in SI units
+    """
+    # upper and lower bound is taken from Figure 1, note nm scale
+    maxExtNm = 1335
+    # figure out the number of steps at this interpolation
+    nSteps = int(np.ceil(maxExtNm/StepInNm))
+    # get all the extension values
+    x = np.linspace(start=0,stop=maxExtNm,num=nSteps,endpoint=True) * 1e-9
+    # write down their parameter values, figure 1 inset
+    ParamValues = dict(kbT = 4.11e-21,L0 = 1317.52e-9,
+                       Lp =  40.6e-9,K0 = 1318.e-12)
+    # the expected maximum fitted force is also from figure 1
+    expectedMax = 48e-12
+    Name = "Bouchiat_1999_Figure1"
+    return test_object(name=Name,max_force_N=expectedMax,ext=x,**ParamValues)
 
 
 def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
@@ -48,17 +104,13 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
     return x0,y,force_noise
 
 
-def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
+def test_parameter_set(test_obj,debug_plot_base=None,
                        L0_relative_tolerance = 1e-2,noise_ampl_N=None):
     """
     Tests the given parameter set. throws an error if it failss
 
     Args:
-        param_values: the expected values of the parameter. Used to generate
-        data
-
-        max_force_N: the maximum force the force-extension curve should go to
-
+        test_obj: the test object to use 
         debug_plot_base: if not none, saves plot(s) starting with file path
      
         L0_relative_tolerance: maximum acceptable fitting tolerance (e.g. 0.01
@@ -71,10 +123,11 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
     """
     if (noise_ampl_N is None):
         noise_ampl_N = [0,1e-12,5e-12,10e-12]
+    param_values,max_force_N = test_obj.param_values,test_obj.max_force_N
     # determine the noiseless curve
     L0 = param_values["L0"]
-    ext = np.linspace(0,L0*1.2,num=1000)
-    force = np.linspace(0,max_force_N)
+    ext = test_obj.ext
+    force = np.linspace(0,test_obj.max_force_N,ext.size)
     ext_pred,force_grid = WLC.SeventhOrderExtAndForceGrid(F=force,
                                                           **param_values)
     idx_finite = np.where(np.isfinite(ext_pred))[0]
@@ -87,20 +140,29 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
                                             **param_values)
     # do the fitting; we use a series of noise amplitudes to check for
     # robustness. 
-    params_fit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
+    params_L0_fit = dict([  [k,v] for k,v in param_values.items() if k != "L0"])
+    params_L0_and_Lp_fit = dict([  [k,v] for k,v in param_values.items() 
+                                   if (k != "L0" and k != "Lp")])
+    factor_L0 = 5
+    factor_Lp = 10
     for noise_tmp in noise_ampl_N:
+        common_kwargs = dict(ext_pred=ext_pred,
+                             force_grid=force_grid,
+                             noise_amplitude_N=noise_tmp)
+        max_x = np.nanmax(ext_pred)
+        # # Fit L0
         # make the dictionary with all the fitting information
-        ranges = [ [np.nanmax(ext_pred)/5,5*np.nanmax(ext_pred)]]
-        fit_dict = dict(ext_pred=ext_pred,
-                        force_grid=force_grid,
-                        params_fit=params_fit,
-                        ranges = ranges,
-                        noise_amplitude_N=noise_tmp)
-        x0,y,force_noise = get_fitting_parameters_with_noise(**fit_dict)
+        ranges_L0 = [ [max_x/factor_L0,factor_L0*max_x]]
+        fit_dict_L0 = dict(params_fit=params_L0_fit,
+                           ranges=ranges_L0,
+                           **common_kwargs)
+        x0,y,force_noise = get_fitting_parameters_with_noise(**fit_dict_L0)
         # ensure the error is within the bounds
         L0_relative_error = (abs((x0-L0)/L0))[0]
         assert L0_relative_error < L0_relative_tolerance , \
             "Error {:.2g} not in tolerance".format(L0_relative_error)
+        # # Fit L0 and Lp
+        ranges_L0_and_Lp = ranges_L0 + [ [0,max_x/factor_Lp]]
     # POST: all errors in bounds
     if (debug_plot_base is not None):
         fig = PlotUtilities.figure(figsize=(4,7))
@@ -117,7 +179,9 @@ def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
         plt.plot(ext_pred_plot,force_noise_plot,'k-',alpha=0.3,
                  label="Noisy Curve")
         PlotUtilities.lazyLabel("Separation (nm)","Force (pN)","")
-        PlotUtilities.savefig(fig,debug_plot_base + ".png")
+        base_dir = "./out/"
+        GenUtilities.ensureDirExists(base_dir)
+        PlotUtilities.savefig(fig,base_dir + debug_plot_base + ".png")
 
 def run():
     """
@@ -134,7 +198,10 @@ def run():
     params_dsDNA   = dict(kbT=kbT,K0=K0,L0=500e-9,Lp=50e-9)
     params_ssDNA   = dict(kbT=kbT,K0=K0,L0=60e-9,Lp=0.7e-9)
     params_protein = dict(kbT=kbT,K0=K0,L0=40e-9,Lp=0.3e-9)
-    test_objects = [test_object(name="ssDNA",
+    test_objects = [GetBouichatData(),
+                    GetBullData(),
+                    # try a few 'fake' common cases
+                    test_object(name="ssDNA",
                                 max_force_N=65e-12,
                                 **params_ssDNA),
                     test_object(name="dsDNA",
@@ -144,9 +211,8 @@ def run():
                                 max_force_N=100e-12,
                                 **params_protein)]
     for t in test_objects:
-        test_parameter_set(param_values=t.param_values,
-                           max_force_N=t.max_force_N,
-                           debug_plot_base=t.name)
+        test_parameter_set(t,debug_plot_base=t.name)
+        
 
 if __name__ == "__main__":
     run()
