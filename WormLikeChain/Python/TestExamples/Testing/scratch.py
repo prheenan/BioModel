@@ -14,6 +14,12 @@ sys.path.append("../../../../../")
 import FitUtil.WormLikeChain.Python.Code.WLC as WLC
 from GeneralUtil.python import PlotUtilities
 
+class test_object:
+    def __init__(self,max_force_N,**kwargs):
+        self.max_force_N = max_force_N
+        self.param_values = dict(**kwargs)
+
+
 def test_parameter_set(param_values,max_force_N,debug_plot_base=None,
                        L0_relative_tolerance = 1e-2):
     L0 = param_values["L0"]
@@ -67,9 +73,12 @@ def run():
     L0 = Lp * 10
     kbT = 4.11e-21
     K0 = 1200e-12
-    ParamValues = dict(kbT=kbT,L0=L0,Lp=Lp,K0=K0)
-    test_parameter_set(param_values=ParamValues,max_force_N=65e-12,
-                       debug_plot_base="./out")
+    params_DNA = dict(kbT=4.11e-21,L0=500e-9,Lp=50e-9,K0=1200e-12)
+    test_objects = [test_object(max_force_N=65e-12,**params_DNA)]
+    for t in test_objects:
+        test_parameter_set(param_values=t.param_values,
+                           max_force_N=t.max_force_N,
+                           debug_plot_base="./out")
 
 if __name__ == "__main__":
     run()
