@@ -21,7 +21,6 @@ class EnergyLandscape:
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
-                 ZFunc=None,
                  Velocity=20e-9,Beta=1./(4.1e-21)):
         """
         Args:
@@ -36,10 +35,6 @@ class FEC_Pulling_Object:
             from  Non-Equilibrium Single-Molecule Force Spectroscopy 
             Measurements." 
             Nature Physics 7, no. 8 (August 2011)
-
-            ZFunc: Function which takes in an FEC_Pulling_Object
-            and returns a list of z values at each time. If none, defaults
-            to simple increase from first extension
         
             Velocity: in m/s, default from data from ibid.
             Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
@@ -51,9 +46,11 @@ class FEC_Pulling_Object:
         self.Velocity= Velocity
         self.Beta=Beta
         self.Offset = self.Extension[0]
-        self.ZFunc = self.ZFuncSimple if ZFunc is None else ZFunc
         self.SetWork(self.CalculateForceCummulativeWork())
         self.WorkDigitized=None
+    @property
+    def ZFunc(self):
+        return self.ZFuncSimple
     @property
     def Separation(self):
         return self.Extension

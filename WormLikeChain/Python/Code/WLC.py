@@ -18,6 +18,15 @@ from FitUtil.WormLikeChain.Python.Code.WLC_Utils import \
 from scipy.interpolate import interp1d
 
 def ExtensionPerForceOdjik(kbT,Lp,L0,K0,F):
+    """
+    Returns the extension at each given force; where invalid (ie: force <= 0),
+    returns nan
+    
+    Args:
+        see InvertedWlcForce
+    Returns:
+        extension at each force
+    """
     # need to cast the sqrt to a real to make this work
     f_complex = F.astype(np.complex128)
     # determine where F > 0 (this is where we can use Odjik)
@@ -123,14 +132,45 @@ def _inverted_wlc_full(ext,kbT,Lp,L0,K0,F,max_force=None,odjik_as_guess=True):
     return ext_grid_final,force_grid_final,Force
 
 def inverted_wlc(ext,force,L0,Lp,K0,kbT,**kwargs):
+    """
+    convenience wrapper for _inverted_wlc_full; makes it easier to 
+    fit L0 or Lp
+    
+    Args:
+        see _inverted_wlc_full; note the order change 
+    returns:
+        see _inverted_wlc_full
+    """
     return _inverted_wlc_full(ext=ext,kbT=kbT,Lp=Lp,L0=L0,K0=K0,F=force,
                               **kwargs)
     
 def inverted_wlc_force(*args,**kwargs):
+    """
+    convenience wrapper for inverted_wlc; only returns the predicted force
+    
+    Args:
+        see inverted_wlc
+    returns:
+        force at each separation
+    """
     ext_grid,force_grid,force_predicted = inverted_wlc(*args,**kwargs)
     return force_predicted
     
-def wlc_contour(separation,force,brute_dict,**kwargs):
+def fit(separation,force,brute_dict,**kwargs):
+    """
+    Fit to the force versus separation curve, assuming
+    an exetensible WLC
+    
+    Args:
+        separation: extension of the molecule
+        force: force applied to the molecule; positive is pulling
+        brute_dict: dictionary given to optimize.brute; should include 
+        (at minimum) the range for the contour length.
+        
+        **kwargs: passed to inverted_wlc_force
+    returns:
+        tuple of <predicted parameters, predicted force atg each separation>
+    """
     func = lambda *args: inverted_wlc_force(separation,force,*args,**kwargs)
     brute_dict['full_output']=False
     x0 = fit_base.brute_optimize(func,force,brute_dict=brute_dict)
