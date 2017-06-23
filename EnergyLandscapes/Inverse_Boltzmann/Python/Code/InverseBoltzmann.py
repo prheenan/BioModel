@@ -43,7 +43,8 @@ def deconvolution_iteration(r_0,S_q,P_q,p_k=None):
     """
     r = r_0 * (1 - 2*np.abs(p_k-1/2))
     S_q_convolved_with_p_k = fftconvolve(S_q,p_k,mode='same')
-    return p_k + r * (P_q - S_q_convolved_with_p_k)
+    p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k)
+    return p_k_plus_one
 
 def deconvolve(p_0,n_iters=50,delta_tol=1e-6,return_full=False,**kwargs):
     """
@@ -116,13 +117,14 @@ def run():
     extension_grid = np.linspace(min(extensions_nm),max(extensions_nm),
                                  n_points)
     probability_grid = f2(extension_grid)
-    plt.plot(extensions_nm,probability_unnormalized,'ro')
-    plt.plot(extension_grid,probability_grid,'b--')
-    plt.show()
     # fit a spline to the probability vs extension 
     probability_integral = np.trapz(y=probability_grid,
                                     x=extension_grid)
     probability_normalized = probability_grid/probability_integral
+    probability_normalized = np.maximum(0,probability_normalized)
+    probability_normalized = np.minimum(1,probability_normalized)
+    plt.plot(extension_grid,probability_normalized,'b--')
+    plt.show()
     P_q  = probability_normalized
     # use Woodside, M. T. et al. Science, 2006. SI, FIgure S2 for the PSF
     woodside_mu = 513.6
