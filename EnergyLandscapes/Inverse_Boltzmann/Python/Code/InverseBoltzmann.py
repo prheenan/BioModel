@@ -46,6 +46,7 @@ def deconvolution_iteration(r_0,S_q,P_q,p_k=None):
     p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k)
     return p_k_plus_one
 
+
 def deconvolve(p_0,n_iters=50,delta_tol=1e-6,return_full=False,**kwargs):
     """
     deconvolve the probability distrubtion until whichever is first:
@@ -93,22 +94,20 @@ def run():
     Returns:
         This is a description of what is returned.
     """
-    # use Woodside, M. T. et al. Science, 2006. SI, FIgure S1B for the PSF 
-    # (Strictly estimating this / unnormalized ..)
-    # Note: this is the same hairpin as Figure 3B
-    extension_probability_tuple = [ [547,0],
-                                    [546,0.5],
-                                    [545,1],
-                                    [543,3],
-                                    [542,2],
-                                    [540,1],
-                                    [538,0],
-                                    [535,0],
-                                    [530,0],
-                                    [527,1],
-                                    [525,2],
-                                    [522,1],
-                                    [520,0]]
+    # use Woodside, M. T. et al. Science, 2006. FIgure S3B for the extension
+    # histogram.
+    extension_probability_tuple = [ [0,0],
+                                    [5,0.01],
+                                    [7,0.04],
+                                    [10,0.08],
+                                    [13,0.04],
+                                    [15,0],
+                                    [17,0.01],
+                                    [20,0.05],
+                                    [22,0.12],
+                                    [25,0.05],
+                                    [27,0.01],
+                                    [30,0]]
     extensions_nm = [e[0] for e in extension_probability_tuple]
     probability_unnormalized = [ e[1] for e in extension_probability_tuple]
     f2 = interp1d(extensions_nm,probability_unnormalized, kind='cubic')
@@ -126,7 +125,8 @@ def run():
     plt.plot(extension_grid,probability_normalized,'b--')
     plt.show()
     P_q  = probability_normalized
-    # use Woodside, M. T. et al. Science, 2006. SI, FIgure S2 for the PSF
+    # use Woodside, M. T. et al. Science, 2006. SI, Figure S2 for the PSF
+    # Since we are convolving, (I think) the average doesnt matter
     woodside_mu = 513.6
     woodside_fwhm = abs(woodside_mu-512.25)
     woodside_stdev = woodside_fwhm/2.355
@@ -135,11 +135,12 @@ def run():
     s_psf = np.random.normal(woodside_mu,woodside_stdev,n_bins)
     S_q, _ = np.histogram(s_psf, n_bins, normed=True)
     r_0 = 1
-    p_0 = P_q
+    p_0 = np.ones(P_q.size) / P_q.size
     iterations = 1000
-    p_final,p_list = deconvolve(p_0=p_0,return_full=True,delta_tol=1e-3,
+    p_final,p_list = deconvolve(p_0=p_0,return_full=True,delta_tol=1e-6,
                                 r_0=r_0,S_q=S_q,P_q=P_q)
-    print(np.abs(p_final-p_list[-2]))
+    #... renormalize probability? XXX figure out why this is necessary
+    p_final /= np.trapz(y=p_final,x=extension_grid)
     extension_grid_plot = extension_grid-min(extension_grid)
     for p_intermediate in p_list:
         plt.plot(extension_grid_plot,p_intermediate)
