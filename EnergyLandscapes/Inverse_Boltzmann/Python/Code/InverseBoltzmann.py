@@ -84,6 +84,26 @@ def deconvolve(p_0,n_iters=50,delta_tol=1e-6,return_full=False,**kwargs):
     else:
         return p_k
 
+def woodside_2006_smoothing_function(extensions,n=1000):
+    """
+    Returns the woodside 2006 smoothing function
+
+    Args:
+        extensions: the extensions at which the smoothing function is desired
+        n: the number of points to get
+    Returns: 
+        the woodside_2006 Science paper smoothing function
+    """
+    # use Woodside, M. T. et al. Science, 2006. SI, Figure S2 for the PSF
+    # Since we are convolving, (I think) the average doesnt matter
+    woodside_mu = 513.6
+    woodside_fwhm = abs(woodside_mu-512.25)
+    woodside_stdev = woodside_fwhm/2.355
+    n_bins = extensions.size
+    s_psf = np.random.normal(woodside_mu,woodside_stdev,n_bins)
+    S_q, _ = np.histogram(s_psf, n_bins, normed=True)
+    return S_q
+
 def run():
     """
     <Description>
@@ -122,18 +142,9 @@ def run():
     probability_normalized = probability_grid/probability_integral
     probability_normalized = np.maximum(0,probability_normalized)
     probability_normalized = np.minimum(1,probability_normalized)
-    plt.plot(extension_grid,probability_normalized,'b--')
-    plt.show()
     P_q  = probability_normalized
-    # use Woodside, M. T. et al. Science, 2006. SI, Figure S2 for the PSF
-    # Since we are convolving, (I think) the average doesnt matter
-    woodside_mu = 513.6
-    woodside_fwhm = abs(woodside_mu-512.25)
-    woodside_stdev = woodside_fwhm/2.355
-    n = 1000
-    n_bins = probability_grid.size
-    s_psf = np.random.normal(woodside_mu,woodside_stdev,n_bins)
-    S_q, _ = np.histogram(s_psf, n_bins, normed=True)
+    # XXXX fix extensions = probability_grid.size
+    S_q = woodside_2006_smoothing_function(extensions=probability_grid)
     r_0 = 1
     p_0 = np.ones(P_q.size) / P_q.size
     iterations = 1000
