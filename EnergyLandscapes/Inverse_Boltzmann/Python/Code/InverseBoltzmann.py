@@ -145,26 +145,12 @@ def woodside_2006_smoothing_function(extensions,n=1000):
     S_q = scipy.stats.norm.pdf(extensions, loc=loc, scale=scale)
     return S_q
 
-def run():
-    """
-    <Description>
-
-    Args:
-        param1: This is the first param.
-    
-    Returns:
-        This is a description of what is returned.
-    """
-    # use Woodside, M. T. et al. Science, 2006. FIgure S3B for the extension
-    # histogram.
-    mean_fwhm_nm = [ [10,4], 
-                     [22.5,4.25]]
-    n = 30
-    extensions = np.arange(0,30,step=0.2)
+def test_smoothing(mean_fwhm_weights,max_nm=30,step_nm=0.5):
+    extensions = np.arange(0,max_nm,step=step_nm)
     probabilities = [scipy.stats.norm.pdf(extensions,
                                           loc=mu, scale=fwhm/2.355)
-                     for mu,fwhm in mean_fwhm_nm]
-    weights = [1,1.6]
+                     for mu,fwhm,_ in mean_fwhm_weights]
+    weights = [w[-1] for w in mean_fwhm_weights]
     full_pdf = np.average(probabilities,axis=0,weights=weights)
     full_pdf /= np.trapz(y=full_pdf,x=extensions)
     probability_normalized = np.maximum(0,full_pdf)
@@ -191,7 +177,24 @@ def run():
     plt.plot(extension_grid_plot,S_q,'b:')
     plt.plot(extension_grid_plot,p_final,'g--')
     plt.plot(extension_grid_plot,P_q,linewidth=3,color='r')
-    plt.show()
+    plt.show()    
+
+def run():
+    """
+    <Description>
+
+    Args:
+        param1: This is the first param.
+    
+    Returns:
+        This is a description of what is returned.
+    """
+    # use Woodside, M. T. et al. Science, 2006. FIgure S3B for the extension
+    # histogram.
+    mean_fwhm_nm = [ [10,4,1], 
+                     [22.5,4.25,1.6]]
+    test_smoothing(mean_fwhm_nm)
+
 
 if __name__ == "__main__":
     run()
