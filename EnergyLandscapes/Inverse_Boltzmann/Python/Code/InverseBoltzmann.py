@@ -45,6 +45,7 @@ def deconvolution_iteration(r_0,S_q,P_q,p_k=None):
     r = r_0 * (1 - 2*np.abs(p_k-1/2))
     S_q_convolved_with_p_k = fftconvolve(p_k,S_q,mode='same')
     p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k)
+    p_k_plus_one = np.maximum(0,p_k_plus_one)
     return p_k_plus_one
 
 
@@ -122,30 +123,33 @@ def deconvolve(p_0,r_0,S_q,P_q,n_iters=50,delta_tol=1e-6,return_full=False):
         return p_k,all_probs
     else:
         return p_k
-
-def woodside_2006_smoothing_function(extensions,n=1000):
+    
+def woodside_2006_smoothing_function(extensions,n=1000,fwhm=515.5-512):
     """
     Returns the woodside 2006 smoothing function
 
     Args:
         extensions: the extensions at which the smoothing function is desired
         n: the number of points to get
+        fwhm: the full width at half max. defaults to the ibid, Figure S2
     Returns: 
         the woodside_2006 Science paper smoothing function
     """
     # use Woodside, M. T. et al. Science, 2006. SI, Figure S2 for the PSF
     # Since we are convolving, (I think) the average doesnt matter
     woodside_mu = 513.6
-    woodside_fwhm = (515.5-512)
     # see: https://en.wikipedia.org/wiki/Full_width_at_half_maximum
-    woodside_stdev = woodside_fwhm/2.355
+    woodside_stdev = fwhm/2.355
     n_bins = extensions.size
     loc = np.mean(extensions)
     scale = woodside_stdev
     S_q = scipy.stats.norm.pdf(extensions, loc=loc, scale=scale)
     return S_q
 
-def test_smoothing(mean_fwhm_weights,max_nm=30,step_nm=0.5):
+def test_smoothing(mean_fwhm_weights,max_nm=None,step_nm=0.5,
+                   split_point_nm = 15,smooth_dict=dict()):
+    if (max_nm is None):
+        max_nm = max([mu+3*fwhm for mu,fwhm,_ in mean_fwhm_weights])
     extensions = np.arange(0,max_nm,step=step_nm)
     probabilities = [scipy.stats.norm.pdf(extensions,
                                           loc=mu, scale=fwhm/2.355)
@@ -157,19 +161,19 @@ def test_smoothing(mean_fwhm_weights,max_nm=30,step_nm=0.5):
     probability_normalized = np.minimum(1,probability_normalized)
     P_q  = probability_normalized
     # XXXX fix extensions = probability_grid.size
-    S_q = woodside_2006_smoothing_function(extensions=extensions)
+    S_q = woodside_2006_smoothing_function(extensions=extensions,
+                                           **smooth_dict)
     r_0 = 2
     p_0 = np.ones(P_q.size)
     p_0 /= np.trapz(y=p_0,x=extensions)
     iterations = 1000
     p_final,p_list = deconvolve(p_0=p_0,
                                 r_0=r_0,S_q=S_q,P_q=P_q,n_iters=iterations,
-                                return_full=True,delta_tol=1e-6)
+                                return_full=True,delta_tol=1e-9)
     #... renormalize probability? XXX figure out why this is necessary
     p_final /= np.trapz(y=p_final,x=extensions)
     extension_grid_plot = extensions-min(extensions)
     # determine the ratios
-    split_point_nm = 15
     split_idx = np.where(extensions>split_point_nm)[0][0]
     split_ratios = [np.max(p_final[:split_idx])/np.max(P_q[:split_idx]),
                     np.max(p_final[split_idx:])/np.max(P_q[split_idx:])]
@@ -189,11 +193,25 @@ def run():
     Returns:
         This is a description of what is returned.
     """
-    # use Woodside, M. T. et al. Science, 2006. FIgure S3B for the extension
-    # histogram.
-    mean_fwhm_nm = [ [10,4,1], 
-                     [22.5,4.25,1.6]]
-    test_smoothing(mean_fwhm_nm)
+    # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
+    # test figure 3a
+    mean_fwhm_nm_fig3a = [ [11,7,1.2], 
+                           [25,5,1]]
+    test_smoothing(mean_fwhm_nm_fig3a,smooth_dict=dict(fwhm=5))
+    # test figure 3b
+    mean_fwhm_nm_fig3b = [ [10,4,1], 
+                           [22.5,4.25,1.6]]
+    test_smoothing(mean_fwhm_nm_fig3b)
+    # test figure 3c
+    mean_fwhm_nm_fig3c = [ [12,4,1], 
+                           [21,4.25,1.6]]
+    test_smoothing(mean_fwhm_nm_fig3c)
+    # test 3D. In ibid, they state that the width of the gaussian is 
+    # 'governed by the stiffness of the trap...' and then cite (14) which is 
+    # Greenleaf, W. J. et al., Phys. Rev. Lett. 95, (2005).
+    mean_fwhm_nm_fig3d = [ [17,10,1], 
+                           [45,8,1.2]]
+    test_smoothing(mean_fwhm_nm_fig3d,smooth_dict=dict(fwhm=8))
 
 
 if __name__ == "__main__":
