@@ -112,7 +112,8 @@ class FEC_Pulling_Object:
         idx_arr = np.arange(n_points)
         full = sparse.csr_matrix((ToDigitize,(bin_idx_for_each_point,idx_arr)),
                                   shape=(NumTimes,n_points))
-        # concatenate the columns together 
+        # concatenate the columns together; data_by_rows[i] is "the value
+        # of every point from ToDigitize in the Bins[i]"
         data_by_rows = [full.data[full.indptr[i]:full.indptr[i+1]]
                         for i in range(NumTimes)]
         return data_by_rows

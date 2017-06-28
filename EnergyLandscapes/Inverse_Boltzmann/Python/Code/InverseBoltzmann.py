@@ -26,7 +26,7 @@ def inverse_boltzmann(P_q,kT=4.1e-21):
     """
     return -kT * np.ln(probability_of_extension)
 
-def deconvolution_iteration(r_0,S_q,P_q,p_k=None):
+def deconvolution_iteration(S_q,P_q,r_0=1,p_k=None):
     """
     See: Gebhardt, J. et al., PNAS 107, 2013-2018 (2010). SI,  pp2,
     'Deconvolution procedure.'
@@ -35,9 +35,9 @@ def deconvolution_iteration(r_0,S_q,P_q,p_k=None):
     'Deconvolution procedure.', eq. 2 (where the notation is somewhat clearer)
     
     Args:
-        r_0: the convergence amplitude
         S_q: the smoothing function at each q, size N
         P_q: the measured probability at each q, size N
+        r_0: the convergence amplitude        
         p_k: the current 'true' distribution, size N. if None, XXX
     Returns:
         p_(k+1) in eq 2 of Woodside, Science,2006, SI, Eq.2 (pp4)
@@ -54,7 +54,7 @@ def f_assert_prob(x,msg):
     assets that a given probability density (in units of 1/<something>) is 
     reasonable. specifically, checks the following:
 
-    (1) Is every element between 0 and 1
+    (1) Is every element greater than zero 
     (2) Is the sum between (0,inf]? Since units aren't given, we can't 
     assume it will sume to 1 (but it should integrate...)
 
@@ -65,7 +65,7 @@ def f_assert_prob(x,msg):
         nothing, throws an error if something goes wrong
     """
     # make sure every element is between 0 and 1
-    assert ( (x >= 0) & (x <= 1)).all() , msg
+    assert ( (x >= 0) ).all() , msg
     # since we dont know 'x', we only know the probabilities should
     # sum to somewhere >0. (e.g. if probability is in units of 
     # 1/meters, we would need to integrate to get 1)
@@ -73,7 +73,7 @@ def f_assert_prob(x,msg):
     assert ( (sum_x > 0)).all() , msg
     
 
-def deconvolve(p_0,r_0,S_q,P_q,n_iters=50,delta_tol=1e-6,return_full=False):
+def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
     """
     deconvolve the probability distrubtion until whichever is first:
 
@@ -123,6 +123,40 @@ def deconvolve(p_0,r_0,S_q,P_q,n_iters=50,delta_tol=1e-6,return_full=False):
         return p_k,all_probs
     else:
         return p_k
+        
+def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
+    """
+    Returns the deconvolution of P_q with a gaussian of a set width centered 
+    at the middle of extensions.
+    
+    If something goes wrong, throws an assertion error 
+    
+    Args:
+        gaussian_stdev_meters: the standard deviation of the gaussian, same 
+        units as extension
+        
+        extension: the x values corresponding to P_q
+        
+        P_q: see deconvolution_iteration
+        
+        **kwargs: passed to deconvolve
+        
+    Returns:
+        the normalized, deconvoluted probability at each extension 
+    """
+    loc = np.median(extensions)
+    S_q = scipy.stats.norm.pdf(extensions,loc=loc,scale=gaussian_stdev)
+    p_0 = np.ones(S_q.size)
+    p_0 /= np.trapz(y=p_0,x=extensions)
+    p_k = deconvolve(p_0=p_0,S_q=S_q,P_q=P_q,**kwargs)
+    # make sure the probability we found is valid 
+    assert (sum(np.isfinite(p_k)) == p_k.size) and (sum(p_k) > 0) , \
+        "Deconvolution error resulted in non-normalizable sum"
+    # POST: p_k is normalizable 
+    # re-normalize.
+    p_k /= np.trapz(y=p_k,x=extensions)
+    return p_k
+    
     
 def woodside_2006_smoothing_function(extensions,n=1000,fwhm=515.5-512):
     """

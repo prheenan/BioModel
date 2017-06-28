@@ -50,7 +50,7 @@ def SeventhOrderExtAndForceGrid(kbT,Lp,L0,K0,F,MaxForce=None):
     """
     # grid the force uniformly (x vs F is essentially a 1-1 map)
     N = F.size
-    UpSample = 10
+    UpSample = 2
     if (MaxForce is None):
         MaxForce = np.nanmax(F)
     ForceGrid = np.linspace(start=0,stop=MaxForce,num=N*UpSample)
