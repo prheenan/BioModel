@@ -124,10 +124,15 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
     else:
         return p_k
         
-def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
+def gaussian_psf(gaussian_stdev,extension_bins):
+    loc = np.mean(extension_bins)
+    S_q = scipy.stats.norm.pdf(extension_bins,loc=loc,scale=gaussian_stdev)
+    return S_q
+
+def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,**kwargs):
     """
     Returns the deconvolution of P_q with a gaussian of a set width centered 
-    at the middle of extensions.
+    at the middle of extension_bins.
     
     If something goes wrong, throws an assertion error 
     
@@ -135,7 +140,7 @@ def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
         gaussian_stdev_meters: the standard deviation of the gaussian, same 
         units as extension
         
-        extension: the x values corresponding to P_q
+        extension_bins: the x values corresponding to P_q
         
         P_q: see deconvolution_iteration
         
@@ -144,44 +149,24 @@ def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
     Returns:
         the normalized, deconvoluted probability at each extension 
     """
-    loc = np.median(extensions)
-    S_q = scipy.stats.norm.pdf(extensions,loc=loc,scale=gaussian_stdev)
+    S_q = gaussian_psf(gaussian_stdev,extension_bins)
     p_0 = np.ones(S_q.size)
-    p_0 /= np.trapz(y=p_0,x=extensions)
+    p_0 /= np.trapz(y=p_0,x=extension_bins)
     p_k = deconvolve(p_0=p_0,S_q=S_q,P_q=P_q,**kwargs)
     # make sure the probability we found is valid 
-    assert (sum(np.isfinite(p_k)) == p_k.size) and (sum(p_k) > 0) , \
-        "Deconvolution error resulted in non-normalizable sum"
+    assert (np.where(np.isfinite(p_k))[0].size == p_k.size) and \
+           (sum(p_k) > 0) , \
+           "Deconvolution error resulted in non-normalizable sum"
     # POST: p_k is normalizable 
     # re-normalize.
-    p_k /= np.trapz(y=p_k,x=extensions)
-    return p_k
-    
-    
-def woodside_2006_smoothing_function(extensions,n=1000,fwhm=515.5-512):
-    """
-    Returns the woodside 2006 smoothing function
+    p_k /= np.trapz(y=p_k,x=extension_bins)
+    return p_k   
 
-    Args:
-        extensions: the extensions at which the smoothing function is desired
-        n: the number of points to get
-        fwhm: the full width at half max. defaults to the ibid, Figure S2
-    Returns: 
-        the woodside_2006 Science paper smoothing function
+def test_smoothing(mean_fwhm_weights,split_ratios,max_nm=None,step_nm=0.5,
+                   split_point_nm = 15,fwhm_smoothing=3.5):
     """
-    # use Woodside, M. T. et al. Science, 2006. SI, Figure S2 for the PSF
-    # Since we are convolving, (I think) the average doesnt matter
-    woodside_mu = 513.6
-    # see: https://en.wikipedia.org/wiki/Full_width_at_half_maximum
-    woodside_stdev = fwhm/2.355
-    n_bins = extensions.size
-    loc = np.mean(extensions)
-    scale = woodside_stdev
-    S_q = scipy.stats.norm.pdf(extensions, loc=loc, scale=scale)
-    return S_q
-
-def test_smoothing(mean_fwhm_weights,max_nm=None,step_nm=0.5,
-                   split_point_nm = 15,smooth_dict=dict()):
+    given a number of distributions, runs the deconvolution algorithm on them 
+    """
     if (max_nm is None):
         max_nm = max([mu+3*fwhm for mu,fwhm,_ in mean_fwhm_weights])
     extensions = np.arange(0,max_nm,step=step_nm)
@@ -194,28 +179,27 @@ def test_smoothing(mean_fwhm_weights,max_nm=None,step_nm=0.5,
     probability_normalized = np.maximum(0,full_pdf)
     probability_normalized = np.minimum(1,probability_normalized)
     P_q  = probability_normalized
-    # XXXX fix extensions = probability_grid.size
-    S_q = woodside_2006_smoothing_function(extensions=extensions,
-                                           **smooth_dict)
     r_0 = 2
     p_0 = np.ones(P_q.size)
     p_0 /= np.trapz(y=p_0,x=extensions)
     iterations = 1000
-    p_final,p_list = deconvolve(p_0=p_0,
-                                r_0=r_0,S_q=S_q,P_q=P_q,n_iters=iterations,
-                                return_full=True,delta_tol=1e-9)
-    #... renormalize probability? XXX figure out why this is necessary
-    p_final /= np.trapz(y=p_final,x=extensions)
+    gaussian_stdev = fwhm_smoothing/2.355
+    S_q = gaussian_psf(gaussian_stdev=gaussian_stdev,extension_bins=extensions)
+    deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
+                             extension_bins=extensions,
+                             n_iters=iterations,
+                             return_full=False,
+                             delta_tol=1e-9,
+                             r_0=r_0,
+                             P_q=P_q)
+    p_final = gaussian_deconvolve(**deconvolve_kwargs)
     extension_grid_plot = extensions-min(extensions)
     # determine the ratios
     split_idx = np.where(extensions>split_point_nm)[0][0]
-    split_ratios = [np.max(p_final[:split_idx])/np.max(P_q[:split_idx]),
-                    np.max(p_final[split_idx:])/np.max(P_q[split_idx:])]
-    # XXX check that the split ratios are close to what we expect. 
-    plt.plot(extension_grid_plot,S_q,'b:')
-    plt.plot(extension_grid_plot,p_final,'g--')
-    plt.plot(extension_grid_plot,P_q,linewidth=3,color='r')
-    plt.show()    
+    pred_split_ratios = [np.max(p_final[:split_idx])/np.max(P_q[:split_idx]),
+                         np.max(p_final[split_idx:])/np.max(P_q[split_idx:])]
+    np.testing.assert_allclose(pred_split_ratios,split_ratios,atol=0,rtol=1e-3)
+    
 
 def run():
     """
@@ -231,21 +215,23 @@ def run():
     # test figure 3a
     mean_fwhm_nm_fig3a = [ [11,7,1.2], 
                            [25,5,1]]
-    test_smoothing(mean_fwhm_nm_fig3a,smooth_dict=dict(fwhm=5))
+    test_smoothing(mean_fwhm_nm_fig3a,split_ratios=[1.396,4.408],
+                   fwhm_smoothing=5)
     # test figure 3b
     mean_fwhm_nm_fig3b = [ [10,4,1], 
                            [22.5,4.25,1.6]]
-    test_smoothing(mean_fwhm_nm_fig3b)
+    test_smoothing(mean_fwhm_nm_fig3b,split_ratios=[2.085,1.719])
     # test figure 3c
     mean_fwhm_nm_fig3c = [ [12,4,1], 
-                           [21,4.25,1.6]]
-    test_smoothing(mean_fwhm_nm_fig3c)
+                           [21,4.25,1.2]]
+    test_smoothing(mean_fwhm_nm_fig3c,split_ratios=[1.994,1.677])
     # test 3D. In ibid, they state that the width of the gaussian is 
     # 'governed by the stiffness of the trap...' and then cite (14) which is 
     # Greenleaf, W. J. et al., Phys. Rev. Lett. 95, (2005).
     mean_fwhm_nm_fig3d = [ [17,10,1], 
                            [45,8,1.2]]
-    test_smoothing(mean_fwhm_nm_fig3d,smooth_dict=dict(fwhm=8))
+    test_smoothing(mean_fwhm_nm_fig3d,fwhm_smoothing=8,
+                   split_ratios=[1.463,4.556])
 
 
 if __name__ == "__main__":
