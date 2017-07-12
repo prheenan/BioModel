@@ -56,7 +56,6 @@ class FEC_Pulling_Object:
     def Separation(self):
         return self.Extension
     def ZFuncSimple(self):
-        print(self.Velocity,self.Time)
         return self.Offset + (self.Velocity * self.Time)
     def SetVelocityAndOffset(self,Offset,Velocity):
         """
