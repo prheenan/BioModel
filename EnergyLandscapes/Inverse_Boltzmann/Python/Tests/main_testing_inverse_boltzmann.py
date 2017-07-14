@@ -59,9 +59,9 @@ def run(base_dir="./Data/"):
     gaussian_stdev = 2.34
     tolerances = [2.2e-3,3.1e-2,0.87]
     deconv_ext,deconv_prob = \
-        read_ext_and_probability(base_dir + "woodside_2006_3a.csv")
+        read_ext_and_probability(base_dir + "woodside_2006_3b.csv")
     ext,raw_prob = \
-        read_ext_and_probability(base_dir + "woodside_2006_3a_raw_probability.csv")
+        read_ext_and_probability(base_dir + "woodside_2006_3b_raw_probability.csv")
     # interpolate the deconvoled probability into the raw grid
     interp_ext, interp_raw_prob =  \
         InverseBoltzmann.get_interpolated_probability(ext,raw_prob)
