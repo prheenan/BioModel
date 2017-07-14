@@ -124,8 +124,19 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
     else:
         return p_k
         
-def gaussian_psf(gaussian_stdev,extension_bins):
-    loc = np.mean(extension_bins)
+def gaussian_psf(gaussian_stdev,extension_bins,loc=None):
+    """
+    returns a gaussian point-spread function 
+
+    Args:
+         gaussian_stdev: the standard deviation
+         extension_bins: where we want the psf
+         loc: the mean of the gaussian. defaults to <extension_bins>
+    Returns:
+         Probability distribution S_q at each point in extension_bins
+    """
+    if (loc is None):
+        loc = np.mean(extension_bins)
     S_q = scipy.stats.norm.pdf(extension_bins,loc=loc,scale=gaussian_stdev)
     return S_q
 
@@ -162,110 +173,33 @@ def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,**kwargs):
     p_k /= np.trapz(y=p_k,x=extension_bins)
     return p_k   
 
-def test_smoothing(mean_fwhm_weights,split_ratios,max_nm=None,step_nm=0.5,
-                   split_point_nm = 15,fwhm_smoothing=3.5):
-    """
-    given a number of distributions, runs the deconvolution algorithm on them 
-    """
-    if (max_nm is None):
-        max_nm = max([mu+3*fwhm for mu,fwhm,_ in mean_fwhm_weights])
-    extensions = np.arange(0,max_nm,step=step_nm)
-    probabilities = [scipy.stats.norm.pdf(extensions,
-                                          loc=mu, scale=fwhm/2.355)
-                     for mu,fwhm,_ in mean_fwhm_weights]
-    weights = [w[-1] for w in mean_fwhm_weights]
-    full_pdf = np.average(probabilities,axis=0,weights=weights)
-    full_pdf /= np.trapz(y=full_pdf,x=extensions)
-    probability_normalized = np.maximum(0,full_pdf)
-    probability_normalized = np.minimum(1,probability_normalized)
-    P_q  = probability_normalized
-    r_0 = 2
-    p_0 = np.ones(P_q.size)
-    p_0 /= np.trapz(y=p_0,x=extensions)
-    iterations = 1000
-    gaussian_stdev = fwhm_smoothing/2.355
-    S_q = gaussian_psf(gaussian_stdev=gaussian_stdev,extension_bins=extensions)
-    deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
-                             extension_bins=extensions,
-                             n_iters=iterations,
-                             return_full=False,
-                             delta_tol=1e-9,
-                             r_0=r_0,
-                             P_q=P_q)
-    p_final = gaussian_deconvolve(**deconvolve_kwargs)
-    extension_grid_plot = extensions-min(extensions)
-    # determine the ratios
-    split_idx = np.where(extensions>split_point_nm)[0][0]
-    pred_split_ratios = [np.max(p_final[:split_idx])/np.max(P_q[:split_idx]),
-                         np.max(p_final[split_idx:])/np.max(P_q[split_idx:])]
-    np.testing.assert_allclose(pred_split_ratios,split_ratios,atol=0,rtol=1e-3)
-    
 
-def read_ext_and_probability(input_file):
-    arr = np.loadtxt(input_file,delimiter=",")
-    ext,raw_prob = arr[:,0],arr[:,1]
-    sort_idx = np.argsort(ext)
-    ext = ext[sort_idx]
-    raw_prob = raw_prob[sort_idx]
-    return ext,raw_prob
-
-def run():
+def get_interpolated_probability(ext,raw_prob,
+                                 upscale_factor=10,kind='linear',
+                                 interp_ext=None,**kwargs):
     """
-    <Description>
+    returns an interpolated probability (possibly on a different x grid)
 
     Args:
-        param1: This is the first param.
+        ext: the x values for raw_prob, size N 
+        raw_prob: the y values to interpolate, size N
+        upscale_factor: if interp_ext is nont, just gets this many more points
+        linearly, interpolated along ext (so size upscale_factor* N)
     
-    Returns:
-        This is a description of what is returned.
+        interp_ext: if not none, the grid to interpolate along. 
+
+        kind,**kwargs: passed to interp1d
+      
     """
-    # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
-    # test figure 3a
-    mean_fwhm_nm_fig3a = [ [11,7,1.2], 
-                           [25,5,1]]
-    deconv_ext,deconv_prob = read_ext_and_probability("woodside_2006_3a.csv")
-    ext,raw_prob = \
-        read_ext_and_probability("woodside_2006_3a_raw_probability.csv")
-    interp_ext = np.linspace(min(ext),max(ext),ext.size*10)
-    f_interp_prob = scipy.interpolate.interp1d(x=ext, y=raw_prob, 
-                                               kind='linear')
-    interp_prob = f_interp_prob(interp_ext)
-    interp_smoothed_prob = scipy.interpolate.interp1d(x=deconv_ext, 
-                                                      y=deconv_prob, 
-                                                      kind='linear')(interp_ext)
+    if (interp_ext is None):
+        interp_ext = np.linspace(start=min(ext),
+                                 stop=max(ext),
+                                 num=ext.size*upscale_factor)
+    interp_smoothed_prob_f = scipy.interpolate.interp1d(x=ext, 
+                                                        y=raw_prob, 
+                                                        kind=kind,**kwargs)
+    # get the probability at each extension, normalize
+    interp_smoothed_prob = interp_smoothed_prob_f(interp_ext)
     interp_smoothed_prob = np.maximum(0,interp_smoothed_prob)
     interp_smoothed_prob /= np.trapz(y=interp_smoothed_prob,x=interp_ext)
-    # normalize probability
-    interp_prob = np.maximum(0,interp_prob)
-    interp_prob /= np.trapz(y=interp_prob,x=interp_ext)
-    # 
-    deconvolve_kwargs = dict(gaussian_stdev=5.5/2.355,
-                             extension_bins=interp_ext,
-                             n_iters=300,
-                             return_full=False,
-                             delta_tol=1e-9,
-                             r_0=1,
-                             P_q=interp_prob)
-    p_final = gaussian_deconvolve(**deconvolve_kwargs)
-    n_points_1_nm = int(np.ceil(1/(interp_ext[1]-interp_ext[0])))
-    if (n_points_1_nm % 2 == 0):
-        n_points_1_nm += 1
-    p_final_filtered = scipy.signal.medfilt(p_final, 
-                                            kernel_size=n_points_1_nm)
-    # renormalize... 
-    p_final_filtered /= np.trapz(y=p_final_filtered,x=interp_ext)
-    diff = np.abs(p_final_filtered - interp_smoothed_prob)
-    diff_rel = diff
-    print(np.percentile(diff_rel,95))
-    plt.hist(diff_rel)
-    plt.xscale('log')
-    plt.show()
-    # plot everything
-    plt.plot(ext,raw_prob,'ro')
-    plt.plot(interp_ext,interp_prob,'b')
-    plt.plot(interp_ext,interp_smoothed_prob,'b')
-    plt.plot(interp_ext,p_final_filtered)
-    plt.show()
-
-if __name__ == "__main__":
-    run()
+    return interp_ext,interp_smoothed_prob
