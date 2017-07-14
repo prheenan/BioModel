@@ -98,8 +98,9 @@ def run(base_dir="./Data/"):
     # test figure 3a
     tolerances = [3e-3,0.05,0.87]
     kw = dict(base_dir=base_dir,tolerances=tolerances)
-    test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
     test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
+    test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
+    test_single_file(gaussian_stdev=3,file_id="3d",**kw)
 
 if __name__ == "__main__":
     run()
