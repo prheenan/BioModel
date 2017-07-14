@@ -52,8 +52,18 @@ def spatially_filtered_probability(x,probability,x_filter):
     p_final_filtered /= np.trapz(y=p_final_filtered,x=x)
     return p_final_filtered
 
-def test_probabilities_close(actual,expected,percentiles,tolerances):
+def assert_probabilities_close(actual,expected,percentiles,tolerances):
+    """
+    asserts that <percentiles> of <actual-expected> are <= tolerances
 
+    Args:
+        actual: what we actually want
+        expected: what is expected
+        percentiles: of the error distributions
+        tolerances: maximum percentile error
+    Returns:
+        nothing, throws error if things are borked.
+    """
     diff = np.abs(actual - expected)
     diff_rel = diff
     percentile_values = np.percentile(diff_rel,percentiles)
@@ -86,19 +96,10 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     p_final = InverseBoltzmann.gaussian_deconvolve(**deconvolve_kwargs)
     p_final_filtered = spatially_filtered_probability(interp_ext,p_final,
                                                       x_filter=1)
-    pct,diff_rel = test_probabilities_close(actual=p_final_filtered,
-                                            expected=interp_deconvolved_prob,
-                                            percentiles=[50,95,99],
-                                            tolerances =tolerances)
-    plt.hist(diff_rel)
-    plt.xscale('log')
-    plt.show()
-    # plot everything
-    plt.plot(ext,raw_prob,'ro')
-    plt.plot(interp_ext,interp_raw_prob,'b')
-    plt.plot(interp_ext,interp_deconvolved_prob,'b')
-    plt.plot(interp_ext,p_final_filtered)
-    plt.show()
+    pct,diff_rel = assert_probabilities_close(actual=p_final_filtered,
+                                              expected=interp_deconvolved_prob,
+                                              percentiles=[50,95,99],
+                                              tolerances =tolerances)
     
 
 def run(base_dir="./Data/"):
