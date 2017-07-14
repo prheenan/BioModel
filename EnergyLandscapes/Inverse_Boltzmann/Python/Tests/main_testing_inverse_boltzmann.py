@@ -50,18 +50,12 @@ def test_probabilities_close(actual,expected,percentiles,tolerances):
             format(p,val,tol)
     return percentile_values,diff_rel
 
-def run(base_dir="./Data/"):
-    """
-    Runs all the tests
-    """
-    # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
-    # test figure 3a
-    gaussian_stdev = 2.34
-    tolerances = [2.2e-3,3.1e-2,0.87]
-    deconv_ext,deconv_prob = \
-        read_ext_and_probability(base_dir + "woodside_2006_3b.csv")
-    ext,raw_prob = \
-        read_ext_and_probability(base_dir + "woodside_2006_3b_raw_probability.csv")
+def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
+    deconv_name = base_dir + "woodside_2006_{:s}.csv".format(file_id)
+    raw_name = \
+            base_dir + "woodside_2006_{:s}_raw_probability.csv".format(file_id)
+    deconv_ext,deconv_prob = read_ext_and_probability(deconv_name)
+    ext,raw_prob = read_ext_and_probability(raw_name)
     # interpolate the deconvoled probability into the raw grid
     interp_ext, interp_raw_prob =  \
         InverseBoltzmann.get_interpolated_probability(ext,raw_prob)
@@ -70,7 +64,7 @@ def run(base_dir="./Data/"):
                                                       interp_ext=interp_ext,
                                                       bounds_error=False,
                                                       fill_value="extrapolate")
-    deconvolve_kwargs = dict(gaussian_stdev=2.34,
+    deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
                              extension_bins=interp_ext,
                              n_iters=300,
                              return_full=False,
@@ -93,6 +87,17 @@ def run(base_dir="./Data/"):
     plt.plot(interp_ext,interp_deconvolved_prob,'b')
     plt.plot(interp_ext,p_final_filtered)
     plt.show()
+    
+
+def run(base_dir="./Data/"):
+    """
+    Runs all the tests
+    """
+    # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
+    # test figure 3a
+    tolerances = [2.2e-3,3.1e-2,0.87]
+    kw = dict(base_dir=base_dir,tolerances=tolerances)
+    test_single_file(gaussian_stdev=2.4,file_id="3a",**kw)
 
 if __name__ == "__main__":
     run()
