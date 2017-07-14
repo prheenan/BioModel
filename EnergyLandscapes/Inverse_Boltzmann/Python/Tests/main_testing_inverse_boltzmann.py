@@ -31,6 +31,17 @@ def read_ext_and_probability(input_file):
     return ext,raw_prob
 
 def spatially_filtered_probability(x,probability,x_filter):
+    """
+    Returns a spatially filtered probability distribution (properly normalized)
+    
+    Args:
+        x: the x values, size N
+        probability: the y values, size N.
+        x_filter: the amount to filter, same units as ex 
+    Returns:
+        probability median-filtered and normalized so the integral over x is one
+        and all values are >= 0 
+    """
     n_points_x = int(np.ceil(x_filter/(x[1]-x[0])))
     if (n_points_x % 2 == 0):
         n_points_x += 1
@@ -42,11 +53,11 @@ def spatially_filtered_probability(x,probability,x_filter):
     return p_final_filtered
 
 def test_probabilities_close(actual,expected,percentiles,tolerances):
+
     diff = np.abs(actual - expected)
     diff_rel = diff
     percentile_values = np.percentile(diff_rel,percentiles)
     for p,val,tol in zip(percentiles,percentile_values,tolerances):
-        continue
         assert (val <= tol) , "q{:.0f} was too high (at {:.4g}, max: {:.4g})".\
             format(p,val,tol)
     return percentile_values,diff_rel
