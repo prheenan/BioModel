@@ -10,6 +10,7 @@ import itertools
 from collections import defaultdict
 from scipy.optimize import fminbound,newton
 from scipy import sparse
+
 class EnergyLandscape:
     def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
         # sort the energy landscape by the exensions

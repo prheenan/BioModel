@@ -201,6 +201,14 @@ def test_smoothing(mean_fwhm_weights,split_ratios,max_nm=None,step_nm=0.5,
     np.testing.assert_allclose(pred_split_ratios,split_ratios,atol=0,rtol=1e-3)
     
 
+def read_ext_and_probability(input_file):
+    arr = np.loadtxt(input_file,delimiter=",")
+    ext,raw_prob = arr[:,0],arr[:,1]
+    sort_idx = np.argsort(ext)
+    ext = ext[sort_idx]
+    raw_prob = raw_prob[sort_idx]
+    return ext,raw_prob
+
 def run():
     """
     <Description>
@@ -215,24 +223,49 @@ def run():
     # test figure 3a
     mean_fwhm_nm_fig3a = [ [11,7,1.2], 
                            [25,5,1]]
-    test_smoothing(mean_fwhm_nm_fig3a,split_ratios=[1.396,4.408],
-                   fwhm_smoothing=5)
-    # test figure 3b
-    mean_fwhm_nm_fig3b = [ [10,4,1], 
-                           [22.5,4.25,1.6]]
-    test_smoothing(mean_fwhm_nm_fig3b,split_ratios=[2.085,1.719])
-    # test figure 3c
-    mean_fwhm_nm_fig3c = [ [12,4,1], 
-                           [21,4.25,1.2]]
-    test_smoothing(mean_fwhm_nm_fig3c,split_ratios=[1.994,1.677])
-    # test 3D. In ibid, they state that the width of the gaussian is 
-    # 'governed by the stiffness of the trap...' and then cite (14) which is 
-    # Greenleaf, W. J. et al., Phys. Rev. Lett. 95, (2005).
-    mean_fwhm_nm_fig3d = [ [17,10,1], 
-                           [45,8,1.2]]
-    test_smoothing(mean_fwhm_nm_fig3d,fwhm_smoothing=8,
-                   split_ratios=[1.463,4.556])
-
+    deconv_ext,deconv_prob = read_ext_and_probability("woodside_2006_3a.csv")
+    ext,raw_prob = \
+        read_ext_and_probability("woodside_2006_3a_raw_probability.csv")
+    interp_ext = np.linspace(min(ext),max(ext),ext.size*10)
+    f_interp_prob = scipy.interpolate.interp1d(x=ext, y=raw_prob, 
+                                               kind='linear')
+    interp_prob = f_interp_prob(interp_ext)
+    interp_smoothed_prob = scipy.interpolate.interp1d(x=deconv_ext, 
+                                                      y=deconv_prob, 
+                                                      kind='linear')(interp_ext)
+    interp_smoothed_prob = np.maximum(0,interp_smoothed_prob)
+    interp_smoothed_prob /= np.trapz(y=interp_smoothed_prob,x=interp_ext)
+    # normalize probability
+    interp_prob = np.maximum(0,interp_prob)
+    interp_prob /= np.trapz(y=interp_prob,x=interp_ext)
+    # 
+    deconvolve_kwargs = dict(gaussian_stdev=5.5/2.355,
+                             extension_bins=interp_ext,
+                             n_iters=300,
+                             return_full=False,
+                             delta_tol=1e-9,
+                             r_0=1,
+                             P_q=interp_prob)
+    p_final = gaussian_deconvolve(**deconvolve_kwargs)
+    n_points_1_nm = int(np.ceil(1/(interp_ext[1]-interp_ext[0])))
+    if (n_points_1_nm % 2 == 0):
+        n_points_1_nm += 1
+    p_final_filtered = scipy.signal.medfilt(p_final, 
+                                            kernel_size=n_points_1_nm)
+    # renormalize... 
+    p_final_filtered /= np.trapz(y=p_final_filtered,x=interp_ext)
+    diff = np.abs(p_final_filtered - interp_smoothed_prob)
+    diff_rel = diff
+    print(np.percentile(diff_rel,95))
+    plt.hist(diff_rel)
+    plt.xscale('log')
+    plt.show()
+    # plot everything
+    plt.plot(ext,raw_prob,'ro')
+    plt.plot(interp_ext,interp_prob,'b')
+    plt.plot(interp_ext,interp_smoothed_prob,'b')
+    plt.plot(interp_ext,p_final_filtered)
+    plt.show()
 
 if __name__ == "__main__":
     run()
