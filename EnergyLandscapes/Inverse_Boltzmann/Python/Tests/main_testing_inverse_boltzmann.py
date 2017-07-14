@@ -56,8 +56,8 @@ def run(base_dir="./Data/"):
     """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
-    mean_fwhm_nm_fig3a = [ [11,7,1.2], 
-                           [25,5,1]]
+    gaussian_stdev = 2.34
+    tolerances = [2.2e-3,3.1e-2,0.87]
     deconv_ext,deconv_prob = \
         read_ext_and_probability(base_dir + "woodside_2006_3a.csv")
     ext,raw_prob = \
@@ -70,7 +70,7 @@ def run(base_dir="./Data/"):
                                                       interp_ext=interp_ext,
                                                       bounds_error=False,
                                                       fill_value="extrapolate")
-    deconvolve_kwargs = dict(gaussian_stdev=5.5/2.355,
+    deconvolve_kwargs = dict(gaussian_stdev=2.34,
                              extension_bins=interp_ext,
                              n_iters=300,
                              return_full=False,
@@ -83,9 +83,7 @@ def run(base_dir="./Data/"):
     pct,diff_rel = test_probabilities_close(actual=p_final_filtered,
                                             expected=interp_deconvolved_prob,
                                             percentiles=[50,95,99],
-                                            tolerances =[2.2e-3,3.1e-2,0.87])
-    print(pct)
-    
+                                            tolerances =tolerances)
     plt.hist(diff_rel)
     plt.xscale('log')
     plt.show()
