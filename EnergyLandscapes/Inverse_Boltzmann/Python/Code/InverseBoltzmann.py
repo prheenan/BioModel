@@ -173,6 +173,44 @@ def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,**kwargs):
     p_k /= np.trapz(y=p_k,x=extension_bins)
     return p_k   
 
+def interpolate_and_deconvolve_gaussian_psf(gaussian_stdev,extension_bins,P_q,
+                                            interpolate_kwargs=dict(),
+                                            **deconvolve_kwargs):
+    """
+    Ease-of-use function for deconvolving a gaussian point-spread function.
+
+    Args:
+         see gaussian_deconvolve, except...
+         interpolate_kwargs: passed to get_interpolated_probability
+    Returns:
+         tuple of <interpolated ext, interpolated probability, deconvolved and
+         interpolated probability> 
+    """
+    # get the interpolated probabilities
+    interp_ext,interp_prob = get_interpolated_probability(ext=extension_bins,
+                                                          raw_prob=P_q,
+                                                          **interpolate_kwargs)
+    deconv_interpolated_probability = \
+                gaussian_deconvolve(extension_bins=interp_ext,
+                                    P_q=interp_prob,
+                                    gaussian_stdev=gaussian_stdev,
+                                    **deconvolve_kwargs)
+    return interp_ext,interp_prob,deconv_interpolated_probability
+
+def get_extension_bins_and_distribution(extension,bins):
+    """
+    returns the (normalized) probability ditribution of extension bini
+
+    Args:
+         extension: array to digitize
+         bins: passed to np.histogram
+    Returns:
+         tuple of <left side of bins, histogram distribution> 
+    """
+    distribution,bins = np.histogram(a=extension,bins=bins,normed=True)
+    bins = bins[:-1]
+    return bins,distribution
+
 
 def get_interpolated_probability(ext,raw_prob,
                                  upscale_factor=10,kind='linear',
@@ -183,8 +221,9 @@ def get_interpolated_probability(ext,raw_prob,
     Args:
         ext: the x values for raw_prob, size N 
         raw_prob: the y values to interpolate, size N
-        upscale_factor: if interp_ext is nont, just gets this many more points
-        linearly, interpolated along ext (so size upscale_factor* N)
+        upscale_factor: if interp_ext is none, just gets this many more points
+        linearly, interpolated along ext (so size upscale_factor* N). If 
+        no interpolation is desired, just set this to one
     
         interp_ext: if not none, the grid to interpolate along. 
 
@@ -192,9 +231,14 @@ def get_interpolated_probability(ext,raw_prob,
       
     """
     if (interp_ext is None):
-        interp_ext = np.linspace(start=min(ext),
-                                 stop=max(ext),
-                                 num=ext.size*upscale_factor)
+        if (upscale_factor > 1):
+            # we have something to do!
+            interp_ext = np.linspace(start=min(ext),
+                                     stop=max(ext),
+                                     num=ext.size*upscale_factor)
+        else:
+            # no interpolation desired
+            interp_ext = ext
     interp_smoothed_prob_f = scipy.interpolate.interp1d(x=ext, 
                                                         y=raw_prob, 
                                                         kind=kind,**kwargs)

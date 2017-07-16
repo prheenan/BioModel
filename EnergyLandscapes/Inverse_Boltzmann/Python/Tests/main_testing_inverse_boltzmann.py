@@ -11,6 +11,8 @@ import sys,scipy
 sys.path.append("../../../../../")
 from FitUtil.EnergyLandscapes.Inverse_Boltzmann.Python.Code import \
     InverseBoltzmann
+from Research.Perkins.Projects.PythonCommandLine.InverseBoltzmann import \
+    main_inverse_boltzmann
 
 
 def read_ext_and_probability(input_file):
@@ -86,21 +88,43 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
                                                       interp_ext=interp_ext,
                                                       bounds_error=False,
                                                       fill_value="extrapolate")
-    deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
-                             extension_bins=interp_ext,
-                             n_iters=300,
-                             return_full=False,
-                             delta_tol=1e-9,
-                             r_0=1,
-                             P_q=interp_raw_prob)
+    common_deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
+                                    n_iters=300,
+                                    return_full=False,
+                                    delta_tol=1e-9,
+                                    r_0=1)
+    deconvolve_kwargs = dict(extension_bins=interp_ext,
+                             P_q=interp_raw_prob,**common_deconvolve_kwargs)
     p_final = InverseBoltzmann.gaussian_deconvolve(**deconvolve_kwargs)
     p_final_filtered = spatially_filtered_probability(interp_ext,p_final,
                                                       x_filter=1)
+    # # check that the probability returns what we want 
     pct,diff_rel = assert_probabilities_close(actual=p_final_filtered,
                                               expected=interp_deconvolved_prob,
                                               percentiles=[50,95,99],
                                               tolerances =tolerances)
-    
+    # # check that the interpolating function does exactly what we just did
+    _,_,p_interp_final= \
+        InverseBoltzmann.\
+        interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
+                                                P_q=raw_prob,
+                                                **common_deconvolve_kwargs)
+    assert (np.abs(p_interp_final-p_final) < 1e-12).all() , \
+        "Didn't properly interpolate"
+    # # check that the file IO for the command line version works OK. 
+    # first, draw from the 'raw' probability distribution. This is 
+    # prolly a stupid way of doing this (drawing discrete points from
+    # a continuous distribution
+    n = int(10e5)
+    idx_prob_sample = np.where(raw_prob > 0)
+    prob_sample = raw_prob[idx_prob_sample]
+    prob_sample /= sum(prob_sample)
+    ext_sample = ext[idx_prob_sample]
+    extension = np.random.choice(a=ext_sample,replace=True,size=n,
+                                 p=prob_sample)
+    main_inverse_boltzmann.\
+        run_deconvolution(gaussian_stdev=gaussian_stdev,
+                          extension=extension,bins=10)
 
 def run(base_dir="./Data/"):
     """
