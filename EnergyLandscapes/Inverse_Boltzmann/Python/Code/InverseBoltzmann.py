@@ -199,20 +199,6 @@ def interpolate_and_deconvolve_gaussian_psf(gaussian_stdev,extension_bins,P_q,
                                     **deconvolve_kwargs)
     return interp_ext,interp_prob,deconv_interpolated_probability
 
-def get_extension_bins_and_distribution(extension,bins):
-    """
-    returns the (normalized) probability ditribution of extension bini
-
-    Args:
-         extension: array to digitize
-         bins: passed to np.histogram
-    Returns:
-         tuple of <left side of bins, histogram distribution> 
-    """
-    distribution,bins = np.histogram(a=extension,bins=bins,normed=True)
-    bins = bins[:-1]
-    return bins,distribution
-
 
 def get_interpolated_probability(ext,raw_prob,
                                  upscale_factor=10,kind='linear',

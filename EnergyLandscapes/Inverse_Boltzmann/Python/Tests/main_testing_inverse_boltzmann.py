@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import sys,scipy
 sys.path.append("../../../../../")
 from FitUtil.EnergyLandscapes.Inverse_Boltzmann.Python.Code import \
-    InverseBoltzmann
+    InverseBoltzmann,InverseBoltzmannUtil
 from Research.Perkins.Projects.PythonCommandLine.InverseBoltzmann import \
     main_inverse_boltzmann
 import scipy.stats as st
@@ -134,10 +134,11 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     n = int(1e5)
     uniform = np.random.random(size=n)
     ext_random = interpolated_inverse(uniform)
+    f_deconv = InverseBoltzmannUtil.extension_deconvolution
     interp_ext_2,interp_prob_2,deconv_probability_2 = \
-        main_inverse_boltzmann.run_deconvolution(gaussian_stdev=gaussian_stdev,
-                                                 extension=ext_random,
-                                                 bins=bins_ext)
+        f_deconv(gaussian_stdev=gaussian_stdev,
+                 extension=ext_random,
+                 bins=bins_ext)
     pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
                                               expected=p_final,
                                               percentiles=[50,95,99],
