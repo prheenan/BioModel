@@ -13,6 +13,10 @@ from FitUtil.EnergyLandscapes.Inverse_Boltzmann.Python.Code import \
     InverseBoltzmann
 from Research.Perkins.Projects.PythonCommandLine.InverseBoltzmann import \
     main_inverse_boltzmann
+import scipy.stats as st
+from scipy.interpolate import griddata,interp1d
+from scipy.integrate import cumtrapz
+
 
 
 def read_ext_and_probability(input_file):
@@ -112,30 +116,45 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     assert (np.abs(p_interp_final-p_final) < 1e-12).all() , \
         "Didn't properly interpolate"
     # # check that the file IO for the command line version works OK. 
-    # first, draw from the 'raw' probability distribution. This is 
-    # prolly a stupid way of doing this (drawing discrete points from
-    # a continuous distribution
-    n = int(10e5)
-    idx_prob_sample = np.where(raw_prob > 0)
-    prob_sample = raw_prob[idx_prob_sample]
-    prob_sample /= sum(prob_sample)
-    ext_sample = ext[idx_prob_sample]
-    extension = np.random.choice(a=ext_sample,replace=True,size=n,
-                                 p=prob_sample)
-    main_inverse_boltzmann.\
-        run_deconvolution(gaussian_stdev=gaussian_stdev,
-                          extension=extension,bins=10)
+    """
+    in order to generate samples, we need to get the cdf (see:
+en.wikipedia.org/wiki/Inverse_transform_sampling)
+stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
+    """
+    cummulative_interp_prob = cumtrapz(x=interp_ext,y=interp_raw_prob,
+                                       initial=0)
+    # get an interpolating inverse; goes from probabilities to x values
+    interpolated_inverse = interp1d(x=cummulative_interp_prob,y=interp_ext)
+    # generae a bunch of uniform random numbers (probabilities
+    n = int(1e6)
+    bins_ext=ext.size
+    uniform = np.random.random(size=n)
+    ext_random = interpolated_inverse(uniform)
+    interp_ext_2,interp_prob_2,deconv_probability_2 = \
+        main_inverse_boltzmann.run_deconvolution(gaussian_stdev=gaussian_stdev,
+                                                 extension=ext_random,
+                                                 bins=bins_ext)
+    plt.hist(ext_random,normed=True,bins=bins_ext)
+    plt.plot(interp_ext,interp_raw_prob,'r--')
+    plt.plot(interp_ext,interp_prob_2,'b-')
+    plt.show()
+    pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
+                                              expected=p_final,
+                                              percentiles=[50,95],
+                                              tolerances =[1e-3,0.4])
+    print(pct)
 
 def run(base_dir="./Data/"):
     """
     Runs all the tests
-    """
+cu    """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
-    tolerances = [3e-3,0.05,0.87]
+    np.random.seed(42)
+    tolerances = [3e-3,4.2e-2,0.087]
     kw = dict(base_dir=base_dir,tolerances=tolerances)
-    test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
     test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
+    test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
     test_single_file(gaussian_stdev=3,file_id="3d",**kw)
 
 if __name__ == "__main__":
