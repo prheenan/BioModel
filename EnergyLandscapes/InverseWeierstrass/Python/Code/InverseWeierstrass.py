@@ -22,7 +22,7 @@ class EnergyLandscape:
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
-                 Velocity=20e-9,Beta=1./(4.1e-21)):
+                 Velocity=20e-9,Beta=1./(4.1e-21),ZFunc=None):
         """
         Args:
             Time: Time, in seconds
@@ -47,15 +47,17 @@ class FEC_Pulling_Object:
         self.Velocity= Velocity
         self.Beta=Beta
         self.Offset = self.Extension[0]
-        self.SetWork(self.CalculateForceCummulativeWork())
         self.WorkDigitized=None
-    @property
-    def ZFunc(self):
-        return self.ZFuncSimple
+        if (ZFunc is None):
+            self.ZFunc = self.ZFuncSimple
+        else:
+            self.ZFunc = ZFunc
+        self.SetWork(self.CalculateForceCummulativeWork())            
     @property
     def Separation(self):
         return self.Extension
     def ZFuncSimple(self):
+        print(self.Velocity,self.Time)
         return self.Offset + (self.Velocity * self.Time)
     def SetVelocityAndOffset(self,Offset,Velocity):
         """

@@ -94,10 +94,10 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
         Otherwise, just final probability
     """
     # check the inputs
-    f_assert_prob(p_0,"Initial guess p_0 not normalized properly (in [0,1])")
-    f_assert_prob(S_q,"Smoothing func S_q not normalized properly (in [0,1])")
-    f_assert_prob(P_q,
-                  "Measured probability P_q not normalized properly (in [0,1])")
+    f_assert_prob(p_0,"Initial guess (p_0) not normalized properly (in [0,1])")
+    f_assert_prob(S_q,"Smoothing func (S_q) not normalized properly (in [0,1])")
+    f_assert_prob(P_q,\
+        "Measured distribution (P_q) not normalized properly (in [0,1])")
     assert (r_0 > 0) , "Convergence rate must be >0"
     assert p_0.size == S_q.size , \
         "Smoothing function (S_q) must be same size as guess (p_0)"
@@ -110,13 +110,13 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
     for i in range(n_iters):
         p_next = deconvolution_iteration(p_k=p_k,S_q=S_q,P_q=P_q,r_0=r_0)
         error = np.abs(p_next - p_k)
+        p_k = p_next
         if return_full:
             # append the current iteration
-            all_probs.append(p_next)
+            all_probs.append(p_k)
         if (error < delta_tol).all():
              # then the error condition has been reached
              break
-        p_k = p_next
         assert (p_k >= 0).all() , \
             "Deconvolution error, p_k histogram became negative. Check XXX"
 
@@ -166,10 +166,15 @@ def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,p_0=None,**kwargs):
         p_0 = np.ones(S_q.size)
     p_0 /= np.trapz(y=p_0,x=extension_bins)
     p_k = deconvolve(p_0=p_0,S_q=S_q,P_q=P_q,**kwargs)
-    # make sure the probability we found is valid 
-    assert (np.where(np.isfinite(p_k))[0].size == p_k.size) and \
-           (sum(p_k) > 0) , \
-           "Deconvolution error resulted in non-normalizable sum"
+
+    is_finite = (sum(np.isfinite(p_k)) == p_k.size)
+    is_positive = (p_k >= 0).all()
+    is_normalizable = (sum(p_k) > 0)
+    assert is_finite , "Deconvolution resulted in infinite sum."
+    assert is_positive , \
+        "Deconvolution resulted in negative probability distribution."
+    assert is_normalizable , \
+        "Couldn't normalize the probability distribution (sum was 0)."
     # POST: p_k is normalizable 
     # re-normalize.
     p_k /= np.trapz(y=p_k,x=extension_bins)
