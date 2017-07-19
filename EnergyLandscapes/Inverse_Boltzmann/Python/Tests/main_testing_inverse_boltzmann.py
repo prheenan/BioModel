@@ -121,13 +121,17 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
 en.wikipedia.org/wiki/Inverse_transform_sampling)
 stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     """
+    bins_ext=ext.size
+    # we need to shift the interpolated extension bins by ~ one half a bin,
+    # so that they will represent the midpoint of the bin
+    shift = ((max(interp_ext)-min(interp_ext))/bins_ext) * 0.5
     cummulative_interp_prob = cumtrapz(x=interp_ext,y=interp_raw_prob,
                                        initial=0)
     # get an interpolating inverse; goes from probabilities to x values
-    interpolated_inverse = interp1d(x=cummulative_interp_prob,y=interp_ext)
+    interpolated_inverse = interp1d(x=cummulative_interp_prob,
+                                    y=interp_ext+shift)
     # generae a bunch of uniform random numbers (probabilities
     n = int(1e6)
-    bins_ext=ext.size
     uniform = np.random.random(size=n)
     ext_random = interpolated_inverse(uniform)
     interp_ext_2,interp_prob_2,deconv_probability_2 = \
@@ -135,8 +139,12 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
                                                  extension=ext_random,
                                                  bins=bins_ext)
     plt.hist(ext_random,normed=True,bins=bins_ext)
+    plt.subplot(2,1,1)
     plt.plot(interp_ext,interp_raw_prob,'r--')
-    plt.plot(interp_ext,interp_prob_2,'b-')
+    plt.plot(interp_ext_2,interp_prob_2,'b-')
+    plt.subplot(2,1,2)
+    plt.plot(interp_ext_2,deconv_probability_2,'b-')
+    plt.plot(interp_ext,p_final,'g-')
     plt.show()
     pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
                                               expected=p_final,
@@ -151,7 +159,7 @@ cu    """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
     np.random.seed(42)
-    tolerances = [3e-3,4.2e-2,0.087]
+    tolerances = [4e-3,4.2e-2,0.087]
     kw = dict(base_dir=base_dir,tolerances=tolerances)
     test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
     test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
