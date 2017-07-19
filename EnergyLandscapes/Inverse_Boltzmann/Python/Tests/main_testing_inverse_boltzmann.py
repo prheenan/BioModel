@@ -142,7 +142,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
                                               expected=p_final,
                                               percentiles=[50,95,99],
-                                              tolerances =[0.0096,0.21,0.24])
+                                              tolerances =[0.0095,0.21,0.24])
 
 def run(base_dir="./Data/"):
     """

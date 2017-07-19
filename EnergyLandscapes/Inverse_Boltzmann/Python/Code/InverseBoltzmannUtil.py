@@ -26,6 +26,34 @@ def get_extension_bins_and_distribution(extension,bins):
     bins = bins[:-1]
     return bins,distribution
 
+def normalize_to_sum_1(extension,gaussian_stdev,bins):
+    """
+    normalize the given quantitites such that the distribution has both sum and 
+    integral one
+
+    Args
+        extension: size N, same units as gaussian_stdev
+        gaussian_stdev: the standard deviation of the gaussian psf
+        bins: the input to np.histogram
+
+    Returns:
+        tuple of <factor extension should be multiplied by,extension multiplied,
+        1-normalized bins, 1-normalized gaussian stdev,
+        1-normalized extension distribution P(q), 
+    """
+    # get the extension distribution in whatever units the user gives us
+    bins,P_q = get_extension_bins_and_distribution(extension,bins=bins)
+    sum_initial = sum(P_q)
+    # choose bins such that the sum is 1
+    extension_factor = sum_initial
+    # XXX assume p0...
+    extension_unitless = extension*extension_factor
+    bins *= extension_factor
+    gaussian_stdev *= extension_factor
+    P_q /= np.trapz(y=P_q,x=bins)
+    return extension_factor,extension_unitless,bins,gaussian_stdev,P_q
+    
+
 def extension_deconvolution(gaussian_stdev,extension,bins,
                             interpolate_kwargs = dict(),
                             deconvolve_common_kwargs=dict(p_0=None,
@@ -52,22 +80,8 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
         tuple of <interpolated extensions, raw probability, 
         deconvolved probability>
     """
-    # get the extension distribution in whatever units the user gives us
-    bins,P_q = get_extension_bins_and_distribution(extension,bins=bins)
-    # XXX assume we know initial guess...
-    p_0 = np.ones(P_q.size)
-    sum_initial = sum(p_0)
-    # get the normalized p_0
-    p_0_normalized = p_0/np.trapz(y=p_0,x=bins)
-    # determine what p_0 will then sum to
-    p_0_sum = sum(p_0_normalized)
-    # choose bins such that the sum is 1
-    extension_factor = p_0_sum
-    # XXX assume p0...
-    extension_unitless = extension*extension_factor
-    bins *= extension_factor
-    gaussian_stdev *= extension_factor
-    P_q /= np.trapz(y=P_q,x=bins)
+    extension_factor,extension_unitless,bins,gaussian_stdev,P_q = \
+        normalize_to_sum_1(extension,gaussian_stdev,bins)
     deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
                              extension_bins = bins,
                              P_q = P_q,
@@ -76,8 +90,8 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
     interp_ext,interp_prob,deconv_interpolated_probability = \
         InverseBoltzmann.\
         interpolate_and_deconvolve_gaussian_psf(**deconvolve_kwargs)
-    # convert the extensions back to their unit-less format, and renormalize the
-    # probabilities so that they match up
+    # convert the extensions back from their unnormalized format, renormalize 
+    # the probabilities so that they match up
     interp_ext = interp_ext * 1/extension_factor
     # 'raw' probability
     interp_prob /= np.trapz(x=interp_ext,y=interp_prob)
