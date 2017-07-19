@@ -11,8 +11,6 @@ import sys,scipy
 sys.path.append("../../../../../")
 from FitUtil.EnergyLandscapes.Inverse_Boltzmann.Python.Code import \
     InverseBoltzmann,InverseBoltzmannUtil
-from Research.Perkins.Projects.PythonCommandLine.InverseBoltzmann import \
-    main_inverse_boltzmann
 import scipy.stats as st
 from scipy.interpolate import griddata,interp1d
 from scipy.integrate import cumtrapz
