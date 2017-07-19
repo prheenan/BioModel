@@ -44,7 +44,7 @@ def deconvolution_iteration(S_q,P_q,r_0=1,p_k=None):
     """
     r = r_0 * (1 - 2*np.abs(p_k-1/2))
     S_q_convolved_with_p_k = fftconvolve(p_k,S_q,mode='same')
-    p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k)
+    p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k) 
     p_k_plus_one = np.maximum(0,p_k_plus_one)
     return p_k_plus_one
 
@@ -119,15 +119,32 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
              break
         assert (p_k >= 0).all() , \
             "Deconvolution error, p_k histogram became negative. Check XXX"
+
     if (return_full):
         return p_k,all_probs
     else:
         return p_k
         
-def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
+def gaussian_psf(gaussian_stdev,extension_bins,loc=None):
+    """
+    returns a gaussian point-spread function 
+
+    Args:
+         gaussian_stdev: the standard deviation
+         extension_bins: where we want the psf
+         loc: the mean of the gaussian. defaults to <extension_bins>
+    Returns:
+         Probability distribution S_q at each point in extension_bins
+    """
+    if (loc is None):
+        loc = np.mean(extension_bins)
+    S_q = scipy.stats.norm.pdf(extension_bins,loc=loc,scale=gaussian_stdev)
+    return S_q
+
+def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,p_0=None,**kwargs):
     """
     Returns the deconvolution of P_q with a gaussian of a set width centered 
-    at the middle of extensions.
+    at the middle of extension_bins.
     
     If something goes wrong, throws an assertion error 
     
@@ -135,7 +152,7 @@ def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
         gaussian_stdev_meters: the standard deviation of the gaussian, same 
         units as extension
         
-        extension: the x values corresponding to P_q
+        extension_bins: the x values corresponding to P_q
         
         P_q: see deconvolution_iteration
         
@@ -144,112 +161,82 @@ def gaussian_deconvolve(gaussian_stdev,extension,P_q,**kwargs):
     Returns:
         the normalized, deconvoluted probability at each extension 
     """
-    loc = np.median(extension)
-    S_q = scipy.stats.norm.pdf(extension,loc=loc,scale=gaussian_stdev)
-    p_0 = np.ones(S_q.size)
-    p_0 /= np.trapz(y=p_0,x=extension)
+    S_q = gaussian_psf(gaussian_stdev,extension_bins)
+    if (p_0 is None):
+        p_0 = np.ones(S_q.size)
+    p_0 /= np.trapz(y=p_0,x=extension_bins)
     p_k = deconvolve(p_0=p_0,S_q=S_q,P_q=P_q,**kwargs)
-    # make sure the probability we found is valid 
+
     is_finite = (sum(np.isfinite(p_k)) == p_k.size)
     is_positive = (p_k >= 0).all()
-    assert is_finite , "Deconvolution resulted in infinite sum"
+    is_normalizable = (sum(p_k) > 0)
+    assert is_finite , "Deconvolution resulted in infinite sum."
     assert is_positive , \
-        "Deconvolution resulted in negative probability distribution"
+        "Deconvolution resulted in negative probability distribution."
+    assert is_normalizable , \
+        "Couldn't normalize the probability distribution (sum was 0)."
     # POST: p_k is normalizable 
     # re-normalize.
-    p_k /= np.trapz(y=p_k,x=extension)
-    return p_k
-    
-    
-def woodside_2006_smoothing_function(extensions,n=1000,fwhm=515.5-512):
+    p_k /= np.trapz(y=p_k,x=extension_bins)
+    return p_k   
+
+def interpolate_and_deconvolve_gaussian_psf(gaussian_stdev,extension_bins,P_q,
+                                            interpolate_kwargs=dict(),
+                                            **deconvolve_kwargs):
     """
-    Returns the woodside 2006 smoothing function
+    Ease-of-use function for deconvolving a gaussian point-spread function.
 
     Args:
-        extensions: the extensions at which the smoothing function is desired
-        n: the number of points to get
-        fwhm: the full width at half max. defaults to the ibid, Figure S2
-    Returns: 
-        the woodside_2006 Science paper smoothing function
-    """
-    # use Woodside, M. T. et al. Science, 2006. SI, Figure S2 for the PSF
-    # Since we are convolving, (I think) the average doesnt matter
-    woodside_mu = 513.6
-    # see: https://en.wikipedia.org/wiki/Full_width_at_half_maximum
-    woodside_stdev = fwhm/2.355
-    n_bins = extensions.size
-    loc = np.mean(extensions)
-    scale = woodside_stdev
-    S_q = scipy.stats.norm.pdf(extensions, loc=loc, scale=scale)
-    return S_q
-
-def test_smoothing(mean_fwhm_weights,max_nm=None,step_nm=0.5,
-                   split_point_nm = 15,smooth_dict=dict()):
-    if (max_nm is None):
-        max_nm = max([mu+3*fwhm for mu,fwhm,_ in mean_fwhm_weights])
-    extensions = np.arange(0,max_nm,step=step_nm)
-    probabilities = [scipy.stats.norm.pdf(extensions,
-                                          loc=mu, scale=fwhm/2.355)
-                     for mu,fwhm,_ in mean_fwhm_weights]
-    weights = [w[-1] for w in mean_fwhm_weights]
-    full_pdf = np.average(probabilities,axis=0,weights=weights)
-    full_pdf /= np.trapz(y=full_pdf,x=extensions)
-    probability_normalized = np.maximum(0,full_pdf)
-    probability_normalized = np.minimum(1,probability_normalized)
-    P_q  = probability_normalized
-    # XXXX fix extensions = probability_grid.size
-    S_q = woodside_2006_smoothing_function(extensions=extensions,
-                                           **smooth_dict)
-    r_0 = 2
-    p_0 = np.ones(P_q.size)
-    p_0 /= np.trapz(y=p_0,x=extensions)
-    iterations = 1000
-    p_final,p_list = deconvolve(p_0=p_0,
-                                r_0=r_0,S_q=S_q,P_q=P_q,n_iters=iterations,
-                                return_full=True,delta_tol=1e-9)
-    #... renormalize probability? XXX figure out why this is necessary
-    p_final /= np.trapz(y=p_final,x=extensions)
-    extension_grid_plot = extensions-min(extensions)
-    # determine the ratios
-    split_idx = np.where(extensions>split_point_nm)[0][0]
-    split_ratios = [np.max(p_final[:split_idx])/np.max(P_q[:split_idx]),
-                    np.max(p_final[split_idx:])/np.max(P_q[split_idx:])]
-    # XXX check that the split ratios are close to what we expect. 
-    plt.plot(extension_grid_plot,S_q,'b:')
-    plt.plot(extension_grid_plot,p_final,'g--')
-    plt.plot(extension_grid_plot,P_q,linewidth=3,color='r')
-    plt.show()    
-
-def run():
-    """
-    <Description>
-
-    Args:
-        param1: This is the first param.
-    
+         see gaussian_deconvolve, except...
+         interpolate_kwargs: passed to get_interpolated_probability
     Returns:
-        This is a description of what is returned.
+         tuple of <interpolated ext, interpolated probability, deconvolved and
+         interpolated probability> 
     """
-    # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
-    # test figure 3a
-    mean_fwhm_nm_fig3a = [ [11,7,1.2], 
-                           [25,5,1]]
-    test_smoothing(mean_fwhm_nm_fig3a,smooth_dict=dict(fwhm=5))
-    # test figure 3b
-    mean_fwhm_nm_fig3b = [ [10,4,1], 
-                           [22.5,4.25,1.6]]
-    test_smoothing(mean_fwhm_nm_fig3b)
-    # test figure 3c
-    mean_fwhm_nm_fig3c = [ [12,4,1], 
-                           [21,4.25,1.6]]
-    test_smoothing(mean_fwhm_nm_fig3c)
-    # test 3D. In ibid, they state that the width of the gaussian is 
-    # 'governed by the stiffness of the trap...' and then cite (14) which is 
-    # Greenleaf, W. J. et al., Phys. Rev. Lett. 95, (2005).
-    mean_fwhm_nm_fig3d = [ [17,10,1], 
-                           [45,8,1.2]]
-    test_smoothing(mean_fwhm_nm_fig3d,smooth_dict=dict(fwhm=8))
+    # get the interpolated probabilities
+    interp_ext,interp_prob = get_interpolated_probability(ext=extension_bins,
+                                                          raw_prob=P_q,
+                                                          **interpolate_kwargs)
+    deconv_interpolated_probability = \
+                gaussian_deconvolve(extension_bins=interp_ext,
+                                    P_q=interp_prob,
+                                    gaussian_stdev=gaussian_stdev,
+                                    **deconvolve_kwargs)
+    return interp_ext,interp_prob,deconv_interpolated_probability
 
 
-if __name__ == "__main__":
-    run()
+def get_interpolated_probability(ext,raw_prob,
+                                 upscale_factor=10,kind='linear',
+                                 interp_ext=None,**kwargs):
+    """
+    returns an interpolated probability (possibly on a different x grid)
+
+    Args:
+        ext: the x values for raw_prob, size N 
+        raw_prob: the y values to interpolate, size N
+        upscale_factor: if interp_ext is none, just gets this many more points
+        linearly, interpolated along ext (so size upscale_factor* N). If 
+        no interpolation is desired, just set this to one
+    
+        interp_ext: if not none, the grid to interpolate along. 
+
+        kind,**kwargs: passed to interp1d
+      
+    """
+    if (interp_ext is None):
+        if (upscale_factor > 1):
+            # we have something to do!
+            interp_ext = np.linspace(start=min(ext),
+                                     stop=max(ext),
+                                     num=ext.size*upscale_factor)
+        else:
+            # no interpolation desired
+            interp_ext = ext
+    interp_smoothed_prob_f = scipy.interpolate.interp1d(x=ext, 
+                                                        y=raw_prob, 
+                                                        kind=kind,**kwargs)
+    # get the probability at each extension, normalize
+    interp_smoothed_prob = interp_smoothed_prob_f(interp_ext)
+    interp_smoothed_prob = np.maximum(0,interp_smoothed_prob)
+    interp_smoothed_prob /= np.trapz(y=interp_smoothed_prob,x=interp_ext)
+    return interp_ext,interp_smoothed_prob
