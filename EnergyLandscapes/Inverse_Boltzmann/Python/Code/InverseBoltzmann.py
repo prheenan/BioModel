@@ -44,7 +44,7 @@ def deconvolution_iteration(S_q,P_q,r_0=1,p_k=None):
     """
     r = r_0 * (1 - 2*np.abs(p_k-1/2))
     S_q_convolved_with_p_k = fftconvolve(p_k,S_q,mode='same')
-    p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k)
+    p_k_plus_one =  p_k + r * (P_q - S_q_convolved_with_p_k) 
     p_k_plus_one = np.maximum(0,p_k_plus_one)
     return p_k_plus_one
 
@@ -119,6 +119,7 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
         p_k = p_next
         assert (p_k >= 0).all() , \
             "Deconvolution error, p_k histogram became negative. Check XXX"
+
     if (return_full):
         return p_k,all_probs
     else:
@@ -140,7 +141,7 @@ def gaussian_psf(gaussian_stdev,extension_bins,loc=None):
     S_q = scipy.stats.norm.pdf(extension_bins,loc=loc,scale=gaussian_stdev)
     return S_q
 
-def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,**kwargs):
+def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,p_0=None,**kwargs):
     """
     Returns the deconvolution of P_q with a gaussian of a set width centered 
     at the middle of extension_bins.
@@ -161,7 +162,8 @@ def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,**kwargs):
         the normalized, deconvoluted probability at each extension 
     """
     S_q = gaussian_psf(gaussian_stdev,extension_bins)
-    p_0 = np.ones(S_q.size)
+    if (p_0 is None):
+        p_0 = np.ones(S_q.size)
     p_0 /= np.trapz(y=p_0,x=extension_bins)
     p_k = deconvolve(p_0=p_0,S_q=S_q,P_q=P_q,**kwargs)
     # make sure the probability we found is valid 

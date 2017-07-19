@@ -131,26 +131,17 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     interpolated_inverse = interp1d(x=cummulative_interp_prob,
                                     y=interp_ext+shift)
     # generae a bunch of uniform random numbers (probabilities
-    n = int(1e6)
+    n = int(1e5)
     uniform = np.random.random(size=n)
     ext_random = interpolated_inverse(uniform)
     interp_ext_2,interp_prob_2,deconv_probability_2 = \
         main_inverse_boltzmann.run_deconvolution(gaussian_stdev=gaussian_stdev,
                                                  extension=ext_random,
                                                  bins=bins_ext)
-    plt.hist(ext_random,normed=True,bins=bins_ext)
-    plt.subplot(2,1,1)
-    plt.plot(interp_ext,interp_raw_prob,'r--')
-    plt.plot(interp_ext_2,interp_prob_2,'b-')
-    plt.subplot(2,1,2)
-    plt.plot(interp_ext_2,deconv_probability_2,'b-')
-    plt.plot(interp_ext,p_final,'g-')
-    plt.show()
     pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
                                               expected=p_final,
-                                              percentiles=[50,95],
-                                              tolerances =[1e-3,0.4])
-    print(pct)
+                                              percentiles=[50,95,99],
+                                              tolerances =[0.0096,0.21,0.24])
 
 def run(base_dir="./Data/"):
     """
@@ -159,7 +150,7 @@ cu    """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
     np.random.seed(42)
-    tolerances = [4e-3,4.2e-2,0.087]
+    tolerances = [3e-3,4.2e-2,0.087]
     kw = dict(base_dir=base_dir,tolerances=tolerances)
     test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
     test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
