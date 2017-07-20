@@ -503,10 +503,6 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     ForceSqFunc = lambda o : o._GetDigitizedGen(BinDataTo,o.Force**2)
     OnesFunc = lambda o: o.GetDigitizedOnes(BinDataTo)
     WorkFunc = lambda o : o._GetDigitizedGen(BinDataTo,o.Work)
-    work_fwd = [o.Work for o in UnfoldingObjs]
-    work_rev = [o.Work for o in RefoldingObjs]
-    stdev_work_fwd_final = np.std( [w[-1] for w in work_fwd])
-    stdev_work_rev_final = np.std( [w[-1] for w in work_rev])
     # get the (per-instance) boltmann factors, for weighing
     BoltzByFEC = [BoltzmanFunc(o) for o in UnfoldingObjs]
     NBins = len(BinDataTo)
