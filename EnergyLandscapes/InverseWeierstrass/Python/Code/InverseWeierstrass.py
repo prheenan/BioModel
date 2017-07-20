@@ -10,6 +10,7 @@ import itertools
 from collections import defaultdict
 from scipy.optimize import fminbound,newton
 from scipy import sparse
+
 class EnergyLandscape:
     def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
         # sort the energy landscape by the exensions
@@ -24,8 +25,7 @@ def ZFuncSimple(obj):
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
-                 ZFunc=None,
-                 Velocity=20e-9,Beta=1./(4.1e-21)):
+                 Velocity=20e-9,Beta=1./(4.1e-21),ZFunc=None):
         """
         Args:
             Time: Time, in seconds
@@ -43,6 +43,7 @@ class FEC_Pulling_Object:
             ZFunc: Function which takes in an FEC_Pulling_Object (ie: this obj)
             and returns a list of z values at each time. If none, defaults
             to simple increase from first extension
+
         
             Velocity: in m/s, default from data from ibid.
             Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
@@ -57,6 +58,11 @@ class FEC_Pulling_Object:
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
         self.SetWork(self.CalculateForceCummulativeWork())
         self.WorkDigitized=None
+        if (ZFunc is None):
+            self.ZFunc = self.ZFuncSimple
+        else:
+            self.ZFunc = ZFunc
+        self.SetWork(self.CalculateForceCummulativeWork())            
     @property
     def Separation(self):
         return self.Extension
@@ -118,7 +124,8 @@ class FEC_Pulling_Object:
         idx_arr = np.arange(n_points)
         full = sparse.csr_matrix((ToDigitize,(bin_idx_for_each_point,idx_arr)),
                                   shape=(NumTimes,n_points))
-        # concatenate the columns together 
+        # concatenate the columns together; data_by_rows[i] is "the value
+        # of every point from ToDigitize in the Bins[i]"
         data_by_rows = [full.data[full.indptr[i]:full.indptr[i+1]]
                         for i in range(NumTimes)]
         return data_by_rows

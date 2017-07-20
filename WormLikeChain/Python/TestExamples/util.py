@@ -96,9 +96,9 @@ def get_fitting_parameters_with_noise(ext_pred,force_grid,params_fit,
     noise_N = noise_amplitude_N * noise_unitless
     force_noise = force_grid + noise_N
     brute_dict = dict(ranges=ranges,Ns=Ns,**brute_kwargs)
-    x0,y = WLC.wlc_contour(separation=ext_pred,force=force_noise,
-                           brute_dict=brute_dict,
-                           **params_fit)
+    x0,y = WLC.fit(separation=ext_pred,force=force_noise,
+                   brute_dict=brute_dict,
+                   **params_fit)
     return x0,y,force_noise
 
 def ssDNA_example_data():
