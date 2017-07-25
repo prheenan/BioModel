@@ -20,6 +20,9 @@ class EnergyLandscape:
         self.ExtensionBins = ExtensionBins
         self.Beta = Beta
 
+def ZFuncSimple(obj):
+    return obj.Offset + (obj.Velocity * obj.Time)        
+
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
                  Velocity=20e-9,Beta=1./(4.1e-21),ZFunc=None):
@@ -36,6 +39,11 @@ class FEC_Pulling_Object:
             from  Non-Equilibrium Single-Molecule Force Spectroscopy 
             Measurements." 
             Nature Physics 7, no. 8 (August 2011)
+
+            ZFunc: Function which takes in an FEC_Pulling_Object (ie: this obj)
+            and returns a list of z values at each time. If none, defaults
+            to simple increase from first extension
+
         
             Velocity: in m/s, default from data from ibid.
             Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
@@ -47,6 +55,8 @@ class FEC_Pulling_Object:
         self.Velocity= Velocity
         self.Beta=Beta
         self.Offset = self.Extension[0]
+        self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
+        self.SetWork(self.CalculateForceCummulativeWork())
         self.WorkDigitized=None
         if (ZFunc is None):
             self.ZFunc = self.ZFuncSimple
@@ -56,11 +66,10 @@ class FEC_Pulling_Object:
     @property
     def Separation(self):
         return self.Extension
-    def ZFuncSimple(self):
-        return self.Offset + (self.Velocity * self.Time)
     def SetVelocityAndOffset(self,Offset,Velocity):
         """
-        Sets the velocity and offset used in ZFuncSimple
+        Sets the velocity and offset used in (e.g.) ZFuncSimple. 
+        Also re-calculates the work 
 
         Args:
             Offset:  offset in distance (same units of extension)
@@ -70,6 +79,7 @@ class FEC_Pulling_Object:
         """
         self.Velocity = Velocity
         self.Offset = Offset
+        self.SetWork(self.CalculateForceCummulativeWork())    
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
@@ -88,7 +98,7 @@ class FEC_Pulling_Object:
             The cummulative integral of work, as defined in ibid, before eq18
         """
         Force = self.Force
-        Z = self.ZFunc()
+        Z = self.ZFunc(self)
         ToRet = cumtrapz(x=Z,y=Force,initial=0)
         return ToRet
     def SetWork(self,Work):
