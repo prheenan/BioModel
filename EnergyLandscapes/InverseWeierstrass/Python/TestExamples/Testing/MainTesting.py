@@ -310,15 +310,7 @@ def landscape_plot(landscape,landscape_rev,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
-
-def TestHummer2010():
-    """
-    Recreates the simulation from Figure 3 of 
-
-    Hummer, G. & Szabo, A. 
-    Free energy profiles from single-molecule pulling experiments. 
-    PNAS 107, 21441-21446 (2010).
-    """
+def HummerData():
     # estmate nose amplitude, Figure 3 A ibid
     snr = (10/2)**2
     #estimate stifness of system in forward and reverse
@@ -365,9 +357,21 @@ def TestHummer2010():
             plt.plot(fwd_switch.Extension,fwd_switch.Force,color='r',alpha=0.3)
             plt.plot(rev_switch.Extension,rev_switch.Force,color='b',alpha=0.3)
             plt.show()
+    return state_fwd,state_rev
+
+def TestHummer2010():
+    """
+    Recreates the simulation from Figure 3 of 
+
+    Hummer, G. & Szabo, A. 
+    Free energy profiles from single-molecule pulling experiments. 
+    PNAS 107, 21441-21446 (2010).
+    """
+
     # POST: fwd and reverse have the forward and reverse trajectories 
     # go ahead and made the energy landscapes
     num_bins=100
+    state_fwd,state_rev = HummerData()
     landscape = InverseWeierstrass.FreeEnergyAtZeroForce(state_fwd,num_bins,[])
     landscape_rev = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
