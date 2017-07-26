@@ -52,12 +52,12 @@ class FEC_Pulling_Object:
         self.Extension = Extension 
         self.Force = Force
         self.SpringConstant=SpringConstant
-        self.Velocity= Velocity
         self.Beta=Beta
-        self.Offset = self.Extension[0]
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
+        Velocity= Velocity
+        Offset = self.Extension[0]
+        self.SetVelocityAndOffset(Offset,Velocity)
         self.WorkDigitized=None
-        self.SetWork(self.CalculateForceCummulativeWork())            
     @property
     def Separation(self):
         return self.Extension
@@ -338,7 +338,7 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
         Rev = [ReverseWeighted(vr=pre(v),Wr=pre(W),Wrn=pre(Wrn),**common_args)
                for v,W,Wrn in zip(v_rev,w_rev,w_rev_n)]
     else:
-        Rev = [ [0 for i in range(len(v))] for v in v_fwd]
+        Rev = [ [] for v in v_fwd]
     # Concatenate all the forward and reverse arrays
     fwd_concat = np.concatenate(Fwd)
     rev_concat = np.concatenate(Rev)
@@ -492,7 +492,8 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     # note we set beta to one, since it is easier to solve in units of kT
     ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
     xopt = newton(ToMin,**FMinArgs)
-    return xopt/beta
+    to_ret = xopt/beta
+    return to_ret
     
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
@@ -564,7 +565,6 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     FiniteIdx = np.where(np.isfinite(VarianceForceBoltzWeighted))[0]
     GoodIndex = \
         FiniteIdx[np.where( (VarianceForceBoltzWeighted[FiniteIdx] > 0))[0]]
-
     # now get the free energy from paragraph before eq18, ibid.
     # This is essentially the ensemble-averaged 'partition function' at each z
     Beta = np.mean([o.Beta for o in UnfoldingObjs])
