@@ -59,7 +59,7 @@ class FEC_Pulling_Object:
         self.SetWork(self.CalculateForceCummulativeWork())
         self.WorkDigitized=None
         if (ZFunc is None):
-            self.ZFunc = self.ZFuncSimple
+            self.ZFunc = ZFuncSimple
         else:
             self.ZFunc = ZFunc
         self.SetWork(self.CalculateForceCummulativeWork())            
