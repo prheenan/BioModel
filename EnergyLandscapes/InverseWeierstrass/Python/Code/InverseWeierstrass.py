@@ -54,9 +54,7 @@ class FEC_Pulling_Object:
         self.SpringConstant=SpringConstant
         self.Beta=Beta
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
-        Velocity= Velocity
-        Offset = self.Extension[0]
-        self.SetVelocityAndOffset(Offset,Velocity)
+        self.SetVelocityAndOffset(Extension[0],Velocity)
         self.WorkDigitized=None
     @property
     def Separation(self):
@@ -482,7 +480,7 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     Rev = [f.Work[-1]*beta for f in Reverse]
     MaxWorks = [np.max(np.abs(Fwd)),
                 np.max(np.abs(Rev))]
-    MinWorks = [np.min(Fwd),
+    MinWorks = [np.min(Fwd), 
                 np.min(Rev)]
     Max = max(MaxWorks)
     Min = min(MinWorks)
@@ -506,7 +504,7 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
         Energy Landscape Object
     """
     # get the bounds associated with the times and extensions
-    ExtBounds = GetExtensionBounds(UnfoldingObjs)
+    ExtBounds = GetExtensionBounds(UnfoldingObjs + RefoldingObjs)
     # Create the time and position bins using a helper function
     BinIt= lambda x,n: np.linspace(start=x[0],
                                    stop=x[1],

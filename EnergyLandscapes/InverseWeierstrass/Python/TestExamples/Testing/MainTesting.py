@@ -43,6 +43,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                 num_ensemble=5,
                 z0_nm=59,
                 z1_nm=65,
+                velocity_m_per_s=40e-9,
                 noise_function=None):
     """
     Gets an ensemble of FEC with the given statistics.
@@ -89,6 +90,8 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
     DeltaA =cumtrapz(x=ext_m,y=force_N,initial=0)
     noise_args = dict(snr=snr,
                       function=noise_function)
+    tau = (max(ext_nm)-min(ext_nm)) * 1e-9/velocity_m_per_s
+    time = np.linspace(0,tau,ext_nm.size)
     for i in range(num_ensemble):
         # add noise to each member of the ensemble separately
         force_N_noise = AddNoise(force_N,**noise_args)
@@ -102,14 +105,13 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                                     reverse_force_offset_pN)
             force_N_noise_rev = AddNoise(force_rev_pN*1e-12,**noise_args)
         fwd=InverseWeierstrass.\
-            FEC_Pulling_Object(None,ext_m,force_N_noise,
-                               SpringConstant=cantilever_spring_N_m,
-                               ZFunc = lambda o: ext_m)
+            FEC_Pulling_Object(time,ext_m,force_N_noise,
+                               Velocity=velocity_m_per_s,
+                               SpringConstant=cantilever_spring_N_m)
         rev=InverseWeierstrass.\
-             FEC_Pulling_Object(None,ext_rev_m,force_N_noise_rev,
-                                SpringConstant=cantilever_spring_N_m,
-                                ZFunc = lambda o: ext_rev_m)
-        rev.Velocity *= -1
+             FEC_Pulling_Object(time,ext_rev_m,force_N_noise_rev,
+                                Velocity=-1 * velocity_m_per_s,
+                                SpringConstant=cantilever_spring_N_m)
         fwd_objs.append(fwd)
         rev_objs.append(rev)
     return fwd_objs,rev_objs,DeltaA
