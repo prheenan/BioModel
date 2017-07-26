@@ -74,7 +74,7 @@ class FEC_Pulling_Object:
         """
         self.Velocity = Velocity
         self.Offset = Offset
-        self.SetWork(self.CalculateForceCummulativeWork())    
+        self.SetWork(self.CalculateForceCummulativeWork())      
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
@@ -511,6 +511,11 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
                                    stop=x[1],
                                    endpoint=False,
                                    num=n)
+    for un in UnfoldingObjs:
+        assert un.Velocity > 0 , "Unfolding data should have positive velocity."
+    for re in RefoldingObjs:
+        assert re.Velocity < 0 , "Refolding data should have negative velocity."
+    # POST: velocity data looks good.
     DeltaA = NumericallyGetDeltaA(UnfoldingObjs,RefoldingObjs)
     # create the extension bins 
     ExtBins = BinIt(ExtBounds,NumBins)

@@ -109,6 +109,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
              FEC_Pulling_Object(None,ext_rev_m,force_N_noise_rev,
                                 SpringConstant=cantilever_spring_N_m,
                                 ZFunc = lambda o: ext_rev_m)
+        rev.Velocity *= -1
         fwd_objs.append(fwd)
         rev_objs.append(rev)
     return fwd_objs,rev_objs,DeltaA
