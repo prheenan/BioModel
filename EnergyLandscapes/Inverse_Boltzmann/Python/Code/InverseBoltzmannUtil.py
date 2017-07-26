@@ -99,3 +99,18 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
     factor_deconv = np.trapz(x=interp_ext,y=deconv_interpolated_probability)
     deconv_interpolated_probability /= factor_deconv
     return interp_ext,interp_prob,deconv_interpolated_probability
+
+def run_and_save_data(gaussian_stdev,extension,bins,out_file,
+                      interpolate_kwargs=dict(),
+                      save_kwargs=dict(fmt=str("%.15g"))):
+    """
+    Runs a deconvolution, saving the data out 
+    """
+    interp_ext,interp_prob,prob_deconc = \
+            extension_deconvolution(gaussian_stdev,
+                                    extension,bins,
+                                    interpolate_kwargs=interpolate_kwargs)
+    header = "# extension bin -- raw probability -- deconvolved probability" + \
+             " (Inverse Boltzmann, (c) Patrick Heenan 2017)"
+    X = np.array(((interp_ext,interp_prob,prob_deconc))).T
+    np.savetxt(fname=out_file,X=X,**save_kwargs)

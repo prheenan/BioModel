@@ -57,7 +57,6 @@ class FEC_Pulling_Object:
     def Separation(self):
         return self.Extension
     def ZFuncSimple(self):
-        print(self.Velocity,self.Time)
         return self.Offset + (self.Velocity * self.Time)
     def SetVelocityAndOffset(self,Offset,Velocity):
         """
@@ -340,8 +339,8 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
     rev_concat = np.concatenate(Rev)
     # now we have all the values from the entire ensemble; we just average
     # across forard and reverse (separately!), then add (fine if adding zeros)
-    MeanFwd = np.mean(fwd_concat)
-    MeanRev = np.mean(rev_concat)
+    MeanFwd = np.mean(fwd_concat) if fwd_concat.size > 0 else 0
+    MeanRev = np.mean(rev_concat) if rev_concat.size > 0 else 0
     Total = MeanFwd + MeanRev
     return Total
 
@@ -364,7 +363,8 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
          at each time
     Returns:
          Weighted average as a function of extension, as an *array*, defined
-         by Hummer and Szabo, 2010, PNAS, after equation 12
+         by Hummer and Szabo, 2010, PNAS, after equation 12. Array is np.nan
+         where the 'PartitionDivision' is zero
     """
     # function which converts an array x like x[i,j,k]
     # is FEC i, bin j, value k, to an array like y[l,m], bin l and ensemble m
@@ -395,7 +395,6 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
     wrn = np.array([o.Work[-1] for o in Reverse])
     ToRet = []
     for vf,vr,wf,wr in zip(value_fwd,value_rev,work_fwd,work_rev):
-        # XXX need to actually get forward and reverse parts
         val = EnsembleAverage(v_fwd=vf,
                               v_rev=vr,
                               w_fwd=wf,
@@ -407,7 +406,23 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
                               nf=nf,
                               nr=nr)
         ToRet.append(val)
-    return np.array(ToRet)/np.array(PartitionDivision)
+    if hasattr(PartitionDivision, "__iter__"):
+        # determine where we have a partition function (otherwise,
+        # we can't divide...)
+        condition = ((np.isfinite(PartitionDivision)) & \
+                     (PartitionDivision != 0))
+        safe_idx = np.where(condition)[0]
+        not_safe_idx = np.where(~condition)[0]
+        to_ret_safe = np.array(ToRet)
+        # make the division where we can
+        to_ret_safe[safe_idx] = \
+            np.array(ToRet)[safe_idx]/np.array(PartitionDivision)[safe_idx]
+        # insert nans to mark where the data is bad otherwise
+        to_ret_safe[not_safe_idx] = np.nan
+        return to_ret_safe
+    else:
+        return np.array(ToRet)/np.array(PartitionDivision) \
+            if PartitionDivision>0 else np.nan
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -536,8 +551,10 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
     VarianceForceBoltzWeighted = BoltzmannWeightedForceSq-\
                                  (BoltzmannWeightedForce**2)
-    GoodIndex = np.where( (VarianceForceBoltzWeighted > 0) &
-                          (np.isfinite(VarianceForceBoltzWeighted)))
+    FiniteIdx = np.where(np.isfinite(VarianceForceBoltzWeighted))[0]
+    GoodIndex = \
+        FiniteIdx[np.where( (VarianceForceBoltzWeighted[FiniteIdx] > 0))[0]]
+
     # now get the free energy from paragraph before eq18, ibid.
     # This is essentially the ensemble-averaged 'partition function' at each z
     Beta = np.mean([o.Beta for o in UnfoldingObjs])

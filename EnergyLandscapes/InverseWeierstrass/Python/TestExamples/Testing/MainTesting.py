@@ -368,6 +368,7 @@ def run():
     """
     Runs all IWT unit tests
     """
+    np.seterr(all='raise')
     np.random.seed(42)
     TestWeighting()
     TestForwardBackward()
