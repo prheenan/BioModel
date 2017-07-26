@@ -11,6 +11,7 @@ from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
 from scipy.integrate import cumtrapz
 import copy
 from GeneralUtil.python import PlotUtilities
+from Research.Perkins.AnalysisUtil.EnergyLandscapes import IWT_Util
 
 def AddNoise(signal,snr,function=None):
     size = signal.size
@@ -344,7 +345,6 @@ def HummerData():
     tau = 2e-9
     state_fwd = []
     state_rev = []
-    debug = False
     for fwd,rev in zip(fwd_objs,rev_objs):
         N = fwd.Force.size
         fwd_switch = Swap(switch_m=fwd_switch_m,swap_from=fwd,
@@ -353,11 +353,22 @@ def HummerData():
                           swap_to=fwd,sign=-1,tau_m=tau)
         state_fwd.append(fwd_switch)
         state_rev.append(rev_switch)
-        if (debug):
-            plt.plot(fwd_switch.Extension,fwd_switch.Force,color='r',alpha=0.3)
-            plt.plot(rev_switch.Extension,rev_switch.Force,color='b',alpha=0.3)
-            plt.show()
     return state_fwd,state_rev
+
+def check_iwt_obj(exp,act,**tolerance_kwargs):
+    """
+    checks that the 'act' iwt object matches the expected 'exp' object. kwargs
+    are passed to np.testing.assert_allclose. This is a 'logical' match.
+    """
+    np.testing.assert_allclose(act.Time,exp.Time,**tolerance_kwargs)
+    # check the refolding data matches
+    np.testing.assert_allclose(act.Time,exp.Time,**tolerance_kwargs)
+    # make sure the fitting set the offset and velocity propertly
+    np.testing.assert_allclose([act.Offset,act.Velocity],
+                               [exp.Offset,exp.Velocity])
+    # make sure the work matches
+    np.testing.assert_allclose(act.Work,exp.Work)
+
 
 def TestHummer2010():
     """
@@ -378,6 +389,39 @@ def TestHummer2010():
     kT = 4.1e-21
     f_one_half = 14e-12
     check_hummer_by_ensemble(kT,landscape,landscape_rev,f_one_half=f_one_half)
+    # POST: ensemble works well.
+    # combine all the forward and reverse states
+    single = copy.deepcopy(state_fwd[0])
+    single.Force = []
+    single.Extension = []
+    single.Time = []
+    for fwd,rev in zip(state_fwd,state_rev):
+        single.Force += list(fwd.Force) + list(rev.Force)
+        single.Extension += list(fwd.Extension) + list(rev.Extension)
+        single.Time += list(fwd.Time) + list(rev.Time)
+    # combine all the data
+    N = len(state_fwd)
+    single.Force = np.array(single.Force)
+    single.Extension = np.array(single.Extension)
+    single.Time = np.array(single.Time)
+    slice_func = lambda o,s:  \
+        InverseWeierstrass.FEC_Pulling_Object(Time=o.Time[s],
+                                              Extension=o.Separation[s],
+                                              Force=o.Force[s],
+                                              SpringConstant=o.SpringConstant,
+                                              Velocity=o.Velocity)
+    unfold,refold = IWT_Util.\
+            get_unfold_and_refold_objects(single,
+                                          slice_func=slice_func,
+                                          number_of_pairs=N,
+                                          flip_forces=False,
+                                          fraction_for_vel=0.3)
+    tolerance_kwargs = dict(atol=0,rtol=1e-6)
+    for un,re,un_org,re_org in zip(unfold,refold,state_fwd,state_rev):
+        check_iwt_obj(un,un_org,**tolerance_kwargs)
+        check_iwt_obj(re,re_org,**tolerance_kwargs)
+    landscape_bidirectional = InverseWeierstrass.\
+        FreeEnergyAtZeroForce(unfold,num_bins,refold)
     # POST: height should be quite close to Figure 3
     fig = PlotUtilities.figure(figsize=(4,7))
     landscape_plot(landscape,landscape_rev,kT,f_one_half)

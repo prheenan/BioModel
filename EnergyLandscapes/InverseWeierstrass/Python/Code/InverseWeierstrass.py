@@ -54,12 +54,12 @@ class FEC_Pulling_Object:
         self.SpringConstant=SpringConstant
         self.Beta=Beta
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
-        self.SetVelocityAndOffset(Extension[0],Velocity)
+        self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
     @property
     def Separation(self):
         return self.Extension
-    def SetVelocityAndOffset(self,Offset,Velocity):
+    def SetOffsetAndVelocity(self,Offset,Velocity):
         """
         Sets the velocity and offset used in (e.g.) ZFuncSimple. 
         Also re-calculates the work 
@@ -70,8 +70,8 @@ class FEC_Pulling_Object:
         Returns:
             Nothing
         """
-        self.Velocity = Velocity
         self.Offset = Offset
+        self.Velocity = Velocity
         self.SetWork(self.CalculateForceCummulativeWork())      
     def GetWorkArgs(self,ZFunc):
         """
