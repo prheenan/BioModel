@@ -56,12 +56,7 @@ class FEC_Pulling_Object:
         self.Beta=Beta
         self.Offset = self.Extension[0]
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
-        self.SetWork(self.CalculateForceCummulativeWork())
         self.WorkDigitized=None
-        if (ZFunc is None):
-            self.ZFunc = self.ZFuncSimple
-        else:
-            self.ZFunc = ZFunc
         self.SetWork(self.CalculateForceCummulativeWork())            
     @property
     def Separation(self):
