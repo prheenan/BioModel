@@ -242,6 +242,74 @@ def Swap(switch_m,tau_m,swap_from,swap_to,sign):
     New.Force[Idx] = swap_to.Force[::-1][Idx]
     return New
 
+def check_hummer_by_ensemble(kT,landscape,landscape_rev,f_one_half):
+    # See figure 3b inset, inid, for f_(1/2)... but they actually use 14pN (
+    # test)
+    # for some reason, they offset the energies?... Figure 3A
+    energy_offset_kT = 20
+    num_bins = landscape.EnergyLandscape.size
+    landscape_fwd_kT = landscape.EnergyLandscape/kT + energy_offset_kT
+    landscape_rev_kT = landscape_rev.EnergyLandscape/kT + energy_offset_kT
+    ext_fwd = landscape_rev.Extensions
+    ext_rev = landscape.Extensions
+    # should be very close before XXXnm
+    split_point_meters = 230e-9
+    CloseIdxFwd = np.where(ext_fwd < split_point_meters)[0]
+    CloseIdxRev = np.where(ext_rev < split_point_meters)[0]
+    limit = min(CloseIdxFwd.size,CloseIdxRev.size)
+    assert limit > num_bins/4 , "Should have roughly half of data before 230nm"
+    # want landscapees before 230nm to be within 10% of each other
+    np.testing.assert_allclose(landscape_fwd_kT[CloseIdxFwd[:limit]],
+                               landscape_rev_kT[CloseIdxRev[:limit]],
+                               rtol=0.1)
+    # POST: 'early' region is fine
+    # check the bound on the last points (just estimate these by eye)
+    forward_maximum_energy_kT = 300
+    reverse_maximum_energy_kT = 250
+    np.testing.assert_allclose(landscape_fwd_kT[-1],forward_maximum_energy_kT,
+                               rtol=0.05)
+    np.testing.assert_allclose(landscape_rev_kT[-1],reverse_maximum_energy_kT,
+                               rtol=0.05)
+    # POST: endpoints match Figure 3 bounds
+    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
+    # get the relative landscape hummer and szabo plot (their min is about
+    # 2.5kT offset from zero)
+    offset_kT_tilted = 2.5
+    landscape_fonehalf_kT_rel =  \
+        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
+    # make sure the barrier height is about right
+    idx_barrier = np.where( (ext_rev > 220e-9) &
+                            (ext_rev < 240e-9) )
+    barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
+    expected_barrier_height_kT = 5
+    barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
+    np.testing.assert_allclose(barrier_delta,
+                               expected_barrier_height_kT,atol=1)
+
+def landscape_plot(landscape,landscape_rev,kT,f_one_half):
+    ToX = lambda x: x*1e9
+    xlim = lambda: plt.xlim([190,265])
+    landscape_rev_kT = landscape_rev.EnergyLandscape/kT
+    landscape_fwd_kT = landscape.EnergyLandscape/kT
+    ext_fwd = landscape_rev.Extensions
+    ext_rev = landscape.Extensions
+    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
+    landscape_fonehalf_kT_rel = landscape_fonehalf_kT-min(landscape_fonehalf_kT)
+    plt.subplot(2,1,1)
+    plt.plot(ToX(ext_fwd),landscape_rev_kT,color='r',alpha=0.6,
+             linestyle='-',linewidth=3,label="Bi-directional")
+    plt.plot(ToX(ext_rev),landscape_fwd_kT,color='g',
+             linestyle='--',label="Only Forward")
+    plt.ylim([0,300])
+    xlim()
+    PlotUtilities.lazyLabel("","Free Energy (kT)",
+                            "Hummer 2010, Figure 3")
+    plt.subplot(2,1,2)
+    plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
+    plt.ylim([0,25])
+    xlim()
+    PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
+
 
 def TestHummer2010():
     """
@@ -304,66 +372,11 @@ def TestHummer2010():
     landscape_rev = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
     kT = 4.1e-21
-    # See figure 3b inset, inid, for f_(1/2)... but they actually use 14pN (
-    # test)
     f_one_half = 14e-12
-    # for some reason, they offset the energies?... Figure 3A
-    energy_offset_kT = 20
-    landscape_fwd_kT = landscape.EnergyLandscape/kT + energy_offset_kT
-    landscape_rev_kT = landscape_rev.EnergyLandscape/kT + energy_offset_kT
-    ext_fwd = landscape_rev.Extensions
-    ext_rev = landscape.Extensions
-    # should be very close before XXXnm
-    split_point_meters = 230e-9
-    CloseIdxFwd = np.where(ext_fwd < split_point_meters)[0]
-    CloseIdxRev = np.where(ext_rev < split_point_meters)[0]
-    limit = min(CloseIdxFwd.size,CloseIdxRev.size)
-    assert limit > num_bins/4 , "Should have roughly half of data before 230nm"
-    # want landscapees before 230nm to be within 10% of each other
-    np.testing.assert_allclose(landscape_fwd_kT[CloseIdxFwd[:limit]],
-                               landscape_rev_kT[CloseIdxRev[:limit]],
-                               rtol=0.1)
-    # POST: 'early' region is fine
-    # check the bound on the last points (just estimate these by eye)
-    forward_maximum_energy_kT = 300
-    reverse_maximum_energy_kT = 250
-    np.testing.assert_allclose(landscape_fwd_kT[-1],forward_maximum_energy_kT,
-                               rtol=0.05)
-    np.testing.assert_allclose(landscape_rev_kT[-1],reverse_maximum_energy_kT,
-                               rtol=0.05)
-    # POST: endpoints match Figure 3 bounds
-    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
-    # get the relative landscape hummer and szabo plot (their min is about
-    # 2.5kT offset from zero)
-    offset_kT_tilted = 2.5
-    landscape_fonehalf_kT_rel =  \
-        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
-    # make sure the barrier height is about right
-    idx_barrier = np.where( (ext_rev > 220e-9) &
-                            (ext_rev < 240e-9) )
-    barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
-    expected_barrier_height_kT = 5
-    barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
-    np.testing.assert_allclose(barrier_delta,
-                               expected_barrier_height_kT,atol=1)
+    check_hummer_by_ensemble(kT,landscape,landscape_rev,f_one_half=f_one_half)
     # POST: height should be quite close to Figure 3
-    ToX = lambda x: x*1e9
-    xlim = lambda: plt.xlim([190,265])
     fig = PlotUtilities.figure(figsize=(4,7))
-    plt.subplot(2,1,1)
-    plt.plot(ToX(ext_fwd),landscape_rev_kT,color='r',alpha=0.6,
-             linestyle='-',linewidth=3,label="Bi-directional")
-    plt.plot(ToX(ext_rev),landscape_fwd_kT,color='g',
-             linestyle='--',label="Only Forward")
-    plt.ylim([0,300])
-    xlim()
-    PlotUtilities.lazyLabel("","Free Energy (kT)",
-                            "Hummer 2010, Figure 3")
-    plt.subplot(2,1,2)
-    plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
-    plt.ylim([0,25])
-    xlim()
-    PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
+    landscape_plot(landscape,landscape_rev,kT,f_one_half)
     PlotUtilities.savefig(fig,"out.png")
 
     
