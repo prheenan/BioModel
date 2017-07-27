@@ -48,14 +48,20 @@ class FEC_Pulling_Object:
             Velocity: in m/s, default from data from ibid.
             Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
         """
-        self.Time = Time
-        self.Extension = Extension 
-        self.Force = Force
+        # make copies (by value) of the arrays we need
+        self.Time = Time.copy()
+        self.Extension = Extension.copy()
+        self.Force = Force.copy()
         self.SpringConstant=SpringConstant
         self.Beta=Beta
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
         self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
+    def update_work(self):
+        """
+        Updates the internal work variable
+        """
+        self.SetWork(self.CalculateForceCummulativeWork())      
     @property
     def Separation(self):
         return self.Extension
@@ -72,7 +78,7 @@ class FEC_Pulling_Object:
         """
         self.Offset = Offset
         self.Velocity = Velocity
-        self.SetWork(self.CalculateForceCummulativeWork())      
+        self.update_work()
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
@@ -173,8 +179,7 @@ def SetAllWorkOfObjects(PullingObjects):
         in PullingObjects
     """
     # calculate and set the work for each object
-    _ = [o.SetWork(o.CalculateForceCummulativeWork())
-         for o in PullingObjects]
+    _ = [o.update_work() for o in PullingObjects]
 
 def _GetGenBounds(PullingObjects,FuncLower,FuncUpper):
     """
@@ -510,8 +515,6 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
                                    stop=x[1],
                                    endpoint=False,
                                    num=n)
-    for un in UnfoldingObjs:
-        assert un.Velocity > 0 , "Unfolding data should have positive velocity."
     for re in RefoldingObjs:
         assert re.Velocity < 0 , "Refolding data should have negative velocity."
     # POST: velocity data looks good.
