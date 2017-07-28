@@ -48,25 +48,24 @@ class FEC_Pulling_Object:
             Velocity: in m/s, default from data from ibid.
             Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
         """
-        self.Time = Time
-        self.Extension = Extension 
-        self.Force = Force
+        # make copies (by value) of the arrays we need
+        self.Time = Time.copy()
+        self.Extension = Extension.copy()
+        self.Force = Force.copy()
         self.SpringConstant=SpringConstant
-        self.Velocity= Velocity
         self.Beta=Beta
-        self.Offset = self.Extension[0]
         self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
-        self.SetWork(self.CalculateForceCummulativeWork())
+        self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
-        if (ZFunc is None):
-            self.ZFunc = ZFuncSimple
-        else:
-            self.ZFunc = ZFunc
-        self.SetWork(self.CalculateForceCummulativeWork())            
+    def update_work(self):
+        """
+        Updates the internal work variable
+        """
+        self.SetWork(self.CalculateForceCummulativeWork())      
     @property
     def Separation(self):
         return self.Extension
-    def SetVelocityAndOffset(self,Offset,Velocity):
+    def SetOffsetAndVelocity(self,Offset,Velocity):
         """
         Sets the velocity and offset used in (e.g.) ZFuncSimple. 
         Also re-calculates the work 
@@ -77,9 +76,9 @@ class FEC_Pulling_Object:
         Returns:
             Nothing
         """
-        self.Velocity = Velocity
         self.Offset = Offset
-        self.SetWork(self.CalculateForceCummulativeWork())    
+        self.Velocity = Velocity
+        self.update_work()
     def GetWorkArgs(self,ZFunc):
         """
         Gets the in-order arguments for the work functions
@@ -180,8 +179,7 @@ def SetAllWorkOfObjects(PullingObjects):
         in PullingObjects
     """
     # calculate and set the work for each object
-    _ = [o.SetWork(o.CalculateForceCummulativeWork())
-         for o in PullingObjects]
+    _ = [o.update_work() for o in PullingObjects]
 
 def _GetGenBounds(PullingObjects,FuncLower,FuncUpper):
     """
@@ -343,14 +341,14 @@ def EnsembleAverage(v_fwd,v_rev,w_fwd,w_rev,w_fwd_n,w_rev_n,Beta,DeltaA,nf,nr):
         Rev = [ReverseWeighted(vr=pre(v),Wr=pre(W),Wrn=pre(Wrn),**common_args)
                for v,W,Wrn in zip(v_rev,w_rev,w_rev_n)]
     else:
-        Rev = [ [0 for i in range(len(v))] for v in v_fwd]
+        Rev = [ [] for v in v_fwd]
     # Concatenate all the forward and reverse arrays
     fwd_concat = np.concatenate(Fwd)
     rev_concat = np.concatenate(Rev)
     # now we have all the values from the entire ensemble; we just average
     # across forard and reverse (separately!), then add (fine if adding zeros)
-    MeanFwd = np.mean(fwd_concat)
-    MeanRev = np.mean(rev_concat)
+    MeanFwd = np.mean(fwd_concat) if fwd_concat.size > 0 else 0
+    MeanRev = np.mean(rev_concat) if rev_concat.size > 0 else 0
     Total = MeanFwd + MeanRev
     return Total
 
@@ -373,7 +371,8 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
          at each time
     Returns:
          Weighted average as a function of extension, as an *array*, defined
-         by Hummer and Szabo, 2010, PNAS, after equation 12
+         by Hummer and Szabo, 2010, PNAS, after equation 12. Array is np.nan
+         where the 'PartitionDivision' is zero
     """
     # function which converts an array x like x[i,j,k]
     # is FEC i, bin j, value k, to an array like y[l,m], bin l and ensemble m
@@ -404,7 +403,6 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
     wrn = np.array([o.Work[-1] for o in Reverse])
     ToRet = []
     for vf,vr,wf,wr in zip(value_fwd,value_rev,work_fwd,work_rev):
-        # XXX need to actually get forward and reverse parts
         val = EnsembleAverage(v_fwd=vf,
                               v_rev=vr,
                               w_fwd=wf,
@@ -416,7 +414,23 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
                               nf=nf,
                               nr=nr)
         ToRet.append(val)
-    return np.array(ToRet)/np.array(PartitionDivision)
+    if hasattr(PartitionDivision, "__iter__"):
+        # determine where we have a partition function (otherwise,
+        # we can't divide...)
+        condition = ((np.isfinite(PartitionDivision)) & \
+                     (PartitionDivision != 0))
+        safe_idx = np.where(condition)[0]
+        not_safe_idx = np.where(~condition)[0]
+        to_ret_safe = np.array(ToRet)
+        # make the division where we can
+        to_ret_safe[safe_idx] = \
+            np.array(ToRet)[safe_idx]/np.array(PartitionDivision)[safe_idx]
+        # insert nans to mark where the data is bad otherwise
+        to_ret_safe[not_safe_idx] = np.nan
+        return to_ret_safe
+    else:
+        return np.array(ToRet)/np.array(PartitionDivision) \
+            if PartitionDivision>0 else np.nan
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -471,7 +485,7 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     Rev = [f.Work[-1]*beta for f in Reverse]
     MaxWorks = [np.max(np.abs(Fwd)),
                 np.max(np.abs(Rev))]
-    MinWorks = [np.min(Fwd),
+    MinWorks = [np.min(Fwd), 
                 np.min(Rev)]
     Max = max(MaxWorks)
     Min = min(MinWorks)
@@ -481,7 +495,8 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     # note we set beta to one, since it is easier to solve in units of kT
     ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
     xopt = newton(ToMin,**FMinArgs)
-    return xopt/beta
+    to_ret = xopt/beta
+    return to_ret
     
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
@@ -494,12 +509,15 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
         Energy Landscape Object
     """
     # get the bounds associated with the times and extensions
-    ExtBounds = GetExtensionBounds(UnfoldingObjs)
+    ExtBounds = GetExtensionBounds(UnfoldingObjs + RefoldingObjs)
     # Create the time and position bins using a helper function
     BinIt= lambda x,n: np.linspace(start=x[0],
                                    stop=x[1],
                                    endpoint=False,
                                    num=n)
+    for re in RefoldingObjs:
+        assert re.Velocity < 0 , "Refolding data should have negative velocity."
+    # POST: velocity data looks good.
     DeltaA = NumericallyGetDeltaA(UnfoldingObjs,RefoldingObjs)
     # create the extension bins 
     ExtBins = BinIt(ExtBounds,NumBins)
@@ -545,8 +563,9 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
     VarianceForceBoltzWeighted = BoltzmannWeightedForceSq-\
                                  (BoltzmannWeightedForce**2)
-    GoodIndex = np.where( (VarianceForceBoltzWeighted > 0) &
-                          (np.isfinite(VarianceForceBoltzWeighted)))
+    FiniteIdx = np.where(np.isfinite(VarianceForceBoltzWeighted))[0]
+    GoodIndex = \
+        FiniteIdx[np.where( (VarianceForceBoltzWeighted[FiniteIdx] > 0))[0]]
     # now get the free energy from paragraph before eq18, ibid.
     # This is essentially the ensemble-averaged 'partition function' at each z
     Beta = np.mean([o.Beta for o in UnfoldingObjs])

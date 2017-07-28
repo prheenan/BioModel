@@ -11,8 +11,6 @@ import sys,scipy
 sys.path.append("../../../../../")
 from FitUtil.EnergyLandscapes.Inverse_Boltzmann.Python.Code import \
     InverseBoltzmann,InverseBoltzmannUtil
-from Research.Perkins.Projects.PythonCommandLine.InverseBoltzmann import \
-    main_inverse_boltzmann
 import scipy.stats as st
 from scipy.interpolate import griddata,interp1d
 from scipy.integrate import cumtrapz
@@ -78,6 +76,9 @@ def assert_probabilities_close(actual,expected,percentiles,tolerances):
             format(p,val,tol)
     return percentile_values,diff_rel
 
+def check_probabilities():
+    
+
 def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     deconv_name = base_dir + "woodside_2006_{:s}.csv".format(file_id)
     raw_name = \
@@ -92,6 +93,8 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
                                                       interp_ext=interp_ext,
                                                       bounds_error=False,
                                                       fill_value="extrapolate")
+    # # start testing things
+    # test that the deconvolution matches
     common_deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
                                     n_iters=300,
                                     return_full=False,
@@ -113,7 +116,8 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
         interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
                                                 P_q=raw_prob,
                                                 **common_deconvolve_kwargs)
-    assert (np.abs(p_interp_final-p_final) < 1e-12).all() , \
+    allclose_dict = dict(rtol=1e-9,atol=1e-20)
+    np.allclose(p_interp_final,p_final,**allclose_dict) , \
         "Didn't properly interpolate"
     # # check that the file IO for the command line version works OK. 
     """
@@ -143,6 +147,16 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
                                               expected=p_final,
                                               percentiles=[50,95,99],
                                               tolerances =[0.0095,0.21,0.24])
+    out_file = "./out.csv"
+    InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,bins_ext,
+                                           out_file=out_file)
+    # read it back in 
+    X = np.loadtxt(out_file,skiprows=0).T
+    X_expected = np.array((interp_ext_2,interp_prob_2,deconv_probability_2))
+    diff = np.abs(X -  X_expected)
+    np.allclose(X,X_expected,**allclose_dict) , "Didn't properly save"
+    # POST: properly saved
+
 
 def run(base_dir="./Data/"):
     """
