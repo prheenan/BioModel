@@ -65,10 +65,14 @@ def f_assert_prob(x,msg):
         nothing, throws an error if something goes wrong
     """
     # make sure every element is between 0 and 1
+    msg = msg + " Offending Array:\n{:s}".format(x)
+    is_finite = np.isfinite(x).all()
+    assert (is_finite) , msg
+    # POST: is finite 
     assert ( (x >= 0) ).all() , msg
     # since we dont know 'x', we only know the probabilities should
     # sum to somewhere >0. (e.g. if probability is in units of 
-    # 1/meters, we would need to integrate to get 1)
+    # 1/meters, we would need to integrate to get 1; we can't just sum)
     sum_x = sum(x) 
     assert ( (sum_x > 0)).all() , msg
     
@@ -94,10 +98,10 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=50,delta_tol=1e-6,return_full=False):
         Otherwise, just final probability
     """
     # check the inputs
-    f_assert_prob(p_0,"Initial guess (p_0) not normalized properly (in [0,1])")
-    f_assert_prob(S_q,"Smoothing func (S_q) not normalized properly (in [0,1])")
+    f_assert_prob(p_0,"Initial guess (p_0) not normalized (in [0,1]).")
+    f_assert_prob(S_q,"Smoothing func (S_q) not normalized (in [0,1]).")
     f_assert_prob(P_q,\
-        "Measured distribution (P_q) not normalized properly (in [0,1])")
+        "Measured distribution (P_q) not normalized (in [0,1]).")
     assert (r_0 > 0) , "Convergence rate must be >0"
     assert p_0.size == S_q.size , \
         "Smoothing function (S_q) must be same size as guess (p_0)"
@@ -163,10 +167,9 @@ def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,p_0=None,**kwargs):
     """
     S_q = gaussian_psf(gaussian_stdev,extension_bins)
     if (p_0 is None):
-        p_0 = np.ones(S_q.size)
+        p_0 = np.ones(S_q.size)     
     p_0 /= np.trapz(y=p_0,x=extension_bins)
     p_k = deconvolve(p_0=p_0,S_q=S_q,P_q=P_q,**kwargs)
-
     is_finite = (sum(np.isfinite(p_k)) == p_k.size)
     is_positive = (p_k >= 0).all()
     is_normalizable = (sum(p_k) > 0)
@@ -194,6 +197,9 @@ def interpolate_and_deconvolve_gaussian_psf(gaussian_stdev,extension_bins,P_q,
          interpolated probability> 
     """
     # get the interpolated probabilities
+    if 'upscale_factor' not in interpolate_kwargs:
+        bin_size = np.abs(np.median(np.diff(extension_bins)))
+        interpolate_kwargs['upscale_factor'] = max(1,10*bin_size/gaussian_stdev)
     interp_ext,interp_prob = get_interpolated_probability(ext=extension_bins,
                                                           raw_prob=P_q,
                                                           **interpolate_kwargs)

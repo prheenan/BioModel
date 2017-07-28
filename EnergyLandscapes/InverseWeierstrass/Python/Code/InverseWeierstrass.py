@@ -54,7 +54,9 @@ class FEC_Pulling_Object:
         self.Force = Force.copy()
         self.SpringConstant=SpringConstant
         self.Beta=Beta
-        self.ZFunc = ZFuncSimple if ZFunc is None else ZFunc
+        self.ZFunc = lambda obj=self,*args,**kwargs:\
+            ZFuncSimple(obj,*args,**kwargs) if ZFunc is None else \
+            ZFunc(obj,*args,**kwargs)
         self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
     def update_work(self):
@@ -516,7 +518,10 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
                                    endpoint=False,
                                    num=n)
     for re in RefoldingObjs:
-        assert re.Velocity < 0 , "Refolding data should have negative velocity."
+        v = re.Velocity
+        cond = v < 0 
+        assert cond , \
+            "Refolding data should have negative velocity, got {:.3g}".format(v)
     # POST: velocity data looks good.
     DeltaA = NumericallyGetDeltaA(UnfoldingObjs,RefoldingObjs)
     # create the extension bins 
