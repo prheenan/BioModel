@@ -448,8 +448,15 @@ def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     nf = len(ForwardWork)
     nr = len(ReverseWork)
     # get the forward and reverse 'factor': difference should be zero
-    Forward = 1/(nr + nf * np.exp(Beta * (ForwardWork-DeltaA)))
-    Reverse = 1/(nf + nr * np.exp(Beta * (ReverseWork+DeltaA)))
+    # catch over and underflow errors, since these will screw things up later
+    with np.errstate(over="raise",under="raise"):
+        try:
+            Forward = 1/(nr + nf * np.exp(Beta * (ForwardWork-DeltaA)))
+            Reverse = 1/(nf + nr * np.exp(Beta * (ReverseWork+DeltaA)))
+        except (RuntimeWarning,FloatingPointError) as e:
+            print("Weierstrass: Over/underflow encountered. " + \
+                  "Need fewer kT of integrated work. Try reducing data size")
+            raise(e)
     # we really only case about the abolute value of the expression, since
     # we want the two sides to be equal...
     return np.mean(Forward)-np.mean(Reverse)
@@ -495,7 +502,7 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     # note we set beta to one, since it is easier to solve in units of kT
     ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
     xopt = newton(ToMin,**FMinArgs)
-    to_ret = xopt/beta
+    to_ret = (xopt/(beta))
     return to_ret
     
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
@@ -509,7 +516,7 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
         Energy Landscape Object
     """
     # get the bounds associated with the times and extensions
-    ExtBounds = GetExtensionBounds(UnfoldingObjs + RefoldingObjs)
+    ExtBounds = GetExtensionBounds(UnfoldingObjs)
     # Create the time and position bins using a helper function
     BinIt= lambda x,n: np.linspace(start=x[0],
                                    stop=x[1],
