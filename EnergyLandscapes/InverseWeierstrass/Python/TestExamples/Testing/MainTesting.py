@@ -7,11 +7,10 @@ import sys
 
 sys.path.append("../../../../../../")
 from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
-    InverseWeierstrass
+    InverseWeierstrass,WeierstrassUtil
 from scipy.integrate import cumtrapz
 import copy
 from GeneralUtil.python import PlotUtilities
-from Research.Perkins.AnalysisUtil.EnergyLandscapes import IWT_Util
 
 def AddNoise(signal,snr,function=None):
     size = signal.size
@@ -424,18 +423,11 @@ def TestHummer2010():
     single.Force = np.array(single.Force)
     single.Extension = np.array(single.Extension)
     single.Time = np.array(single.Time)
-    slice_func = lambda o,s:  \
-        InverseWeierstrass.FEC_Pulling_Object(Time=o.Time[s],
-                                              Extension=o.Separation[s],
-                                              Force=o.Force[s],
-                                              SpringConstant=o.SpringConstant,
-                                              Velocity=o.Velocity)
-    unfold,refold = IWT_Util.\
-            get_unfold_and_refold_objects(single,
-                                          slice_func=slice_func,
-                                          number_of_pairs=N,
-                                          flip_forces=False,
-                                          fraction_for_vel=0.3)
+    kwargs = dict(number_of_pairs=N,
+                  flip_forces=False,
+                  fraction_for_vel=0.3)                                              
+    unfold,refold = WeierstrassUtil.get_unfold_and_refold_objects(single,
+                                                                  **kwargs)
     tolerance_kwargs = dict(atol=0,rtol=1e-6)
     for un,re,un_org,re_org in zip(unfold,refold,state_fwd,state_rev):
         check_iwt_obj(un_org,un,**tolerance_kwargs)
@@ -457,7 +449,54 @@ def TestHummer2010():
         FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
     np.testing.assert_allclose(landscape_rev.EnergyLandscape,
                                landscape_bidirectional.EnergyLandscape)
-
+    # check that the command-line style calling works 
+    expected_landscape = landscape_rev.EnergyLandscape
+    assert_correct = lambda actual: \
+        np.testing.assert_allclose(actual.EnergyLandscape,
+                                   expected_landscape)
+    cmd_line = WeierstrassUtil.iwt_ramping_experiment(single,
+                                                      number_of_bins=num_bins,
+                                                      **kwargs)
+    assert_correct(cmd_line)     
+    # check that we get the same answer when we flip the data, and ask it
+    # to be flipped
+    single_rev = copy.deepcopy(single)
+    single_rev.Force *= -1
+    kwargs_flipped = dict(**kwargs)
+    kwargs_flipped['flip_forces'] = True
+    cmd_line_flipped = WeierstrassUtil.\
+        iwt_ramping_experiment(single_rev,
+                               number_of_bins=num_bins,
+                               **kwargs_flipped)
+    assert_correct(cmd_line_flipped)    
+    # check that we get the same answer if we specify the velocity parameter
+    cmd_line_velocity = WeierstrassUtil.\
+                        iwt_ramping_experiment(single,
+                                               number_of_bins=num_bins,
+                                               velocity=single.Velocity,
+                                               **kwargs)
+    assert_correct(cmd_line_velocity)    
+    # check that we get an incorrect answer if we mess up the velocity 
+    cmd_line_incorrect = WeierstrassUtil.\
+        iwt_ramping_experiment(single,
+                               velocity=single.Velocity*2,
+                               number_of_bins=num_bins,
+                               **kwargs)
+    # the first point will be zero; after that the one with wonky velocity
+    # shouldn't agree                                
+    assert_landscapes_disagree(cmd_line_incorrect,expected_landscape)
+    # check that if we only flip one, things are also bad 
+    cmd_line_incorrect = WeierstrassUtil.\
+        iwt_ramping_experiment(single_rev,
+                               number_of_bins=num_bins,
+                               **kwargs)    
+    assert_landscapes_disagree(cmd_line_incorrect,expected_landscape)
+                               
+    
+def assert_landscapes_disagree(new_obj,expected_landscape):
+    # the landscapes are normalized to zero; so we ignore the first point 
+    assert ((new_obj.EnergyLandscape[1:] != expected_landscape[1:]).all())
+                                               
     
 def run():
     """

@@ -602,5 +602,5 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     # write down q, using ibid, 10, argument to G0
     q = ExtBins[GoodIndex]-dA_dz/k
     return EnergyLandscape(FreeEnergyAtZeroForce,q,ExtBins,Beta)
-
-
+    
+    
