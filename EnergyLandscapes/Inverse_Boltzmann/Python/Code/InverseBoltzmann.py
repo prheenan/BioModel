@@ -197,9 +197,6 @@ def interpolate_and_deconvolve_gaussian_psf(gaussian_stdev,extension_bins,P_q,
          interpolated probability> 
     """
     # get the interpolated probabilities
-    if 'upscale_factor' not in interpolate_kwargs:
-        bin_size = np.abs(np.median(np.diff(extension_bins)))
-        interpolate_kwargs['upscale_factor'] = max(1,10*bin_size/gaussian_stdev)
     interp_ext,interp_prob = get_interpolated_probability(ext=extension_bins,
                                                           raw_prob=P_q,
                                                           **interpolate_kwargs)

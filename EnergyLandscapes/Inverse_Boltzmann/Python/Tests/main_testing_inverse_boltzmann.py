@@ -76,9 +76,6 @@ def assert_probabilities_close(actual,expected,percentiles,tolerances):
             format(p,val,tol)
     return percentile_values,diff_rel
 
-def check_probabilities():
-    
-
 def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     deconv_name = base_dir + "woodside_2006_{:s}.csv".format(file_id)
     raw_name = \
@@ -153,7 +150,6 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     # read it back in 
     X = np.loadtxt(out_file,skiprows=0).T
     X_expected = np.array((interp_ext_2,interp_prob_2,deconv_probability_2))
-    diff = np.abs(X -  X_expected)
     np.allclose(X,X_expected,**allclose_dict) , "Didn't properly save"
     # POST: properly saved
 
