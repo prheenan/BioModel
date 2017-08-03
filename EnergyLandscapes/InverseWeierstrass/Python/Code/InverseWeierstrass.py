@@ -12,13 +12,18 @@ from scipy.optimize import fminbound,newton
 from scipy import sparse
 
 class EnergyLandscape:
-    def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta):
+    def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta,
+                 free_energy_A,first_deriv_term,second_deriv_term):
         # sort the energy landscape by the exensions
         SortIdx = np.argsort(Extensions)
         self.EnergyLandscape = EnergyLandscape[SortIdx]
         self.Extensions = Extensions[SortIdx]
         self.ExtensionBins = ExtensionBins
         self.Beta = Beta
+        # terms for reconstructing the energy landsscape 
+        self.free_energy_A=free_energy_A
+        self.first_deriv_term=first_deriv_term
+        self.second_deriv_term=second_deriv_term        
 
 def ZFuncSimple(obj):
     return obj.Offset + (obj.Velocity * obj.Time)        
@@ -588,10 +593,11 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     # write down the terms involving the first and second derivative of A
     dA_dz = BoltzmannWeightedForce[GoodIndex].copy()
     # for the second derivative, just use 1-A''/k
-    SecondDerivTerm = Beta *VarianceForceBoltzWeighted[GoodIndex]/k
     # perform the IWT, ibid equation 10
-    FreeEnergyAtZeroForce = FreeEnergy_A - (dA_dz)**2/(2*k) + \
-                            (1/(2*Beta)) * np.log(SecondDerivTerm)
+    first_deriv_term = -(dA_dz)**2/(2*k)
+    second_deriv_term = (1/(2*Beta)) * \
+        np.log(Beta *VarianceForceBoltzWeighted[GoodIndex]/k)
+    FreeEnergyAtZeroForce = FreeEnergy_A  + first_deriv_term + second_deriv_term
     # bottom of well is prettu much arbitrary
     okIdx = np.where(np.isfinite(FreeEnergyAtZeroForce))[0]
     assert (okIdx.size > 0) , \
@@ -601,6 +607,9 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     FreeEnergyAtZeroForce -= MinVal
     # write down q, using ibid, 10, argument to G0
     q = ExtBins[GoodIndex]-dA_dz/k
-    return EnergyLandscape(FreeEnergyAtZeroForce,q,ExtBins,Beta)
+    return EnergyLandscape(FreeEnergyAtZeroForce,q,ExtBins,Beta,
+                           free_energy_A=FreeEnergy_A,
+                           first_deriv_term=first_deriv_term,
+                           second_deriv_term=second_deriv_term)
     
     
