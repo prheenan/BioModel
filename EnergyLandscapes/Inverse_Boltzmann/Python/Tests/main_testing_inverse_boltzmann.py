@@ -100,9 +100,13 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
                                     return_full=False,
                                     delta_tol=1e-9,
                                     r_0=1)
-    deconvolve_kwargs = dict(extension_bins=interp_ext,
-                             P_q=interp_raw_prob,**common_deconvolve_kwargs)
-    p_final = InverseBoltzmann.gaussian_deconvolve(**deconvolve_kwargs)
+    p_final = InverseBoltzmann.gaussian_deconvolve(P_q=interp_raw_prob,
+                                                   extension_bins=interp_ext,
+                                                   **common_deconvolve_kwargs)
+    p_final_not_interp = \
+        InverseBoltzmann.gaussian_deconvolve(P_q=raw_prob,
+                                             extension_bins=ext,
+                                             **common_deconvolve_kwargs)
     p_final_filtered = spatially_filtered_probability(interp_ext,p_final,
                                                       x_filter=1)
     # # check that the probability returns what we want 
@@ -120,13 +124,15 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     assert np.allclose(p_interp_final,p_final,**allclose_dict) , \
         "Didn't properly interpolate"
     # # check that if we don't intrpolate, we get the same interp
-    _,should_be_raw_prob,should_be_p_final= \
+    _,should_be_raw_prob,should_be_p_final_not_interp= \
         InverseBoltzmannUtil.\
         interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
                                                 P_q=raw_prob,
                                                 interp_kwargs=dict(upscale=1),
                                                 **common_deconvolve_kwargs)
     np.testing.assert_allclose(should_be_raw_prob,raw_prob)
+    np.testing.assert_allclose(should_be_p_final_not_interp,p_final_not_inter[)
+    # POST: if we say upscale <= 1 , then we dont interpolate
     # # check that the interpolation works about the same if we upscale 
     # # by the standard deviation
     interpolation_factor = InverseBoltzmannUtil.\
