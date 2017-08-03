@@ -124,14 +124,15 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     assert np.allclose(p_interp_final,p_final,**allclose_dict) , \
         "Didn't properly interpolate"
     # # check that if we don't intrpolate, we get the same interp
-    _,should_be_raw_prob,should_be_p_final_not_interp= \
+    should_be_ext,should_be_raw_prob,should_be_p_final_not_interp= \
         InverseBoltzmannUtil.\
         interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
                                                 P_q=raw_prob,
                                                 interp_kwargs=dict(upscale=1),
                                                 **common_deconvolve_kwargs)
+    np.testing.assert_allclose(should_be_ext,ext)
     np.testing.assert_allclose(should_be_raw_prob,raw_prob)
-    np.testing.assert_allclose(should_be_p_final_not_interp,p_final_not_inter[)
+    np.testing.assert_allclose(should_be_p_final_not_interp,p_final_not_interp)
     # POST: if we say upscale <= 1 , then we dont interpolate
     # # check that the interpolation works about the same if we upscale 
     # # by the standard deviation
@@ -145,6 +146,10 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
             interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
                                                     P_q=raw_prob,
                                                     **kwargs_deconvolve_up)
+    p_interp_up_grid = interp1d(x=ext_up,y=p_interp_up)(interp_ext)
+    # we have to use a somehwhat higher tolerance for this...
+    np.testing.assert_allclose(p_interp_up_grid,p_final,atol=0.05,rtol=1e-2)
+    # interpolate back into the 'normal' grid. 
     # # check that the file IO for the command line version works OK. 
     """
     in order to generate samples, we need to get the cdf (see:
