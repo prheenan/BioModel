@@ -32,6 +32,8 @@ def read_ext_and_probability(input_file):
     sort_idx = np.argsort(ext)
     ext = ext[sort_idx]
     raw_prob = raw_prob[sort_idx]
+    raw_prob = np.maximum(0,raw_prob)
+    raw_prob /= np.trapz(x=ext,y=raw_prob)
     return ext,raw_prob
 
 def spatially_filtered_probability(x,probability,x_filter):
@@ -84,12 +86,13 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
     ext,raw_prob = read_ext_and_probability(raw_name)
     # interpolate the deconvoled probability into the raw grid
     interp_ext, interp_raw_prob =  \
-        InverseBoltzmann.get_interpolated_probability(ext,raw_prob)
+        InverseBoltzmannUtil.get_interpolated_probability(ext,raw_prob)
     interp_deconvolved_ext,interp_deconvolved_prob = \
-        InverseBoltzmann.get_interpolated_probability(deconv_ext,deconv_prob,
-                                                      interp_ext=interp_ext,
-                                                      bounds_error=False,
-                                                      fill_value="extrapolate")
+        InverseBoltzmannUtil.\
+        get_interpolated_probability(deconv_ext,deconv_prob,
+                                     interp_ext=interp_ext,
+                                     bounds_error=False,
+                                     fill_value="extrapolate")
     # # start testing things
     # test that the deconvolution matches
     common_deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
@@ -108,14 +111,34 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
                                               percentiles=[50,95,99],
                                               tolerances =tolerances)
     # # check that the interpolating function does exactly what we just did
-    _,_,p_interp_final= \
-        InverseBoltzmann.\
+    interp_ext_not_by_stdev,_,p_interp_final= \
+        InverseBoltzmannUtil.\
         interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
                                                 P_q=raw_prob,
                                                 **common_deconvolve_kwargs)
     allclose_dict = dict(rtol=1e-9,atol=1e-20)
-    np.allclose(p_interp_final,p_final,**allclose_dict) , \
+    assert np.allclose(p_interp_final,p_final,**allclose_dict) , \
         "Didn't properly interpolate"
+    # # check that if we don't intrpolate, we get the same interp
+    _,should_be_raw_prob,should_be_p_final= \
+        InverseBoltzmannUtil.\
+        interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
+                                                P_q=raw_prob,
+                                                interp_kwargs=dict(upscale=1),
+                                                **common_deconvolve_kwargs)
+    np.testing.assert_allclose(should_be_raw_prob,raw_prob)
+    # # check that the interpolation works about the same if we upscale 
+    # # by the standard deviation
+    interpolation_factor = InverseBoltzmannUtil.\
+            upscale_factor_by_stdev(extension_bins=ext,
+                                    gaussian_stdev=gaussian_stdev)
+    kwargs_deconvolve_up = \
+            dict(interp_kwargs=dict(upscale=interpolation_factor),
+                 **common_deconvolve_kwargs)
+    ext_up,_,p_interp_up = InverseBoltzmannUtil.\
+            interpolate_and_deconvolve_gaussian_psf(extension_bins=ext,
+                                                    P_q=raw_prob,
+                                                    **kwargs_deconvolve_up)
     # # check that the file IO for the command line version works OK. 
     """
     in order to generate samples, we need to get the cdf (see:
@@ -131,7 +154,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     # get an interpolating inverse; goes from probabilities to x values
     interpolated_inverse = interp1d(x=cummulative_interp_prob,
                                     y=interp_ext+shift)
-    # generae a bunch of uniform random numbers (probabilities
+    # generae a bunch of uniform random numbers (probabilities)
     n = int(1e5)
     uniform = np.random.random(size=n)
     ext_random = interpolated_inverse(uniform)
@@ -143,14 +166,14 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
                                               expected=p_final,
                                               percentiles=[50,95,99],
-                                              tolerances =[0.0095,0.21,0.24])
+                                              tolerances =[0.01,0.21,0.25])
     out_file = "./out.csv"
     InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,bins_ext,
                                            out_file=out_file)
     # read it back in 
     X = np.loadtxt(out_file,skiprows=0).T
     X_expected = np.array((interp_ext_2,interp_prob_2,deconv_probability_2))
-    np.allclose(X,X_expected,**allclose_dict) , "Didn't properly save"
+    assert np.allclose(X,X_expected,**allclose_dict) , "Didn't properly save"
     # POST: properly saved
 
 
