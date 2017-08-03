@@ -26,7 +26,65 @@ def get_extension_bins_and_distribution(extension,bins):
     bins = bins[:-1]
     return bins,distribution
 
-def normalize_to_sum_1(extension,gaussian_stdev,bins):
+def _normalization_factor_for_histogram_to_sum_1(P_q):
+    """
+    Returns what to multiply each extension bin by such that
+    P_q will sum and integrate to one (assuming renormalization of P_q
+    after multiplying the extensions
+
+    Args:
+        P_q: a probability distribution
+    Returns:
+        see description
+    """
+    # We want (1) and (2):
+    # (1) Int P_q dq ~ sum_q (P(q) dq) =  1
+    # (2) sum_q P_q = 1
+    # it follows if we choose
+    # dq -> dq * sum_q P_q
+    # and enforce normaliztion (1), then
+    # P_q -> P_q / (sum_q P_q)
+    # so that we get 2 for free 
+    return sum(P_q)
+
+def _normalize(factor,P_q,q,*args):
+    """
+    See enforce_normalization_sum_1(P_q,q,*args), except 'factor' is manually
+    specified
+
+    Args:
+        factor: what to multiply all the extension variables by
+    Returns:
+        see enforce_normalization_sum_1(P_q,q,*args)
+    """
+    q_ret = q * factor
+    to_ret = [a*factor for a in args]
+    P_q_ret = P_q/np.trapz(y=P_q,x=q_ret)
+    return [factor,P_q_ret,q_ret] + to_ret
+    
+def enforce_normalization_sum_1(P_q,q,*args):
+    """
+    Ensures that (1) and (2) from _normalization_factor_for_histogram_to_sum_1
+    are satisfied (ie: the probability sums and integrates to one)
+
+    Args:
+        P_q: probability distribution, size N
+        q: extension, size N
+        *args: any addition quantities to determine; same units as q
+    Returns:
+        tuple of <factor,P_q_normalized,q_normalized, all of *args normalized>
+    """
+    factor = _normalization_factor_for_histogram_to_sum_1(P_q)
+    return _normalize(factor,P_q,q,*args)
+
+def denormalize(factor,P_q,q,*args):
+    """
+    See enforce_normalization_sum_1, except returns denomalized arrays
+    (ie: multiplying by 1/factor instead of factor
+    """
+    return _normalize(1/factor,P_q,q,*args)
+
+def normalize_to_sum_1(bins,extension,gaussian_stdev):
     """
     normalize the given quantitites such that the distribution has both sum and 
     integral one
@@ -37,21 +95,13 @@ def normalize_to_sum_1(extension,gaussian_stdev,bins):
         bins: the input to np.histogram
 
     Returns:
-        tuple of <factor extension should be multiplied by,extension multiplied,
-        1-normalized bins, 1-normalized gaussian stdev,
-        1-normalized extension distribution P(q), 
+        see  enforce_normalization_sum_1, except returns gausian_Stdev also
     """
     # get the extension distribution in whatever units the user gives us
     bins,P_q = get_extension_bins_and_distribution(extension,bins=bins)
-    sum_initial = sum(P_q)
-    # choose bins such that the sum is 1
-    extension_factor = sum_initial
-    # XXX assume p0...
-    extension_unitless = extension*extension_factor
-    bins *= extension_factor
-    gaussian_stdev *= extension_factor
-    P_q /= np.trapz(y=P_q,x=bins)
-    return extension_factor,extension_unitless,bins,gaussian_stdev,P_q
+    # very important to enforce normalization.
+    to_ret =  enforce_normalization_sum_1(P_q,bins,extension,gaussian_stdev)
+    return to_ret
     
 
 def extension_deconvolution(gaussian_stdev,extension,bins,
@@ -80,23 +130,30 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
         tuple of <interpolated extensions, raw probability, 
         deconvolved probability>
     """
-    extension_factor,extension_unitless,bins,gaussian_stdev,P_q = \
-        normalize_to_sum_1(extension,gaussian_stdev,bins)
-    deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev,
-                             extension_bins = bins,
-                             P_q = P_q,
+    extension_factor,P_q_u,bins_u,extension_u,gaussian_stdev_u = \
+        normalize_to_sum_1(bins,extension,gaussian_stdev)
+    sum_to_check = sum(P_q_u)
+    int_to_check = np.trapz(y=P_q_u,x=bins_u)
+    assert abs(sum_to_check - 1) < 1e-2 , \
+        "Sum-normalization didn't work, got {:.4g}, not 1".format(sum_to_check)
+    assert (int_to_check-1) < 1e-2 , \
+        "Integral-normalization didn't work, got {:.4g}, not 1".\
+        format(int_to_check)
+    # POST: everything is normalized as we want (or very close)
+    deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev_u,
+                             extension_bins = bins_u,
+                             P_q = P_q_u,
                              interp_kwargs=interpolate_kwargs,
                              **deconvolve_common_kwargs)
     interp_ext,interp_prob,deconv_interpolated_probability = \
         interpolate_and_deconvolve_gaussian_psf(**deconvolve_kwargs)
     # convert the extensions back from their unnormalized format, renormalize 
     # the probabilities so that they match up
-    interp_ext = interp_ext * 1/extension_factor
-    # 'raw' probability
-    interp_prob /= np.trapz(x=interp_ext,y=interp_prob)
-    # deconvolved probability 
-    factor_deconv = np.trapz(x=interp_ext,y=deconv_interpolated_probability)
-    deconv_interpolated_probability /= factor_deconv
+    # note: we *dont* normalize interp_ext twice (so it is '_' the first time)
+    _,interp_prob,_ = \
+        denormalize(extension_factor,interp_prob,interp_ext)
+    _,deconv_interpolated_probability,interp_ext = \
+        denormalize(extension_factor,deconv_interpolated_probability,interp_ext)
     return interp_ext,interp_prob,deconv_interpolated_probability
 
 def run_and_save_data(gaussian_stdev,extension,bins,out_file,

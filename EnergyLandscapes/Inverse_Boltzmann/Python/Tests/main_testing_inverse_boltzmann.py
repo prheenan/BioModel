@@ -195,8 +195,9 @@ cu    """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
     np.random.seed(42)
-    tolerances = [3e-3,4.2e-2,0.087]
+    tolerances = [3e-3,5.e-2,0.087]
     kw = dict(base_dir=base_dir,tolerances=tolerances)
+    #test_single_file(gaussian_stdev=1.9,file_id="3b",**kw)
     test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
     test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
     test_single_file(gaussian_stdev=3,file_id="3d",**kw)
