@@ -100,13 +100,13 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
                                     return_full=False,
                                     delta_tol=1e-9,
                                     r_0=1)
-    p_final = InverseBoltzmann.gaussian_deconvolve(P_q=interp_raw_prob,
-                                                   extension_bins=interp_ext,
-                                                   **common_deconvolve_kwargs)
     p_final_not_interp = \
         InverseBoltzmann.gaussian_deconvolve(P_q=raw_prob,
                                              extension_bins=ext,
                                              **common_deconvolve_kwargs)
+    p_final = InverseBoltzmann.gaussian_deconvolve(P_q=interp_raw_prob,
+                                                   extension_bins=interp_ext,
+                                                   **common_deconvolve_kwargs)
     p_final_filtered = spatially_filtered_probability(interp_ext,p_final,
                                                       x_filter=1)
     # # check that the probability returns what we want 

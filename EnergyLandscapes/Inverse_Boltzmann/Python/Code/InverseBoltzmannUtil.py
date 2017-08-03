@@ -137,9 +137,9 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
     assert abs(sum_to_check - 1) < 1e-2 , \
         "Sum-normalization didn't work, got {:.4g}, not 1".format(sum_to_check)
     assert (int_to_check-1) < 1e-2 , \
-        "Integral-normalization didn't work, got {:.4g}, not 1".\
-        format(int_to_check)
-    # POST: everything is normalized as we want (or very close)
+        "Int-normalization didn't work, got {:.4g}, not 1".format(int_to_check)
+    # POST: everything is normalized as we want (or within X%; this shouldn't
+    # cause extra numerical instability ). 
     deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev_u,
                              extension_bins = bins_u,
                              P_q = P_q_u,
