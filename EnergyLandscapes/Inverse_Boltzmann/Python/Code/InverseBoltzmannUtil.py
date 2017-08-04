@@ -105,7 +105,7 @@ def normalize_to_sum_1(bins,extension,gaussian_stdev):
     
 
 def extension_deconvolution(gaussian_stdev,extension,bins,
-                            interpolate_kwargs = dict(),
+                            interp_kwargs = dict(),
                             deconvolve_common_kwargs=dict(p_0=None,
                                                           n_iters=300,
                                                           delta_tol=1e-9,
@@ -143,7 +143,7 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
     deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev_u,
                              extension_bins = bins_u,
                              P_q = P_q_u,
-                             interp_kwargs=interpolate_kwargs,
+                             interp_kwargs=interp_kwargs,
                              **deconvolve_common_kwargs)
     interp_ext,interp_prob,deconv_interpolated_probability = \
         interpolate_and_deconvolve_gaussian_psf(**deconvolve_kwargs)
@@ -157,15 +157,20 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
     return interp_ext,interp_prob,deconv_interpolated_probability
 
 def run_and_save_data(gaussian_stdev,extension,bins,out_file,
-                      interpolate_kwargs=dict(),
+                      interp_kwargs=dict(),
                       save_kwargs=dict(fmt=str("%.15g"))):
     """
-    Runs a deconvolution, saving the data out 
+    Runs a deconvolution, saving the data out  to out_file. 
+    
+    Args:
+        out_file: path to the file to save out
+        save_kwargs: passed directly to savetxt
+        all others: see extension_deconvolution 
     """
     interp_ext,interp_prob,prob_deconc = \
             extension_deconvolution(gaussian_stdev,
                                     extension,bins,
-                                    interpolate_kwargs=interpolate_kwargs)
+                                    interp_kwargs=interp_kwargs)
     header = "# extension bin -- raw probability -- deconvolved probability" + \
              " (Inverse Boltzmann, (c) Patrick Heenan 2017)"
     X = np.array(((interp_ext,interp_prob,prob_deconc))).T
