@@ -175,7 +175,7 @@ def gaussian_deconvolve(gaussian_stdev,extension_bins,P_q,p_0=None,**kwargs):
     is_normalizable = (sum(p_k) > 0)
     assert is_finite , "Deconvolution resulted in infinite sum."
     assert is_positive , \
-        "Deconvolution resulted in negative probability distribution."
+        "Deconvolution gave probability distribution with negatives"
     assert is_normalizable , \
         "Couldn't normalize the probability distribution (sum was 0)."
     # POST: p_k is normalizable 

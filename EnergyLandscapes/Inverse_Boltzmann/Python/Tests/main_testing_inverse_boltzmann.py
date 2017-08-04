@@ -122,7 +122,7 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id,
     pct,diff_rel = assert_probabilities_close(actual=p_final_filtered,
                                               expected=interp_deconvolved_prob,
                                               percentiles=[50,95,99],
-                                              tolerances =tolerances)                                                                                            
+                                              tolerances =tolerances)
     # # check that the interpolating function does exactly what we just did
     interp_ext_not_by_stdev,_,p_interp_final= \
         InverseBoltzmannUtil.\
