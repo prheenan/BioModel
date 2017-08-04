@@ -78,12 +78,21 @@ def assert_probabilities_close(actual,expected,percentiles,tolerances):
             format(p,val,tol)
     return percentile_values,diff_rel
 
-def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
+def test_single_file(base_dir,gaussian_stdev,tolerances,file_id,
+                     renormalize=True):
     deconv_name = base_dir + "woodside_2006_{:s}.csv".format(file_id)
     raw_name = \
             base_dir + "woodside_2006_{:s}_raw_probability.csv".format(file_id)
     deconv_ext,deconv_prob = read_ext_and_probability(deconv_name)
     ext,raw_prob = read_ext_and_probability(raw_name)
+    if (renormalize):
+        f,raw_prob, ext= \
+            InverseBoltzmannUtil.enforce_normalization_sum_1(raw_prob,ext)
+        _,deconv_prob, deconv_ext, gaussian_stdev = \
+                InverseBoltzmannUtil._normalize(f,
+                                                deconv_prob,
+                                                deconv_ext,
+                                                gaussian_stdev)
     # interpolate the deconvoled probability into the raw grid
     interp_ext, interp_raw_prob =  \
         InverseBoltzmannUtil.get_interpolated_probability(ext,raw_prob)
@@ -130,9 +139,11 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id):
                                                 P_q=raw_prob,
                                                 interp_kwargs=dict(upscale=1),
                                                 **common_deconvolve_kwargs)
-    np.testing.assert_allclose(should_be_ext,ext)
-    np.testing.assert_allclose(should_be_raw_prob,raw_prob)
-    np.testing.assert_allclose(should_be_p_final_not_interp,p_final_not_interp)
+    rtol = 1e-3
+    np.testing.assert_allclose(should_be_ext,ext,rtol=rtol)
+    np.testing.assert_allclose(should_be_raw_prob,raw_prob,rtol=rtol,atol=1e-3)
+    np.testing.assert_allclose(should_be_p_final_not_interp,p_final_not_interp,
+                               rtol=rtol,atol=1e-3)
     # POST: if we say upscale <= 1 , then we dont interpolate
     # # check that the interpolation works about the same if we upscale 
     # # by the standard deviation
@@ -177,7 +188,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     pct,diff_rel = assert_probabilities_close(actual=deconv_probability_2,
                                               expected=p_final,
                                               percentiles=[50,95,99],
-                                              tolerances =[0.01,0.21,0.25])
+                                              tolerances =[0.011,0.22,0.251])
     out_file = "./out.csv"
     InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,bins_ext,
                                            out_file=out_file)
@@ -195,12 +206,14 @@ cu    """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
     np.random.seed(42)
-    tolerances = [3e-3,5.e-2,0.087]
+    tolerances = [3e-3,4.2e-2,0.087]
     kw = dict(base_dir=base_dir,tolerances=tolerances)
-    #test_single_file(gaussian_stdev=1.9,file_id="3b",**kw)
-    test_single_file(gaussian_stdev=1.75,file_id="3c",**kw)
-    test_single_file(gaussian_stdev=2.34,file_id="3a",**kw)
-    test_single_file(gaussian_stdev=3,file_id="3d",**kw)
+    # we must normalize 3b, or it won't run
+    test_single_file(gaussian_stdev=2.25,file_id="3b",**kw)
+    for norm in [True,False]:
+        test_single_file(gaussian_stdev=1.75,file_id="3c",renormalize=norm,**kw)
+        test_single_file(gaussian_stdev=2.34,file_id="3a",renormalize=norm,**kw)
+        test_single_file(gaussian_stdev=3,file_id="3d",renormalize=norm,**kw)
 
 if __name__ == "__main__":
     run()
