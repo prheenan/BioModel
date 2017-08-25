@@ -65,7 +65,7 @@ def f_assert_prob(x,msg):
         nothing, throws an error if something goes wrong
     """
     # make sure every element is between 0 and 1
-    msg = msg + " Offending Array:\n{:s}".format(x)
+    msg = msg + " Offending Array:\n{:s}".format(str(x))
     is_finite = np.isfinite(x).all()
     assert (is_finite) , msg
     # POST: is finite 

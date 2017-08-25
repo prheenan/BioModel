@@ -93,6 +93,9 @@ def test_single_file(base_dir,gaussian_stdev,tolerances,file_id,
                                                 deconv_prob,
                                                 deconv_ext,
                                                 gaussian_stdev)
+    else:
+        # f is the normalization factor; it is just one if we dont renormalize
+        f = 1
     # interpolate the deconvoled probability into the raw grid
     interp_ext, interp_raw_prob =  \
         InverseBoltzmannUtil.get_interpolated_probability(ext,raw_prob)
@@ -190,13 +193,62 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
                                               percentiles=[50,95,99],
                                               tolerances =[0.011,0.22,0.251])
     out_file = "./out.csv"
+    # at first, *dont* use smart interpolation 
+    run_kw = dict(interpolate_kwargs=dict(upscale=10),help_smart=False)
     InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,bins_ext,
-                                           out_file=out_file)
+                                           out_file=out_file,
+                                           run_kwargs=run_kw)
     # read it back in 
-    X = np.loadtxt(out_file,skiprows=0).T
+    X = np.loadtxt(out_file,skiprows=0,delimiter=",").T
     X_expected = np.array((interp_ext_2,interp_prob_2,deconv_probability_2))
     assert np.allclose(X,X_expected,**allclose_dict) , "Didn't properly save"
-    # POST: properly saved
+    # POST: properly saved; all command line stuff works just fine. 
+    # for kicks, save out the extension points. Note that we divide by 
+    # 1e9, to get the extension in meters
+    np.savetxt("./extension_vs_time.csv",X=ext_random*1e-9)
+    # now that we know things save correctly, run with the 'smart' interpolation
+    # and make sure things make sense...
+    n_bins_original = 30
+    interp_ext_help,interp_prob_help,interp_deconv_help = \
+        InverseBoltzmannUtil.run(gaussian_stdev,extension=ext_random,
+                                 bins=n_bins_original,help_smart=True)
+    # interpolate the (nominally correct) probability back to this probability 
+    _,expected_prob_help,expected_deconv_help = \
+            InverseBoltzmannUtil.interpolate_output(interp_ext_help,
+                                                    interp_ext_2,
+                                                    interp_prob_2,
+                                                    deconv_probability_2)
+    np.testing.assert_allclose(interp_prob_help,expected_prob_help,
+                               rtol=0.05,atol=0.01)
+    # deconvolved probabilities have a much higher error tolerance...
+    np.testing.assert_allclose(expected_deconv_help,
+                               interp_deconv_help,rtol=0.25,atol=0.3,
+                               verbose=True)
+    # POST: smart interpolation works (might get a diferent answer...)
+    # make sure that if we save and interpolate back to the original 
+    # grid, we get something reasonable...
+    save_kw = dict(output_interpolated=False)
+    InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,
+                                           bins=n_bins_original,
+                                           out_file=out_file,
+                                           run_kwargs=run_kw,
+                                           save_kwargs=save_kw)
+    arr = np.loadtxt(out_file,delimiter=",")
+    assert arr.shape == (n_bins_original,3) , "Didn't save out properly" 
+    # POST: shape is correct. get the expected landscape at these x values 
+    non_interp_x = arr[:,0]
+    _,expected_prob_non_interp,expected_deconv_non_interp = \
+            InverseBoltzmannUtil.interpolate_output(non_interp_x,
+                                                    interp_ext_2,
+                                                    interp_prob_2,
+                                                    deconv_probability_2,
+                                                    fill_value=0,
+                                                    bounds_error=False)
+    np.testing.assert_allclose(expected_prob_non_interp,arr[:,1],
+                               rtol=0.05,atol=0.01)
+    # deconvolved probabilities have a much higher error tolerance...
+    np.testing.assert_allclose(expected_deconv_non_interp,arr[:,2],
+                               rtol=0.25,atol=0.3)
 
 
 def run(base_dir="./Data/"):
