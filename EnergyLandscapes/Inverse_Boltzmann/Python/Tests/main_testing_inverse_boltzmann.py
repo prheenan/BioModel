@@ -194,7 +194,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
                                               tolerances =[0.011,0.22,0.251])
     out_file = "./out.csv"
     # at first, *dont* use smart interpolation 
-    run_kw = dict(interpolate_kwargs=dict(upscale=10),help_smart=False)
+    run_kw = dict(interpolate_kwargs=dict(upscale=10),smart_interpolation=False)
     InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,bins_ext,
                                            out_file=out_file,
                                            run_kwargs=run_kw)
@@ -211,7 +211,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     n_bins_original = 30
     interp_ext_help,interp_prob_help,interp_deconv_help = \
         InverseBoltzmannUtil.run(gaussian_stdev,extension=ext_random,
-                                 bins=n_bins_original,help_smart=True)
+                                 bins=n_bins_original,smart_interpolation=True)
     # interpolate the (nominally correct) probability back to this probability 
     _,expected_prob_help,expected_deconv_help = \
             InverseBoltzmannUtil.interpolate_output(interp_ext_help,

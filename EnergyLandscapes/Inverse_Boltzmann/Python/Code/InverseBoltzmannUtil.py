@@ -156,7 +156,7 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
         denormalize(extension_factor,deconv_interpolated_probability,interp_ext)
     return interp_ext,interp_prob,deconv_interpolated_probability
 
-def smart_interpolation(extension,bins,gaussian_stdev,**kw):
+def smart_interpolation_factor(extension,bins,gaussian_stdev,**kw):
     """
     Args:
         exntesion, bins: see get_extension_bins_and_distribution
@@ -196,21 +196,21 @@ def interpolate_output(output_bins,interp_ext,interp_prob,
     return interp_ext,interp_prob,prob_deconc
 
 def run(gaussian_stdev,extension,bins,interpolate_kwargs=dict(),
-        help_smart=True):
+        smart_interpolation=True):
     """
     Returns the deconvolved...
 
     Args:
         see extension_deconvolution, except:
-        help_smart: boolean, if true, then gets upscale (for 
+        smart_interpolation: boolean, if true, then gets upscale (for 
         extension_deconvolution) based on the gaussian standard deviation
     Returns:
         tuple of <interpolated extension, probability, and deconvolved 
         probability>
     """
-    if (help_smart):
-        interpolation_factor = smart_interpolation(extension,bins,
-                                                   gaussian_stdev)
+    if (smart_interpolation):
+        interpolation_factor = smart_interpolation_factor(extension,bins,
+                                                          gaussian_stdev)
         interpolate_kwargs['upscale'] = interpolation_factor
     interp_ext,interp_prob,prob_deconc = \
             extension_deconvolution(gaussian_stdev,
