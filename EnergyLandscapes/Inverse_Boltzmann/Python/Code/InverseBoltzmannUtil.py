@@ -107,8 +107,6 @@ def normalize_to_sum_1(bins,extension,gaussian_stdev):
 def extension_deconvolution(gaussian_stdev,extension,bins,
                             interp_kwargs = dict(),
                             deconvolve_common_kwargs=dict(p_0=None,
-                                                          n_iters=300,
-                                                          delta_tol=1e-9,
                                                           return_full=False,
                                                           r_0=1)):
     """
@@ -195,8 +193,8 @@ def interpolate_output(output_bins,interp_ext,interp_prob,
     prob_deconc /= np.trapz(y=prob_deconc,x=interp_ext)
     return interp_ext,interp_prob,prob_deconc
 
-def run(gaussian_stdev,extension,bins,interpolate_kwargs=dict(),
-        smart_interpolation=True):
+def run(gaussian_stdev,extension,bins,interp_kwargs=dict(),
+        smart_interpolation=True,**kw):
     """
     Returns the deconvolved...
 
@@ -211,12 +209,15 @@ def run_and_save_data(gaussian_stdev,extension,bins,out_file,
                       interp_kwargs=dict(),
                       save_kwargs=dict(fmt=str("%.15g"))):
     """
-    Runs a deconvolution, saving the data out  to out_file. 
-    
-    Args:
-        out_file: path to the file to save out
-        save_kwargs: passed directly to savetxt
-        all others: see extension_deconvolution 
+    if (smart_interpolation):
+        interpolation_factor = smart_interpolation_factor(extension,bins,
+                                                          gaussian_stdev)
+        interp_kwargs['upscale'] = interpolation_factor
+    interp_ext,interp_prob,prob_deconc = \
+            extension_deconvolution(gaussian_stdev,
+                                    extension,bins,
+                                    interp_kwargs=interp_kwargs,
+                                    **kw)
     return interp_ext,interp_prob,prob_deconc
     
 def save_data(out_file,interp_ext,interp_prob,prob_deconc,output_interpolated,
@@ -245,7 +246,7 @@ def save_data(out_file,interp_ext,interp_prob,prob_deconc,output_interpolated,
     
 
 def run_and_save_data(gaussian_stdev,extension,bins,out_file,
-                      run_kwargs=dict(interpolate_kwargs=dict()),
+                      run_kwargs=dict(interp_kwargs=dict()),
                       save_kwargs=dict(output_interpolated=True)):
     """
     Runs a deconvolution, saving the data out 

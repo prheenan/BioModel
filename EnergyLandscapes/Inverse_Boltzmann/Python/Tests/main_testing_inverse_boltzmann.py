@@ -180,7 +180,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
     interpolated_inverse = interp1d(x=cummulative_interp_prob,
                                     y=interp_ext+shift)
     # generae a bunch of uniform random numbers (probabilities)
-    n = int(1e6)
+    n = int(1e5)
     uniform = np.random.random(size=n)
     ext_random = interpolated_inverse(uniform)
     f_deconv = InverseBoltzmannUtil.extension_deconvolution
@@ -196,7 +196,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
                                               tolerances =[0.015,0.098,0.12])
     out_file = "./out.csv"
     # at first, *dont* use smart interpolation 
-    run_kw = dict(interpolate_kwargs=dict(upscale=10),smart_interpolation=False)
+    run_kw = dict(interp_kwargs=dict(upscale=10),smart_interpolation=False)
     InverseBoltzmannUtil.run_and_save_data(gaussian_stdev,ext_random,bins_ext,
                                            out_file=out_file,
                                            run_kwargs=run_kw)
