@@ -105,8 +105,10 @@ def normalize_to_sum_1(bins,extension,gaussian_stdev):
     
 
 def extension_deconvolution(gaussian_stdev,extension,bins,
-                            interp_kwargs = dict(),
+                            interpolate_kwargs = dict(),
                             deconvolve_common_kwargs=dict(p_0=None,
+                                                          n_iters=300,
+                                                          delta_tol=1e-9,
                                                           return_full=False,
                                                           r_0=1)):
     """
@@ -141,7 +143,7 @@ def extension_deconvolution(gaussian_stdev,extension,bins,
     deconvolve_kwargs = dict(gaussian_stdev=gaussian_stdev_u,
                              extension_bins = bins_u,
                              P_q = P_q_u,
-                             interp_kwargs=interp_kwargs,
+                             interp_kwargs=interpolate_kwargs,
                              **deconvolve_common_kwargs)
     interp_ext,interp_prob,deconv_interpolated_probability = \
         interpolate_and_deconvolve_gaussian_psf(**deconvolve_kwargs)
@@ -193,7 +195,7 @@ def interpolate_output(output_bins,interp_ext,interp_prob,
     prob_deconc /= np.trapz(y=prob_deconc,x=interp_ext)
     return interp_ext,interp_prob,prob_deconc
 
-def run(gaussian_stdev,extension,bins,interp_kwargs=dict(),
+def run(gaussian_stdev,extension,bins,interpolate_kwargs=dict(),
         smart_interpolation=True,**kw):
     """
     Returns the deconvolved...
@@ -205,18 +207,15 @@ def run(gaussian_stdev,extension,bins,interp_kwargs=dict(),
     Returns:
         tuple of <interpolated extension, probability, and deconvolved 
         probability>
-def run_and_save_data(gaussian_stdev,extension,bins,out_file,
-                      interp_kwargs=dict(),
-                      save_kwargs=dict(fmt=str("%.15g"))):
     """
     if (smart_interpolation):
         interpolation_factor = smart_interpolation_factor(extension,bins,
                                                           gaussian_stdev)
-        interp_kwargs['upscale'] = interpolation_factor
+        interpolate_kwargs['upscale'] = interpolation_factor
     interp_ext,interp_prob,prob_deconc = \
             extension_deconvolution(gaussian_stdev,
                                     extension,bins,
-                                    interp_kwargs=interp_kwargs,
+                                    interpolate_kwargs=interpolate_kwargs,
                                     **kw)
     return interp_ext,interp_prob,prob_deconc
     
@@ -246,7 +245,7 @@ def save_data(out_file,interp_ext,interp_prob,prob_deconc,output_interpolated,
     
 
 def run_and_save_data(gaussian_stdev,extension,bins,out_file,
-                      run_kwargs=dict(interp_kwargs=dict()),
+                      run_kwargs=dict(interpolate_kwargs=dict()),
                       save_kwargs=dict(output_interpolated=True)):
     """
     Runs a deconvolution, saving the data out 
