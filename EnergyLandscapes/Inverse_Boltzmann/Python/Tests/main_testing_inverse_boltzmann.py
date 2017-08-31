@@ -254,7 +254,7 @@ stackoverflow.com/questions/21100716/fast-arbitrary-distribution-random-sampling
 def run(base_dir="./Data/"):
     """
     Runs all the tests
-cu    """
+    """
     # # use Woodside, M. T. et al. Science, 2006. FIgure 3 for all the tests
     # test figure 3a
     np.random.seed(42)

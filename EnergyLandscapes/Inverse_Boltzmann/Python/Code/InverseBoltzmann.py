@@ -123,7 +123,6 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=300,delta_tol=1e-9,return_full=False):
              break
         assert (p_k >= 0).all() , \
             "Deconvolution error, p_k histogram became negative. Check XXX"
-
     if (return_full):
         return p_k,all_probs
     else:
