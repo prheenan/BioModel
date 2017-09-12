@@ -30,7 +30,7 @@ def ZFuncSimple(obj):
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
-                 Velocity=20e-9,Beta=1./(4.1e-21),ZFunc=None):
+                 Velocity=20e-9,kT=4.1e-21,ZFunc=None):
         """
         Args:
             Time: Time, in seconds
@@ -51,14 +51,15 @@ class FEC_Pulling_Object:
 
         
             Velocity: in m/s, default from data from ibid.
-            Beta: 1/(kbT), defaults to room temperature (4.1 pN . nm)
+            kT: kbT, defaults to room temperature (4.1 pN . nm)
         """
         # make copies (by value) of the arrays we need
+        self.kT=kT
+        self.Beta=1/kT
         self.Time = Time.copy()
         self.Extension = Extension.copy()
         self.Force = Force.copy()
         self.SpringConstant=SpringConstant
-        self.Beta=Beta
         self.ZFunc = lambda obj=self,*args,**kwargs:\
             ZFuncSimple(obj,*args,**kwargs) if ZFunc is None else \
             ZFunc(obj,*args,**kwargs)
@@ -492,8 +493,7 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     """
     if len(Reverse) == 0:
         return 0
-    # XXX should fix/ not hard code
-    beta = 1/(4.1e-21)
+    beta = Forward[0].Beta
     # get the work in terms of beta, should make it easier to converge
     Fwd = [f.Work[-1]*beta for f in Forward]
     Rev = [f.Work[-1]*beta for f in Reverse]

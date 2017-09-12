@@ -22,7 +22,7 @@ def _default_slice_func(obj,s):
     to_ret.Time = to_ret.Time[s]
     return to_ret 
 
-def ToIWTObject(o):
+def ToIWTObject(o,**kw):
     """
     Returns: o, truend into a IWT object
     """
@@ -30,7 +30,8 @@ def ToIWTObject(o):
                                                 Extension=o.Separation,
                                                 Force=o.Force,
                                                 SpringConstant=o.SpringConstant,
-                                                Velocity=o.Velocity)
+                                                Velocity=o.Velocity,
+                                                **kw)
     return obj
 
 def ToIWTObjects(TimeSepForceObjects):
@@ -47,7 +48,7 @@ def split_into_iwt_objects(d,idx_end_of_unfolding=None,idx_end_of_folding=None,
                            fraction_for_vel=0.2,flip_forces=False,
                            slice_to_use=None,f_split=None,
                            slice_func=None,
-                           unfold_start_idx=None):
+                           unfold_start_idx=None,**kw):
     """
     given a 'raw' TimeSepForce object, gets the approach and retract 
     as IWT objects, accounting for the velocity and offset of the separation
@@ -90,14 +91,15 @@ def split_into_iwt_objects(d,idx_end_of_unfolding=None,idx_end_of_folding=None,
     fold_tmp = slice_func(d,slice_folding)
     # convert all the unfolding objects to IWT data
     try:
-        IwtData = ToIWTObject(unfold_tmp)
-        IwtData_fold = ToIWTObject(fold_tmp)
+        IwtData = ToIWTObject(unfold_tmp,**kw)
+        IwtData_fold = ToIWTObject(fold_tmp,**kw)
     except (AttributeError,KeyError) as e:
         # Rob messes with the notes; he also gives the velocities
         IwtData = RobTimeSepForceToIWT(unfold_tmp,ZFunc=None,
-                                       fraction_for_vel=fraction_for_vel)
+                                       fraction_for_vel=fraction_for_vel,**kw)
         IwtData_fold = RobTimeSepForceToIWT(fold_tmp,ZFunc=None,
-                                            fraction_for_vel=fraction_for_vel)
+                                            fraction_for_vel=fraction_for_vel,
+                                            **kw)
     # switch the velocities of all ToIWTObject folding objects..
     # set the velocity and Z functions
     set_separation_velocity_by_first_frac(IwtData,fraction_for_vel)
@@ -216,7 +218,7 @@ def convert_list_to_iwt(time_sep_force_list,**kwargs):
     return [convert_to_iwt(d) for d in time_sep_force_list]
 
 
-def RobTimeSepForceToIWT(o,ZFunc,fraction_for_vel):
+def RobTimeSepForceToIWT(o,ZFunc,fraction_for_vel,**kw):
     """
     converts a Rob-Walder style pull into a FEC_Pulling_Object
 
@@ -235,13 +237,13 @@ def RobTimeSepForceToIWT(o,ZFunc,fraction_for_vel):
                                                 Force=o.Force,
                                                 SpringConstant=k,
                                                 Velocity=velocity,
-                                                ZFunc=ZFunc)
+                                                ZFunc=ZFunc,**kw)
     # set the proper offset 
     set_separation_velocity_by_first_frac(Obj,fraction_for_vel)
     return Obj
     
 
-def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,
+def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
                            fraction_for_vel=0.1,
                            flip_forces=False,velocity=0):
     """
@@ -251,7 +253,8 @@ def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,
         get_unfold_and_refold_objects(data,
                                       number_of_pairs=number_of_pairs,
                                       flip_forces=flip_forces,
-                                      fraction_for_vel=fraction_for_vel)
+                                      fraction_for_vel=fraction_for_vel,
+                                      kT=kT)
     if (velocity > 0):
         for un,re in zip(unfold,refold):
             # keep the offsets, reset the velocites
