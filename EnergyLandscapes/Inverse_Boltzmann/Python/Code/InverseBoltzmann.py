@@ -77,7 +77,8 @@ def f_assert_prob(x,msg):
     assert ( (sum_x > 0)).all() , msg
     
 
-def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=300,delta_tol=1e-9,return_full=False):
+def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=300,delta_tol=1e-9,return_full=False,
+               return_condition=lambda x: False):
     """
     deconvolve the probability distrubtion until whichever is first:
 
@@ -91,8 +92,8 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=300,delta_tol=1e-9,return_full=False):
         n_iters: maximum number of iterations to perform
         delta_tol: if all probabilities change less than delta_tol, we quit
         return_full: if true, returns more detailed information
-
-        **kwargs: passed to deconvolution_iteration; but should not specify p_k
+        return_condition: function, takes in P_q,S_q,p_k, returns True if
+        the function should terminate
     Returns:
         if return_full, tuple of (final probability, list of all probabilities).
         Otherwise, just final probability
@@ -118,12 +119,14 @@ def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=300,delta_tol=1e-9,return_full=False):
         if return_full:
             # append the current iteration
             all_probs.append(p_k)
+        # check if breaking conditions have been reached
+        if (return_condition(P_q,S_q,p_k)):
+            break
         if (error < delta_tol).all():
              # then the error condition has been reached
              break
         assert (p_k >= 0).all() , \
             "Deconvolution error, p_k histogram became negative. Check XXX"
-
     if (return_full):
         return p_k,all_probs
     else:
