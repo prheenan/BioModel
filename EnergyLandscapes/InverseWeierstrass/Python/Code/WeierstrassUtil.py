@@ -16,11 +16,13 @@ def _default_slice_func(obj,s):
     """
     Returns: a copy of obj, sliced to s 
     """
-    print(type(obj))
     to_ret = copy.deepcopy(obj)
     to_ret.Force = to_ret.Force[s]
     to_ret.Separation = to_ret.Separation[s]
     to_ret.Time = to_ret.Time[s]
+    n_time = to_ret.Time.size
+    assert ((n_time == to_ret.Force.size) and \
+            (n_time == to_ret.Separation.size)) , "Not all x/y values the same"
     return to_ret 
 
 def ToIWTObject(o,**kw):

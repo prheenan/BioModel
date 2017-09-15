@@ -65,7 +65,9 @@ class FEC_Pulling_Object:
             ZFunc(obj,*args,**kwargs)
         self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
-        self.Separation = self.Extension
+    @property
+    def Separation(self):
+        return self.Extension
     def update_work(self):
         """
         Updates the internal work variable
