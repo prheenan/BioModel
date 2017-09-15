@@ -63,7 +63,6 @@ class FEC_Pulling_Object:
         self.ZFunc = lambda obj=self,*args,**kwargs:\
             ZFuncSimple(obj,*args,**kwargs) if ZFunc is None else \
             ZFunc(obj,*args,**kwargs)
-        print(self.Extension)
         self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
         self.Separation = self.Extension

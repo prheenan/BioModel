@@ -425,7 +425,7 @@ def TestHummer2010():
     single.Time = np.array(single.Time)
     kwargs = dict(number_of_pairs=N,
                   flip_forces=False,
-                  fraction_for_vel=0.3)                                              
+                  fraction_for_vel=0.3)
     unfold,refold = WeierstrassUtil.get_unfold_and_refold_objects(single,
                                                                   **kwargs)
     tolerance_kwargs = dict(atol=0,rtol=1e-6)
