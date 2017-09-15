@@ -11,6 +11,7 @@ from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
 from scipy.integrate import cumtrapz
 import copy
 from GeneralUtil.python import PlotUtilities
+from scipy.interpolate import interp1d
 
 def AddNoise(signal,snr,function=None):
     size = signal.size
@@ -42,7 +43,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                 num_points=50,
                 num_ensemble=100,
                 z0_nm=59,
-                z1_nm=65,
+                z1_nm=65,surface_noise_m=0,
                 velocity_m_per_s=40e-9,
                 noise_function=None):
     """
@@ -103,7 +104,9 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
             force_rev_pN = Force_pN(reversed_ext_nm,
                                     force_spring_constant_pN_nm,
                                     reverse_force_offset_pN)
-            force_N_noise_rev = AddNoise(force_rev_pN*1e-12,**noise_args)
+            force_N_noise_rev = AddNoise(force_rev_pN*1e-12,**noise_args)       
+        ext_m += (np.random.rand(ext_m.size) - 0.5) * surface_noise_m
+        ext_rev_m += (np.random.rand(ext_rev_m.size) - 0.5) * surface_noise_m
         fwd=InverseWeierstrass.\
             FEC_Pulling_Object(time,ext_m,force_N_noise,
                                Velocity=velocity_m_per_s,
@@ -244,7 +247,7 @@ def Swap(switch_m,tau_m,swap_from,swap_to,sign):
     New.update_work()
     return New
 
-def check_hummer_by_ensemble(kT,landscape,landscape_rev,f_one_half):
+def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
     # See figure 3b inset, inid, for f_(1/2)... but they actually use 14pN (
     # test)
     # for some reason, they offset the energies?... Figure 3A
@@ -252,40 +255,40 @@ def check_hummer_by_ensemble(kT,landscape,landscape_rev,f_one_half):
     energy_offset_fwd_only_kT = 75
     num_bins = landscape.EnergyLandscape.size
     landscape.EnergyLandscape -= min(landscape.EnergyLandscape)
-    landscape_rev.EnergyLandscape -= \
-            min(landscape_rev.EnergyLandscape)
+    landscape_both.EnergyLandscape -= \
+            min(landscape_both.EnergyLandscape)
     landscape_fwd_kT = landscape.EnergyLandscape/kT + energy_offset_fwd_only_kT
-    landscape_rev_kT = landscape_rev.EnergyLandscape/kT + energy_offset_kT
-    ext_fwd = landscape_rev.Extensions
-    ext_rev = landscape.Extensions
+    landscape_both_kT = landscape_both.EnergyLandscape/kT + energy_offset_kT
+    ext_fwd = landscape.Extensions
+    ext_both = landscape_both.Extensions
     # should be very close before XXXnm
     split_point_meters = 235e-9
     CloseIdxFwd = np.where(ext_fwd < split_point_meters)[0]
-    CloseIdxRev = np.where(ext_rev < split_point_meters)[0]
-    limit = min(CloseIdxFwd.size,CloseIdxRev.size)
+    CloseIdxBoth = np.where(ext_both < split_point_meters)[0]
+    limit = min(CloseIdxFwd.size,CloseIdxBoth.size)
     assert limit > num_bins/3 , "Should have roughly half of data before 230nm"
     # want landscapees before 230nm to be within 10% of each other
     np.testing.assert_allclose(landscape_fwd_kT[CloseIdxFwd[limit:]],
-                               landscape_rev_kT[CloseIdxRev[limit:]],
+                               landscape_both_kT[CloseIdxBoth[limit:]],
                                rtol=0.1)
     # POST: 'early' region is fine
     # check the bound on the last points (just estimate these by eye)
     forward_maximum_energy_kT = 250
-    reverse_maximum_energy_kT = 250
+    both_maximum_energy_kT = 250
     np.testing.assert_allclose(landscape_fwd_kT[-1],forward_maximum_energy_kT,
                                rtol=0.05)
-    np.testing.assert_allclose(landscape_rev_kT[-1],reverse_maximum_energy_kT,
+    np.testing.assert_allclose(landscape_both_kT[-1],reverse_maximum_energy_kT,
                                rtol=0.05)
     # POST: endpoints match Figure 3 bounds
-    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
+    landscape_fonehalf_kT = (landscape_both_kT*kT-ext_both* f_one_half)/kT
     # get the relative landscape hummer and szabo plot (their min is about
     # 2.5kT offset from zero)
     offset_kT_tilted = 2.5
     landscape_fonehalf_kT_rel =  \
         landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
     # make sure the barrier height is about right
-    idx_barrier = np.where( (ext_rev > 220e-9) &
-                            (ext_rev < 240e-9) )
+    idx_barrier = np.where( (ext_both > 220e-9) &
+                            (ext_both < 240e-9) )
     barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
     expected_barrier_height_kT = 5
     barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
@@ -320,6 +323,7 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
+
 def HummerData():
     # estmate nose amplitude, Figure 3 A ibid
     snr = (10/2)**2
@@ -338,20 +342,20 @@ def HummerData():
                            force_spring_constant_pN_nm=k_fwd,
                            reverse_force_spring_constant_pN_nm=k_rev,
                            reverse_force_offset_pN=20,
-                           force_offset_pN=8,
+                           force_offset_pN=7,
                            num_ensemble=100,
                            z0_nm=195,
                            z1_nm=262,
                            snr=snr,
-                           num_points=500,
+                           num_points=500,surface_noise_m=1e-9,
                            noise_function=noise_function)
     fwd_objs,rev_objs,DeltaA = GetEnsemble(**ensemble_kwargs)
     # really stupid way of flipping: just exponential increase/decrease from
     # 'switch' location on forward and reverse 
     # determine the 
-    fwd_switch_m = 200e-9
-    rev_switch_m = 250e-9
-    tau = 0.5e-9
+    fwd_switch_m = 230e-9
+    rev_switch_m = 225e-9
+    tau = 1e-9
     state_fwd = []
     state_rev = []
     for fwd,rev in zip(fwd_objs,rev_objs):
@@ -360,10 +364,18 @@ def HummerData():
                           swap_to=rev,sign=1,tau_m=tau)
         rev_switch = Swap(switch_m=rev_switch_m,swap_from=rev,
                           swap_to=fwd,sign=-1,tau_m=tau)
+        f = WeierstrassUtil.set_separation_velocity_by_first_frac
+        f(rev_switch,fraction_for_vel=0.2)
+        f(fwd_switch,fraction_for_vel=0.2)
         state_fwd.append(fwd_switch)
         state_rev.append(rev_switch)
+        plt.plot(fwd_switch.Separation,fwd_switch.Force,'r')
+        plt.plot(rev_switch.Separation,rev_switch.Force,'g')
+        plt.plot(fwd_switch.Separation[0],fwd_switch.Force[0],'ro')
+        plt.plot(rev_switch.Separation[0],rev_switch.Force[0],'go')
+        plt.show()
     return state_fwd,state_rev
-
+    
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """
     checks that the 'act' iwt object matches the expected 'exp' object. kwargs
@@ -399,15 +411,20 @@ def TestHummer2010():
     # mess with it
     state_fwd_o,state_rev_o = copy.deepcopy(state_fwd),copy.deepcopy(state_rev)
     landscape = InverseWeierstrass.FreeEnergyAtZeroForce(state_fwd,num_bins,[])
-    landscape_rev = InverseWeierstrass.\
+    landscape_both = InverseWeierstrass.\
             FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
     landscape_rev_only = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_rev,num_bins,[])
+    plt.plot(landscape_both.EnergyLandscape+20*4.1e-21,'r')
+    plt.plot(landscape.EnergyLandscape+75*4.1e-21,'b')
+    plt.plot(landscape_rev_only.EnergyLandscape+20*4.1e-21,'g')
+    plt.show()
+
     # POST: height should be quite close to Figure 3
     fig = PlotUtilities.figure(figsize=(4,7))
-    landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half)
+    landscape_plot(landscape,landscape_both,landscape_rev_only,kT,f_one_half)
     PlotUtilities.savefig(fig,"out.png")
-    check_hummer_by_ensemble(kT,landscape,landscape_rev,f_one_half=f_one_half)
+    check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half=f_one_half)
     # POST: ensemble works well.
     # combine all the forward and reverse states
     single = copy.deepcopy(state_fwd[0])
