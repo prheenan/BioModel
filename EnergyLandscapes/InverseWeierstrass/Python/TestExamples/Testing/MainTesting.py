@@ -43,7 +43,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                 num_points=50,
                 num_ensemble=100,
                 z0_nm=59,
-                z1_nm=65,surface_noise_m=0,
+                z1_nm=65,
                 velocity_m_per_s=40e-9,
                 noise_function=None):
     """
@@ -74,7 +74,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
         tuple of <list of forward objects,list of reverse objects,
         free energy different in J>
     """
-    ext_nm = np.linspace(z0_nm,z1_nm,num=num_points)
+    ext_nm = np.linspace(z0_nm,z1_nm,num=num_points,endpoint=True)
     # get the force by a simpe spring constant
     force_pN = Force_pN(ext_nm,force_spring_constant_pN_nm,force_offset_pN)
     # okay, convert everything to 'real' units
@@ -105,8 +105,6 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
                                     reverse_force_spring_constant_pN_nm,
                                     reverse_force_offset_pN)
             force_N_noise_rev = AddNoise(force_rev_pN*1e-12,**noise_args)       
-        ext_m += (np.random.rand(ext_m.size) - 0.5) * surface_noise_m
-        ext_rev_m += (np.random.rand(ext_rev_m.size) - 0.5) * surface_noise_m
         fwd=InverseWeierstrass.\
             FEC_Pulling_Object(time,ext_m,force_N_noise,
                                Velocity=velocity_m_per_s,
@@ -323,9 +321,44 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
+def _assert_digitization_correct(x_m_abs,force,n,obj):
+    """
+    checks that the digitization procedure works fine
+
+    Args:
+        x_m_abs: the 'absolute' x value in meters expected
+        force: the force value in meters expected
+        n: the number of bins to use for digitixation
+        obj: the obhect to digitize 
+
+    Returns:
+        nothing, throws an error if something went wrong
+    """
+    bins = np.linspace(min(x_m_abs),max(x_m_abs),endpoint=True,num=n)
+    digitized_ext = obj._GetDigitizedGen(Bins=bins,ToDigitize=obj.Extension)
+    combined_digitized_data = sorted(np.concatenate(digitized_ext))
+    np.testing.assert_allclose(combined_digitized_data,sorted(x_m_abs)), \
+        "error, digitization lost data"
+    # POST: exactly the correct data points were digitized. check that 
+    # they wount up in the right bin
+    for i,arr in enumerate(digitized_ext):
+        # data with data between bin[i] and [i+1] is binned into i.
+        # endpoints: data in the last bin (N-1) should be > bin N-2
+        # endpoints: data in the first bin (0) should be < bin 1
+        if (i < n-1):
+            assert (arr <= bins[i]).all(), "upper bound broken"
+        else:
+            # bin n-1 should be entirely greater than n-2
+            assert (arr > bins[i-1]).all(), "upper bound broken"            
+        if (i > 0):
+            assert (arr >= bins[i-1]).all(), "lower bound broken"            
+        else:
+            # bin 0 should be entirely less than 0 
+            assert (arr < bins[i+1]).all(), "lower bound broken"
+    # POST: all bins work 
 
 def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
-                         assert_dict=dict(atol=1e-30,rtol=1e-9))
+                         assert_dict=dict(atol=1e-30,rtol=1e-9)):
     """
     asserts that obj has the correct force and work (assuming simple ramp)
 
@@ -340,12 +373,15 @@ def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
     """
     # # check that the force and work match
     work_joules = lambda x,f : cumtrapz(x=x,y=f,initial=0)
-    x_m = (x_nm-x_nm[0]) * 1e-9
+    x_m_abs = x_nm * 1e-9
+    x_m = x_m_abs - x_m_abs[0]
     force_fwd = (k_pN_per_nm * 1e-3) * x_m + (offset_pN * 1e-12)
     work_tmp = work_joules(x=x_m,f=force_fwd)
     np.testing.assert_allclose(obj.Work,work_tmp,**assert_dict)
     np.testing.assert_allclose(obj.Force,force_fwd,**assert_dict)
+    np.testing.assert_allclose(obj.Extension,x_m_abs,**assert_dict)
     # # XXX check that the digitization routine works well 
+    _assert_digitization_correct(x_m_abs=x_m_abs,force=force_fwd,n=50,obj=obj)
     
 def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
@@ -364,13 +400,14 @@ def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
     Returns: 
        nothing, throws an error if something goes wrong 
     """
+    N = fwd_objs[0].Force.size
     x_fwd = np.linspace(z0_nm,z1_nm,num=N,endpoint=True)
     x_rev = x_fwd[::-1].copy()
     for f,r in zip(fwd_objs,rev_objs):
-        assert_data_correct(f,x_nm=x_fwd,offset_pN=fwd_offset_pN,
-                            k_pN_per_nm=k_fwd,**kw)
-        assert_data_correct(r,x_nm=x_rev,offset_pN=rev_offset_pN,
-                            k_pN_per_nm=k_rev,**kw)
+        _assert_data_correct(f,x_nm=x_fwd,offset_pN=fwd_offset_pN,
+                             k_pN_per_nm=k_fwd,**kw)
+        _assert_data_correct(r,x_nm=x_rev,offset_pN=rev_offset_pN,
+                             k_pN_per_nm=k_rev,**kw)
 
 def HummerData():
     # estmate nose amplitude, Figure 3 A ibid
@@ -391,7 +428,6 @@ def HummerData():
     N = 500
     fwd_offset_pN = 7
     rev_offset_pN = 20
-    print(k_fwd,k_rev)
     ensemble_kwargs = dict(cantilever_spring_pN_nm=100,
                            force_spring_constant_pN_nm=k_fwd,
                            reverse_force_spring_constant_pN_nm=k_rev,
@@ -401,7 +437,7 @@ def HummerData():
                            z0_nm=z0_nm,
                            z1_nm=z1_nm,
                            snr=snr,
-                           num_points=N,surface_noise_m=1e-9,
+                           num_points=N,
                            noise_function=noise_function)
     fwd_objs,rev_objs,DeltaA = GetEnsemble(**ensemble_kwargs)
     # make sure all the data are correct
@@ -426,18 +462,9 @@ def HummerData():
         f = WeierstrassUtil.set_separation_velocity_by_first_frac
         f(rev_switch,fraction_for_vel=0.2)
         f(fwd_switch,fraction_for_vel=0.2)
-        # add in the noise 
-    offset_kT_tilted = 2.5
-    landscape_fonehalf_kT_rel =  \
-        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
-    # make sure the barrier height is about right
-    idx_barrier = np.where( (ext_both > 220e-9) &
-                            (ext_both < 240e-9) )
-    barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
-    expected_barrier_height_kT = 5
-    barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
-    np.testing.assert_allclose(barrier_delta,
-                               expected_barrier_height_kT,atol=1)
+        state_fwd.append(fwd_switch)
+        state_rev.append(rev_switch)
+    return state_fwd,state_rev
 
 def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     ToX = lambda x: x*1e9
@@ -512,9 +539,9 @@ def TestHummer2010():
             FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
     landscape_rev_only = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_rev,num_bins,[])
-    plt.plot(landscape_both.EnergyLandscape+20*4.1e-21,'r')
-    plt.plot(landscape.EnergyLandscape+75*4.1e-21,'b')
-    plt.plot(landscape_rev_only.EnergyLandscape+20*4.1e-21,'g')
+    plt.plot(landscape_both.EnergyLandscape,'r')
+    plt.plot(landscape.EnergyLandscape,'b')
+    plt.plot(landscape_rev_only.EnergyLandscape,'g')
     plt.show()
 
     # POST: height should be quite close to Figure 3
