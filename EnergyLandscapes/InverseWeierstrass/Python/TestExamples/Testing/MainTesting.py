@@ -387,7 +387,7 @@ def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
                                       k_fwd,k_rev,**kw):
     """
-    Asserts that the noiseless fwd and reversed objects have the correct
+    Asserts that the fwd and reversed objects have the correct
     data
 
     Args:
@@ -408,6 +408,18 @@ def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                              k_pN_per_nm=k_fwd,**kw)
         _assert_data_correct(r,x_nm=x_rev,offset_pN=rev_offset_pN,
                              k_pN_per_nm=k_rev,**kw)
+
+def assert_noisy_ensemble_correct(fwd,rev):
+   """
+   Assuming that the digitization functions work well on the noiseless
+   distribution, this tests that the ensemble functions work fine..
+
+   Args:
+       fwd,rev: the forward and reverse objects to test
+   Returns:
+       nothing, throws an error if things go wrong
+   """
+   pass
 
 def HummerData():
     # estmate nose amplitude, Figure 3 A ibid
