@@ -87,7 +87,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
     fwd_objs,rev_objs = [],[]
     # reverse the force and add the free energy difference to it...
     reversed_force = force_N[::-1].copy()
-    reversed_ext_nm = ext_nm[::-1]
+    reversed_ext_nm = ext_nm[::-1].copy()
     DeltaA =cumtrapz(x=ext_m,y=force_N,initial=0)
     noise_args = dict(snr=snr,
                       function=noise_function)
@@ -102,7 +102,7 @@ def GetEnsemble(cantilever_spring_pN_nm=10,
             assert reverse_force_offset_pN is not None ,\
                    "Must provide a reverse offset if using"
             force_rev_pN = Force_pN(reversed_ext_nm,
-                                    force_spring_constant_pN_nm,
+                                    reverse_force_spring_constant_pN_nm,
                                     reverse_force_offset_pN)
             force_N_noise_rev = AddNoise(force_rev_pN*1e-12,**noise_args)       
         ext_m += (np.random.rand(ext_m.size) - 0.5) * surface_noise_m
@@ -324,6 +324,54 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
 
+def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
+                         assert_dict=dict(atol=1e-30,rtol=1e-9))
+    """
+    asserts that obj has the correct force and work (assuming simple ramp)
+
+    Args:
+        obj: IWT pulling object
+        x_nm: x values in nanometers of the pulling experiment
+        offset_pN : where the pulling experiment starts from
+        k_pN_per_nm : stiffness of the force vs extension
+        assert_dict: extra options passed to np.testing.assert_allclose
+    Returns:
+        nothnig, throws an error if something goes wrong
+    """
+    # # check that the force and work match
+    work_joules = lambda x,f : cumtrapz(x=x,y=f,initial=0)
+    x_m = (x_nm-x_nm[0]) * 1e-9
+    force_fwd = (k_pN_per_nm * 1e-3) * x_m + (offset_pN * 1e-12)
+    work_tmp = work_joules(x=x_m,f=force_fwd)
+    np.testing.assert_allclose(obj.Work,work_tmp,**assert_dict)
+    np.testing.assert_allclose(obj.Force,force_fwd,**assert_dict)
+    # # XXX check that the digitization routine works well 
+    
+def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
+                                      fwd_offset_pN,rev_offset_pN,
+                                      k_fwd,k_rev,**kw):
+    """
+    Asserts that the noiseless fwd and reversed objects have the correct
+    data
+
+    Args:
+       <z0/z1>_nm: the start and end of the line ramp
+       <fwd/rev>_objs: the forward and reverse iwt pulling objects 
+       <fwd/rev>_offset_pN: the offsets for the t=0 part of the ramp
+       k_<fwd/rev>: the forward or reverse spring const, pN/nm
+        **kw: passed to _assert_data_correct
+    
+    Returns: 
+       nothing, throws an error if something goes wrong 
+    """
+    x_fwd = np.linspace(z0_nm,z1_nm,num=N,endpoint=True)
+    x_rev = x_fwd[::-1].copy()
+    for f,r in zip(fwd_objs,rev_objs):
+        assert_data_correct(f,x_nm=x_fwd,offset_pN=fwd_offset_pN,
+                            k_pN_per_nm=k_fwd,**kw)
+        assert_data_correct(r,x_nm=x_rev,offset_pN=rev_offset_pN,
+                            k_pN_per_nm=k_rev,**kw)
+
 def HummerData():
     # estmate nose amplitude, Figure 3 A ibid
     snr = (10/2)**2
@@ -332,24 +380,35 @@ def HummerData():
     k_rev = (20-14)/(265-237)
     # noise for force
     noise_N = 2e-12
-    # noise is uniform
-    noise_function = lambda x: (np.random.rand(x.size) - 0.5) * 2 * noise_N
+    # dont add in noise until after swapping 
+    noise_function = lambda x: np.zeros(x.size)
     # get the 'normal' ensemble (no state switching)
     # note: hummer and Szabo do a complicated simulation of the bead + linkers
     # I can't do that, so I just assume we have a super stiff spring (meaning
     # the ensemble extensions are close to the molecular)
+    z0_nm = 195
+    z1_nm = 262
+    N = 500
+    fwd_offset_pN = 7
+    rev_offset_pN = 20
+    print(k_fwd,k_rev)
     ensemble_kwargs = dict(cantilever_spring_pN_nm=100,
                            force_spring_constant_pN_nm=k_fwd,
                            reverse_force_spring_constant_pN_nm=k_rev,
-                           reverse_force_offset_pN=20,
-                           force_offset_pN=7,
+                           reverse_force_offset_pN=rev_offset_pN,
+                           force_offset_pN=fwd_offset_pN,
                            num_ensemble=100,
-                           z0_nm=195,
-                           z1_nm=262,
+                           z0_nm=z0_nm,
+                           z1_nm=z1_nm,
                            snr=snr,
-                           num_points=500,surface_noise_m=1e-9,
+                           num_points=N,surface_noise_m=1e-9,
                            noise_function=noise_function)
     fwd_objs,rev_objs,DeltaA = GetEnsemble(**ensemble_kwargs)
+    # make sure all the data are correct
+    assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
+                                      fwd_offset_pN,rev_offset_pN,
+                                      k_fwd,k_rev)
+    # POST: the ensemble data (without noise) are OK 
     # really stupid way of flipping: just exponential increase/decrease from
     # 'switch' location on forward and reverse 
     # determine the 
@@ -367,15 +426,53 @@ def HummerData():
         f = WeierstrassUtil.set_separation_velocity_by_first_frac
         f(rev_switch,fraction_for_vel=0.2)
         f(fwd_switch,fraction_for_vel=0.2)
-        state_fwd.append(fwd_switch)
-        state_rev.append(rev_switch)
-        plt.plot(fwd_switch.Separation,fwd_switch.Force,'r')
-        plt.plot(rev_switch.Separation,rev_switch.Force,'g')
-        plt.plot(fwd_switch.Separation[0],fwd_switch.Force[0],'ro')
-        plt.plot(rev_switch.Separation[0],rev_switch.Force[0],'go')
-        plt.show()
-    return state_fwd,state_rev
-    
+        # add in the noise 
+    offset_kT_tilted = 2.5
+    landscape_fonehalf_kT_rel =  \
+        landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
+    # make sure the barrier height is about right
+    idx_barrier = np.where( (ext_both > 220e-9) &
+                            (ext_both < 240e-9) )
+    barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
+    expected_barrier_height_kT = 5
+    barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
+    np.testing.assert_allclose(barrier_delta,
+                               expected_barrier_height_kT,atol=1)
+
+def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
+    ToX = lambda x: x*1e9
+    xlim = lambda: plt.xlim([190,265])
+    landscape_rev_kT = landscape_rev.EnergyLandscape/kT
+    landscape_fwd_kT = landscape.EnergyLandscape/kT
+    landscape_rev_only_kT = landscape_rev_only.EnergyLandscape/kT
+    ext_fwd = landscape_rev.Extensions
+    ext_rev = landscape.Extensions
+    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
+    landscape_fonehalf_kT_rel = landscape_fonehalf_kT-min(landscape_fonehalf_kT)
+    plt.subplot(2,1,1)
+    # add in the offsets, since we dont simulate before...
+    plt.plot(ToX(ext_fwd),landscape_rev_kT+20,color='r',alpha=0.6,
+             linestyle='-',linewidth=3,label="Bi-directional")
+    plt.plot(ToX(ext_rev),landscape_fwd_kT+75,color='b',
+             linestyle='--',label="Only Forward")
+    plt.plot(ToX(landscape_rev_only.Extensions),landscape_rev_only_kT+20,
+             "g--",label="Only Reverse")
+    plt.ylim([0,300])
+    xlim()
+    PlotUtilities.lazyLabel("","Free Energy (kT)",
+                            "Hummer 2010, Figure 3")
+    plt.subplot(2,1,2)
+    plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
+    plt.ylim([0,25])
+    xlim()
+    PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
+
+
+def assert_work_correct(obj,expected,atol=1e-100,rtol=1e-12):
+    plt.semilogy(obj.Work)
+    plt.semilogy(expected)
+    plt.show()
+    np.testing.assert_allclose(obj.Work,expected)
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """
     checks that the 'act' iwt object matches the expected 'exp' object. kwargs
@@ -521,8 +618,8 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
-    TestForwardBackward()
+    #TestWeighting()
+    #TestForwardBackward()
     TestHummer2010()
 
 
