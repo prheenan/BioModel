@@ -183,10 +183,10 @@ def run():
 
     everything is in SI units
     """
-    z_0 = 170e-9
-    z_f = 200e-9
-    v = 100e-9
-    n =1000
+    z_0 = 270e-9
+    z_f = 470e-9
+    v = 500e-9
+    n =10000
     time_total = (z_f-z_0)/v
     delta_t = time_total/n
     params = dict(x1=170e-9,
@@ -202,7 +202,7 @@ def run():
                   s_0=0,
                   delta_t=delta_t,
                   D_q=(250 * 1e-18)/1e-3)
-    simulate(n_steps_equil=100,n_steps_experiment=n,**params)
+    simulate(n_steps_equil=1000,n_steps_experiment=n,**params)
 
 if __name__ == "__main__":
     run()
