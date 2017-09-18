@@ -187,7 +187,7 @@ def single_attempt(states,state,k,z,**kw):
     q_next,swap = single_step(q_n=state.q_n,dV_dq=dV_tmp,k_i=state.k_n,**kw)
     state_n = 1-state.state if swap else state.state
     k_n,dV_n = states[state_n]
-    force = dV_tmp(q_next)
+    force = k * (q_next-z)
     return simulation_state(state=state_n,q_n=q_next,F_n=force,k_n=k_n,
                             dV_n=dV_n,z=z)
 
@@ -226,15 +226,19 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
         state_current.t = i * delta_t
         state_current = single_attempt(states,state_current,z=z_tmp,**kw)
         state_exp.append(state_current)
-    force = [s.force for s in state_equil + state_exp]
-    ext = np.array([s.extension for s in state_equil + state_exp])
-    z = np.array([s.z for s in state_equil + state_exp])
+    all_data = state_equil + state_exp
+    force = np.array([s.force for s in all_data])
+    ext = np.array([s.extension for s in all_data])
+    z = np.array([s.z for s in all_data])
+    states = np.array([s.state for s in all_data])
     print(ext,z)
-    plt.subplot(2,1,1)
+    plt.subplot(3,1,1)
+    plt.plot(states)
+    plt.subplot(3,1,2)
     plt.plot(ext)
     plt.plot(z)
-    plt.subplot(2,1,2)
-    plt.plot(ext,k*(ext-z))
+    plt.subplot(3,1,3)
+    plt.plot(force)
     plt.show()
             
 
@@ -256,17 +260,20 @@ def run():
     everything is in SI units
     """
     unit_test()
-    z_0 = 270e-9
+    z_0 = 130e-9
     z_f = 470e-9
-    v = 10000e-9
-    n = int(2e4)
+    R = 200e-12
+    k = 0.1e-3
+    k_L = 0.29e-3
+    v = R * (k**-1+k_L**-1)
+    delta_t = 1e-5
     time_total = (z_f-z_0)/v
-    delta_t = time_total/n
+    n = int(np.ceil(time_total/delta_t))
     params = dict(x1=170e-9,
                   x2=192e-9,
                   x_cap_minus_x1=11.9e-9,
-                  k_L=0.29e-3,
-                  k=0.1e-3,
+                  k_L=k_L,
+                  k=k,
                   k_0_1=np.exp(-39),
                   k_0_2=np.exp(39.2),
                   beta=1/4.1e-21,
@@ -275,7 +282,7 @@ def run():
                   s_0=0,
                   delta_t=delta_t,
                   D_q=(250 * 1e-18)/1e-3)
-    simulate(n_steps_equil=10000,n_steps_experiment=n,**params)
+    simulate(n_steps_equil=20000,n_steps_experiment=n,**params)
 
 if __name__ == "__main__":
     run()
