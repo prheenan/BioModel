@@ -128,26 +128,26 @@ def TestWeighting():
     Fwd = InverseWeierstrass.ForwardWeighted
     Rev = InverseWeierstrass.ReverseWeighted
     # test one and zero conditions for forward
-    fwd_is_one = dict(nf=1,vf=1,Wfn=0,Wf=0,Beta=0,DeltaA=0,nr=0)
-    fwd_is_zero = dict(nf=1,vf=0,Wfn=0,Wf=0,Beta=0,DeltaA=0,nr=0)
+    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,Beta=0,DeltaA=0,nr=0)
+    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,Beta=0,DeltaA=0,nr=0)
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))
     np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
     # test one and zero conditions for revese
-    rev_is_one = dict(nr=1,vr=1,Wrn=0,Wr=0,Beta=0,DeltaA=0,nf=0)
-    rev_is_zero = dict(nr=1,vr=0,Wrn=0,Wr=0,Beta=0,DeltaA=0,nf=0)
+    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,Beta=0,DeltaA=0,nf=0)
+    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,Beta=0,DeltaA=0,nf=0)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
     # POST: very simple conditions work. now try ones with still no deltaA
     np.testing.assert_allclose(np.exp(-1)/2,
-                               Fwd(vf=1,nf=1,nr=1,Wfn=0,Wf=1,Beta=1,DeltaA=0))
+                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,Beta=1,DeltaA=0))
     np.testing.assert_allclose(np.exp(1)/2,
-                               Rev(vr=1,nf=1,nr=1,Wrn=0,Wr=-1,Beta=1,DeltaA=0))
+                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,Beta=1,DeltaA=0))
     # POST: no delta A works, check with DeltaA
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
-                               Fwd(vf=1,nf=2,nr=3,Wfn=1,Wf=1,Beta=1,DeltaA=-1))
+                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,Beta=1,DeltaA=-1))
     # XXX reverse is broken? typo between hummer and etc...
     np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),
-                               Rev(vr=1,nf=3,nr=2,Wrn=-3,Wr=-2,Beta=1,DeltaA=1))
+                               Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,Beta=1,DeltaA=1))
     # POST: also works with DeltaA... pretty convincing imo
 
 def TestBidirectionalEnsemble(seed=42,tolerance_deltaA=0.01,snr=10,
@@ -241,7 +241,12 @@ def Swap(switch_m,tau_m,swap_from,swap_to,sign):
     New = copy.deepcopy(swap_from)
     cond = probability >= uniform_random
     Idx = np.where(cond)[0]
-    New.Force[Idx] = swap_to.Force[::-1][Idx].copy()
+    x_shift = 8e-9
+    idx_x = int(np.ceil(x_shift/np.median(np.abs(np.diff(ext)))))
+    n = swap_to.Force.size
+    idx_shift = np.minimum(Idx + idx_x ,n-1)
+    New.Force[Idx] = swap_to.Force[::-1][idx_shift].copy()
+    New.Extension[Idx] = swap_to.Extension[::-1][idx_shift].copy()
     New.update_work()
     return New
 
@@ -321,13 +326,12 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
-def _assert_digitization_correct(x_m_abs,force,n,obj):
+def _assert_digitization_correct(x_m_abs,n,obj):
     """
     checks that the digitization procedure works fine
 
     Args:
         x_m_abs: the 'absolute' x value in meters expected
-        force: the force value in meters expected
         n: the number of bins to use for digitixation
         obj: the obhect to digitize 
 
@@ -381,7 +385,7 @@ def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
     np.testing.assert_allclose(obj.Force,force_fwd,**assert_dict)
     np.testing.assert_allclose(obj.Extension,x_m_abs,**assert_dict)
     # # XXX check that the digitization routine works well 
-    _assert_digitization_correct(x_m_abs=x_m_abs,force=force_fwd,n=50,obj=obj)
+    _assert_digitization_correct(x_m_abs=x_m_abs,n=50,obj=obj)
     
 def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
@@ -410,16 +414,20 @@ def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                              k_pN_per_nm=k_rev,**kw)
 
 def assert_noisy_ensemble_correct(fwd,rev):
-   """
-   Assuming that the digitization functions work well on the noiseless
-   distribution, this tests that the ensemble functions work fine..
-
-   Args:
-       fwd,rev: the forward and reverse objects to test
-   Returns:
-       nothing, throws an error if things go wrong
-   """
-   pass
+    """
+    Assuming that the digitization functions work well on the noiseless
+    distribution, this tests that the ensemble functions work fine..
+    
+    Args:
+        fwd,rev: the forward and reverse objects to test
+    Returns:
+    """
+    n = 50
+    for f,r in zip(fwd,rev):
+        _assert_digitization_correct(f.Extension,n=n,obj=f)
+        _assert_digitization_correct(r.Extension,n=n,obj=r)
+    # POST: the digitization is OK. 
+    # check that the ensemble binning is OK.
 
 def HummerData():
     # estmate nose amplitude, Figure 3 A ibid
@@ -467,15 +475,26 @@ def HummerData():
     state_rev = []
     for fwd,rev in zip(fwd_objs,rev_objs):
         N = fwd.Force.size
-        fwd_switch = Swap(switch_m=fwd_switch_m,swap_from=fwd,
-                          swap_to=rev,sign=1,tau_m=tau)
-        rev_switch = Swap(switch_m=rev_switch_m,swap_from=rev,
+        # add noise...
+        noise_func = lambda f,n : (np.random.rand(f.size) - 0.5) * 2 * n 
+        rev_switch = Swap(switch_m=fwd_switch_m,swap_from=rev,
                           swap_to=fwd,sign=-1,tau_m=tau)
+        fwd_switch = Swap(switch_m=rev_switch_m,swap_from=fwd,
+                          swap_to=rev,sign=1,tau_m=tau)
         f = WeierstrassUtil.set_separation_velocity_by_first_frac
         f(rev_switch,fraction_for_vel=0.2)
         f(fwd_switch,fraction_for_vel=0.2)
+        fwd_switch.Force += noise_func(fwd_switch.Force,1e-12)
+        rev_switch.Force += noise_func(rev_switch.Force,1e-12)
+
         state_fwd.append(fwd_switch)
         state_rev.append(rev_switch)
+        """
+        plt.plot(rev_switch.Extension,rev_switch.Force,color='r')
+        plt.plot(fwd_switch.Extension,fwd_switch.Force,color='g')
+        plt.show()
+        """
+    assert_noisy_ensemble_correct(state_fwd,state_rev)
     return state_fwd,state_rev
 
 def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
@@ -512,6 +531,7 @@ def assert_work_correct(obj,expected,atol=1e-100,rtol=1e-12):
     plt.semilogy(expected)
     plt.show()
     np.testing.assert_allclose(obj.Work,expected)
+
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """
     checks that the 'act' iwt object matches the expected 'exp' object. kwargs
@@ -657,8 +677,8 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
-    #TestForwardBackward()
+    TestWeighting()
+    TestForwardBackward()
     TestHummer2010()
 
 
