@@ -220,35 +220,6 @@ def TestForwardBackward():
                               tol_energy_atol_kT=0.0,
                               tol_energy_rtol=1e-9)
 
-    
-def Swap(switch_m,tau_m,swap_from,swap_to,sign):
-    """
-    Simple way of swapping between states based on a 'switching location'
-    in extension (weighed exponentially from there)
-      
-    Args:
-       switch_m: where the exponential is offset in m
-       tau_m: decay constant in meters 
-       swap_from: object to swap from (initial state)
-       swap_to: object to swp to (final state) 
-       sign: for the argument of the exponential
-    Returns:
-       new object, which transitions between the two states
-    """
-    ext = swap_from.Extension
-    uniform_random = np.random.uniform(size=ext.size)
-    probability = np.minimum(1,np.exp(sign*(ext-switch_m)/tau_m))
-    New = copy.deepcopy(swap_from)
-    cond = probability >= uniform_random
-    Idx = np.where(cond)[0]
-    x_shift = 8e-9
-    idx_x = int(np.ceil(x_shift/np.median(np.abs(np.diff(ext)))))
-    n = swap_to.Force.size
-    idx_shift = np.minimum(Idx + idx_x ,n-1)
-    New.Force[Idx] = swap_to.Force[::-1][idx_shift].copy()
-    New.Extension[Idx] = swap_to.Extension[::-1][idx_shift].copy()
-    New.update_work()
-    return New
 
 def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
     # See figure 3b inset, inid, for f_(1/2)... but they actually use 14pN (
@@ -489,11 +460,9 @@ def HummerData():
 
         state_fwd.append(fwd_switch)
         state_rev.append(rev_switch)
-        """
         plt.plot(rev_switch.Extension,rev_switch.Force,color='r')
         plt.plot(fwd_switch.Extension,fwd_switch.Force,color='g')
         plt.show()
-        """
     assert_noisy_ensemble_correct(state_fwd,state_rev)
     return state_fwd,state_rev
 
