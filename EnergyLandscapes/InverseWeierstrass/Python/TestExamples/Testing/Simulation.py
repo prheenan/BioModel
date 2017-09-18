@@ -38,7 +38,7 @@ def p_jump_n(k_i,q_n,q_n_plus_one,delta_t):
     Returns:
         probability between 0 and 1
     """
-    return np.exp(-(k_i(q_n) + k_i(q_n_plus_one)) * delta_t/2)
+    return 1-np.exp(-(k_i(q_n) + k_i(q_n_plus_one)) * delta_t/2)
 
 def single_step(q_n,D_q,beta,delta_t,dV_dq,k_i):
     """
@@ -100,12 +100,15 @@ def F_q_i(k_L,x_i,q_n):
     return k_L * (x_i - q_n)
 
 class simulation_state:
-    def __init__(self,state,q_n,F_n,k_n,dV_n):
+    def __init__(self,state,q_n,F_n,k_n,dV_n,z=None,i=None):
         self.q_n = q_n
         self.F_n = F_n
         self.state = state
         self.k_n = k_n
         self.dV_n = dV_n
+        self.i = i
+        self.z = z
+        self.t = None
     @property
     def force(self):
         return self.F_n
@@ -115,11 +118,13 @@ class simulation_state:
 
 
 def single_attempt(states,state,k,z,**kw):
-    q_next,swap = single_step(q_n=state.q_n,dV_dq=state.dV_n,k_i=state.k_n,**kw)
+    dV_tmp = lambda q: state.dV_n(q,z=z)
+    q_next,swap = single_step(q_n=state.q_n,dV_dq=dV_tmp,k_i=state.k_n,**kw)
     state = 1-state.state if swap else state.state
     k_n,dV_n = states[state]
     force = k * (z - q_next)
-    return simulation_state(state=state,q_n=q_next,F_n=force,k_n=k_n,dV_n=dV_n)
+    return simulation_state(state=state,q_n=q_next,F_n=force,k_n=k_n,dV_n=dV_n,
+                            z=z)
 
 def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
              k_L,k,k_0_1,k_0_2,beta,z_0,z_f,s_0,delta_t,D_q):
@@ -131,27 +136,33 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     # get the potential gradient (dV/dQ) as a function of q and z
     dV1,dV2 = [lambda q,z: dV_dq_i(k_L=k_L,x_i=x,q_n=q,k=k,z_n=z,F_q_i=F(q))
                for (x,F) in zip(barrier_x,[F1,F2])]
-    dV1_no_z,dV2_no_z = [lambda q: dV1(q,z_0), lambda q: dV2(q,z_0)]
     k1,k2 = [lambda q: k_i_f(k_0_i=k_tmp,beta=beta,k_L=k_L,q_n=q,x_i=x,
                              x_cap=x_cap) for (x,k_tmp) in zip(barrier_x,k_arr)]
-    states = [ [k1,dV1_no_z],
-               [k2,dV2_no_z]]
+    states = [ [k1,dV1],
+               [k2,dV2]]
     k_n,dV_n = states[s_0]
     q_n = z_0
     q_equil = [q_n]
     F_equil = [0]
     state_current = simulation_state(state=s_0,q_n=z_0,k_n=k_n,dV_n=dV_n,F_n=0)
-    state_record = [state_current]
+    state_equil = [state_current]
+    kw = dict(k=k,D_q=D_q,beta=beta,delta_t=delta_t)
     for i in range(n_steps_equil):
-        new_state = \
-            single_attempt(states,state_current,
-                           k,z_0,D_q=D_q,beta=beta,delta_t=delta_t)
-        state_record.append(new_state)
+        state_current = single_attempt(states,state_current,z=z_0,**kw)
+        state_equil.append(state_current)
     # POST: everything is equilibrated; go ahead and run the actual test
-    plt.subplot(2,1,1)
-    plt.plot([s.force for s in state_record])
-    plt.subplot(2,1,2)
-    plt.plot([s.extension for s in state_record])
+    state_current = state_equil[-1]
+    state_exp = [state_current] 
+    for i in range(n_steps_experiment):
+        z_tmp = z_f(i)
+        state_current.i = i
+        state_current.t = i * delta_t
+        state_current = single_attempt(states,state_current,z=z_tmp,**kw)
+        state_exp.append(state_current)
+    force = [s.force for s in state_equil + state_exp]
+    ext = [s.extension for s in state_equil + state_exp]
+    z = [s.z for s in state_equil + state_exp]
+    plt.plot(ext,force)
     plt.show()
             
 
@@ -172,6 +183,12 @@ def run():
 
     everything is in SI units
     """
+    z_0 = 170e-9
+    z_f = 200e-9
+    v = 100e-9
+    n =1000
+    time_total = (z_f-z_0)/v
+    delta_t = time_total/n
     params = dict(x1=170e-9,
                   x2=192e-9,
                   x_cap_minus_x1=11.9e-9,
@@ -180,12 +197,12 @@ def run():
                   k_0_1=np.exp(-39),
                   k_0_2=np.exp(39.2),
                   beta=1/4.1e-21,
-                  z_0=170e-9,
-                  z_f=192e-9,
+                  z_0=z_0,
+                  z_f=lambda i: (time_total * i/n) * v + z_0,
                   s_0=0,
-                  delta_t=1e-3,
+                  delta_t=delta_t,
                   D_q=(250 * 1e-18)/1e-3)
-    simulate(n_steps_equil=100,n_steps_experiment=100,**params)
+    simulate(n_steps_equil=100,n_steps_experiment=n,**params)
 
 if __name__ == "__main__":
     run()
