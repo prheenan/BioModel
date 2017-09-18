@@ -68,26 +68,44 @@ def _unit_test_p():
     _f_assert(1-np.exp(-8),p_jump_n,q_n=2,q_n_plus_one=2,**kw)
 
 def _unit_test_utilities():
+    """
+    tests that the utility functions work well
+    """
     x_1 = 170e-9
     x_2 = 192e-9
     k1,k2 = get_ks(barrier_x=[x_1,x_2],k_arr=[1,1],
                    beta=1/(4.1e-21),k_L=0.3e-9,x_cap=(170e-9 + 11.9e-9))
     # make sure the rates are *not* the same far from the basins
     kw_tol = dict(atol=0,rtol=1e-5)
-    for q in [100e-9,160e-9,200e-9,300e-9]:
-        assert not np.allclose(k1(250e-9),k2(250e-9),**kw_tol)
+    q_not_equal = [100e-9,160e-9,200e-9,300e-9]
+    for q in q_not_equal:
+        assert not np.allclose(k1(q),k2(q),**kw_tol)
     # make sure the rates *are* the same when q=x_i (ie: exactly at the bottom
     # of the well, so only the distance to the transition matters)
     np.testing.assert_allclose(k1(x_1),k2(x_2),**kw_tol)
-    # POST: 
-    
+    # POST: get_ks work fine 
+    # # check dV_dq work well
+    dV1,dV2 = get_dV_dq(barrier_x=[x_1,x_2],k_L=1,k=1)
+    # make sre dV1 != dV2 where we arent at the bottom of a wel
+    for q in q_not_equal:
+        assert not np.allclose(dV1(q,0),dV2(q,0),**kw_tol)
+    # make sure dV1 = dV2 at the barrier location for many z 
+    for z in q_not_equal:
+        assert not np.allclose(dV1(x_1,z),dV2(x_2,z),**kw_tol)
+    # POST: get_dV_dq works well
 
 def unit_test():
-    _unit_test_utilities()
+    """
+    tests all the code supporting the simultation (but not the 
+    simulation itself)
+    """
     _unit_test_dV_dq()
     _unit_test_q()
     _unit_test_k_i()
     _unit_test_p()
+    # the utility functions depend on the things tested above
+    _unit_test_utilities()
+
 
 def next_q(q_0,D_q,beta,delta_t,dV_dq):
     """
@@ -198,6 +216,18 @@ class simulation_state:
 
 
 def single_attempt(states,state,k,z,**kw):
+    """
+    makes a single step/attempt at barrrier switching
+
+    Args:
+        states: list of states, elements should be lists as [k_i,dV_i]
+        state: the current state object
+        k: the stiffness
+        z: the location of the force probe
+
+    Returns:
+        next simulation state
+    """
     dV_tmp = lambda q: state.dV_n(q,z)
     q_next,swap = single_step(q_n=state.q_n,dV_dq=dV_tmp,k_i=state.k_n,**kw)
     state_n = 1-state.state if swap else state.state
@@ -207,15 +237,25 @@ def single_attempt(states,state,k,z,**kw):
                             dV_n=dV_n,z=z)
 
 def _build_lambda(function,**kw):
+    """
+    returns lambda, *only* taking in *args, of function(*args,**kw)
+    """
     return (lambda *args:  function(*args,**kw))
 
 def get_ks(barrier_x,k_arr,**kw):
+    """
+    Returns: list of k-functions(q) given barrier locations barrier_x, aand 
+             k_0_i functions k_arr. 
+    """
     n = len(barrier_x)
     arr = [_build_lambda(k_i_f,x_i=barrier_x[i],k_0_i=k_arr[i],**kw)
            for i in range(n)]
     return arr
 
 def get_dV_dq(barrier_x,**kw):
+    """
+    see get_ks, except returns dV_dq(q,z)
+    """
     n = len(barrier_x)
     arr = [_build_lambda(dV_dq_i,x_i=barrier_x[i],**kw)
            for i in range(n)]
@@ -223,6 +263,29 @@ def get_dV_dq(barrier_x,**kw):
 
 def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
              k_L,k,k_0_1,k_0_2,beta,z_0,z_f,s_0,delta_t,D_q):
+    """
+    simulates a two-state system
+
+    Args:
+        n_steps_<equil/_experiment>: number of steps for equilibraiton and 
+        experiment
+    
+        x<1/2>: the barrier locations of x<1/2> (m)
+        x_cap_minus_x1: the distance from x1 to the barrier (m)
+        k_L: stiffness of the linker (N/m)
+        k: stiffness (N/m)
+        k_0_<1/2>: the zero-force transition rate (1/s)
+        beta: 1/(kT), 1/(4.1e-21 J) for STP
+        z_<0/f>: z0 is the starting location (m). z_f takes in an index, returns
+        a new z location during the experiment
+
+        s_0: initial state
+        delta_t: time step (s)
+        D_q:  diffusion coefficient (m^2/s)
+
+    Returns:
+        tuple of time,molecules extension (q),probe position (z),force
+    """
     # get the force as a function of q
     barrier_x = [x1,x2]
     k_arr = [k_0_1,k_0_2]
@@ -292,9 +355,7 @@ def hummer_force_extension_curve():
     time,ext,z,force = \
         simulate(n_steps_equil=20000,n_steps_experiment=n,**params)
     full_params = dict(velocity=v,**params)
-    plt.plot(z,force)
-    plt.show()
-    return time,ext,z,force,full_params
+    return time,ext,z,force*-1,full_params
 
 def run():
     """
@@ -315,7 +376,9 @@ def run():
     """
     np.random.seed(42)
     unit_test()
-    hummer_force_extension_curve()
+    t,x,z,f,p = hummer_force_extension_curve()
+    plt.plot(x,f)
+    plt.show()
 
 if __name__ == "__main__":
     run()
