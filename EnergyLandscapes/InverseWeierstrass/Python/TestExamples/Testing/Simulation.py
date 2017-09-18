@@ -67,7 +67,14 @@ def _unit_test_p():
     _f_assert(1-np.exp(-6),p_jump_n,q_n=2,q_n_plus_one=1,**kw)
     _f_assert(1-np.exp(-8),p_jump_n,q_n=2,q_n_plus_one=2,**kw)
 
+def _unit_test_utilities():
+    k1,k2 = get_ks(barrier_x=[170e-9,192e-9],k_arr=[np.exp(-39),np.exp(39)],
+                   beta=1/(4.1e-21),k_L=0.3e-9,x_cap=(170e-9 + 11.9e-9))
+    print(k1(250e-9),k2(250e-9))
+
 def unit_test():
+    _unit_test_utilities()
+    exit(1)
     _unit_test_dV_dq()
     _unit_test_q()
     _unit_test_k_i()
@@ -120,7 +127,7 @@ def single_step(q_n,D_q,beta,delta_t,dV_dq,k_i):
     jump_bool = random_uniform < p_jump_tmp
     return q_n_plus_one,jump_bool
 
-def k_i_f(k_0_i,beta,k_L,q_n,x_i,x_cap):
+def k_i_f(q_n,k_0_i,beta,k_L,x_i,x_cap):
     """
     the transition rate (1/s) out of state i as a function of q
 
@@ -135,9 +142,11 @@ def k_i_f(k_0_i,beta,k_L,q_n,x_i,x_cap):
         transition rate, 1/s
     """
     # see: near equation 16
+    print("cap -- q_n -- x_i")
+    print(x_cap,q_n,x_i)
     return k_0_i * np.exp(-beta/2 * k_L * ((x_cap-q_n)**2 - (x_i-q_n)**2))
 
-def dV_dq_i(k_L,x_i,q_n,k,z_n,F_q_i):
+def dV_dq_i(q_n,k_L,x_i,k,z_n,F_q_i):
     """
     Returns the force on a molecule with extension q in state i
 
@@ -187,9 +196,25 @@ def single_attempt(states,state,k,z,**kw):
     q_next,swap = single_step(q_n=state.q_n,dV_dq=dV_tmp,k_i=state.k_n,**kw)
     state_n = 1-state.state if swap else state.state
     k_n,dV_n = states[state_n]
+    if (swap):
+        print("...")
+        print(state.k_n,k_n)
+        print(state.k_n(state.q_n),k_n(q_next))
     force = k * (q_next-z)
     return simulation_state(state=state_n,q_n=q_next,F_n=force,k_n=k_n,
                             dV_n=dV_n,z=z)
+
+def build_lambda(function,**kw):
+    return (lambda *args:  function(*args,**kw))
+
+def get_ks(barrier_x,k_arr,**kw):
+    n = len(barrier_x)
+    arr = [build_lambda(k_i_f,x_i=barrier_x[i],k_0_i=k_arr[i],**kw)
+           for i in range(n)]
+    print("get_ks")
+    print(arr[0](0),arr[1](0))
+    return arr
+    
 
 def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
              k_L,k,k_0_1,k_0_2,beta,z_0,z_f,s_0,delta_t,D_q):
@@ -201,8 +226,9 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     # get the potential gradient (dV/dQ) as a function of q and z
     dV1,dV2 = [lambda q,z: dV_dq_i(k_L=k_L,x_i=x,q_n=q,k=k,z_n=z,F_q_i=F(q))
                for (x,F) in zip(barrier_x,[F1,F2])]
-    k1,k2 = [lambda q: k_i_f(k_0_i=k_tmp,beta=beta,k_L=k_L,q_n=q,x_i=x,
-                             x_cap=x_cap) for (x,k_tmp) in zip(barrier_x,k_arr)]
+    k1,k2 = get_ks(barrier_x,k_arr,beta=beta,k_L=k_L,x_cap=x_cap)
+    print("____")
+    print(k1(200e-9),k2(200e-9))
     states = [ [k1,dV1],
                [k2,dV2]]
     k_n,dV_n = states[s_0]
@@ -260,12 +286,13 @@ def run():
     everything is in SI units
     """
     unit_test()
+    exit(1)
     z_0 = 130e-9
     z_f = 470e-9
     R = 200e-12
     k = 0.1e-3
     k_L = 0.29e-3
-    v = R * (k**-1+k_L**-1)
+    v = R * ((1/k)+(1/k_L))
     delta_t = 1e-5
     time_total = (z_f-z_0)/v
     n = int(np.ceil(time_total/delta_t))
@@ -276,7 +303,7 @@ def run():
                   k=k,
                   k_0_1=np.exp(-39),
                   k_0_2=np.exp(39.2),
-                  beta=1/4.1e-21,
+                  beta=1/(4.1e-21),
                   z_0=z_0,
                   z_f=lambda i: (time_total * i/n) * v + z_0,
                   s_0=0,
