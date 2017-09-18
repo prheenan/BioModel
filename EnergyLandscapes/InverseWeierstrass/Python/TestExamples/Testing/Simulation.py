@@ -308,13 +308,16 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
         state_equil.append(state_current)
     # POST: everything is equilibrated; go ahead and run the actual test
     state_current = state_equil[-1]
+    state_current.i = 0
+    state_current.t = 0
+    state_current.z = z_0
     state_exp = [state_current] 
     for i in range(n_steps_experiment):
         z_tmp = z_f(i)
         # save the iteration information
+        state_current = single_attempt(states,state_current,z=z_tmp,**kw)
         state_current.i = i
         state_current.t = i * delta_t
-        state_current = single_attempt(states,state_current,z=z_tmp,**kw)
         state_exp.append(state_current)
     all_data = state_exp
     force = np.array([s.force for s in all_data])
@@ -324,20 +327,28 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     states = np.array([s.state for s in all_data])
     return time,ext,z,force
 
-def hummer_force_extension_curve():
+def hummer_force_extension_curve(delta_t=1e-5,reverse=False):
     """
-    returns: 
-       tuple of <time,sep,force,
        a single force-extension curve using the hummer 2010 formalism
+    Args:
+       see simulate
+    Returns: 
+       tuple of <time,q,z,force,params>
     """
     z_0 = 130e-9
     z_f = 470e-9
+    # swap the forward and reverse if we are reversing
+    if (reverse):
+        tmp = z_0
+        z_0 = z_f
+        z_f = tmp
     R = 25e-12
     k = 0.1e-3
     k_L = 0.29e-3
     v = R * ((1/k)+(1/k_L))
-    delta_t = 1e-5
-    time_total = abs(z_f-z_0)/v
+    sign = np.sign(z_f-z_0)
+    v *= sign
+    time_total = (z_f-z_0)/v
     n = int(np.ceil(time_total/delta_t))
     params = dict(x1=170e-9,
                   x2=192e-9,
@@ -376,9 +387,13 @@ def run():
     """
     np.random.seed(42)
     unit_test()
-    t,x,z,f,p = hummer_force_extension_curve()
-    plt.plot(x,f)
-    plt.show()
+    for reverse in [False,True]:
+        t,x,z,f,p = hummer_force_extension_curve(reverse=reverse)
+        plt.subplot(2,1,1)
+        plt.plot(t,z)
+        plt.subplot(2,1,2)
+        plt.plot(t,f)
+        plt.show()
 
 if __name__ == "__main__":
     run()
