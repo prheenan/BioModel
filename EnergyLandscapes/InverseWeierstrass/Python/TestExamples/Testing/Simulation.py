@@ -9,6 +9,70 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys,copy
 
+def _f_assert(exp,f,atol=1e-6,rtol=1e-9,**d):
+    value = f(**d)
+    np.testing.assert_allclose(value,exp,atol=atol,rtol=rtol)
+
+def _unit_test_q():
+    """
+    assuming that dV_dq is OK, tests that q_(n+1) (ie q_next) works
+    """
+    # test with no diffusion (no randomness) -- we stay at the same place
+    kw = dict(beta=1/(4.1e-21),delta_t=1e-7,D_q=0,q_0=0)
+    _f_assert(0,next_q,dV_dq=lambda q: 0,**kw)
+    _f_assert(0,next_q,dV_dq=lambda q: 1,**kw)
+    _f_assert(0,next_q,dV_dq=lambda q: 100,**kw)
+    # test with diffusion...
+    kw_diffusion = dict(beta=1/(4.1e-21),delta_t=1e-7,D_q=10e-9,
+                        dV_dq=lambda q: 100)
+    factor = kw_diffusion['D_q'] * kw_diffusion['delta_t'] * \
+             kw_diffusion['beta'] * kw_diffusion['dV_dq'](1) 
+    _f_assert(1-factor,next_q,q_0=1,**kw_diffusion)
+
+def _unit_test_dV_dq():
+    """
+    Tests that the force with respect to q (dV_dq) is OK...
+    """
+    kw = dict(k_L=1,k=1,F_q_i=0)
+    # test varying x_i
+    _f_assert(0,dV_dq_i,x_i=1,q_n=1,z_n=1,**kw)
+    _f_assert(-1,dV_dq_i,x_i=2,q_n=1,z_n=1,**kw)
+    _f_assert(3,dV_dq_i,x_i=-2,q_n=1,z_n=1,**kw)
+    # test varying q, making sure the x_i term is OK
+    _f_assert(1,dV_dq_i,x_i=2,q_n=2,z_n=1,**kw)
+    _f_assert(-3,dV_dq_i,x_i=-2,q_n=-2,z_n=1,**kw)
+    # test varying everything at once, including the spring constant
+    _f_assert(13.5,dV_dq_i,x_i=-2,q_n=2,z_n=1,k=1.5,k_L=3,F_q_i=0)
+
+def _unit_test_k_i():
+    """
+    unit tests that k_i (k_i_f) works as expected
+    """
+    kw = dict(k_0_i=2,beta=1,k_L=1)
+    # if q=x_i=x_cap, we just have the zero rate
+    _f_assert(2,k_i_f,q_n=1,x_i=1,x_cap=1,**kw)
+    # if q is large, but x_i = x_cap > 0, still have the zero rate
+    _f_assert(2,k_i_f,q_n=10,x_i=1,x_cap=1,**kw)
+    # if q is large, but x_i = q, x_cap = 0, should get large, negative exponent
+    _f_assert(2 * np.exp(-50),k_i_f,q_n=10,x_i=10,x_cap=0,atol=0,**kw)
+    # same as above, but swap x_cap, x_i -> swaps sign of exponent
+    _f_assert(2 * np.exp(+50),k_i_f,q_n=10,x_i=0,x_cap=10,**kw)
+
+def _unit_test_p():
+    """
+    assuming that k_i_f works OK, unit tests p (p_jump_n)
+    """
+    kw = dict(k_i=lambda x: 2*x,delta_t=2)
+    _f_assert(1-np.exp(-4),p_jump_n,q_n=1,q_n_plus_one=1,**kw)
+    _f_assert(1-np.exp(-6),p_jump_n,q_n=2,q_n_plus_one=1,**kw)
+    _f_assert(1-np.exp(-8),p_jump_n,q_n=2,q_n_plus_one=2,**kw)
+
+def unit_test():
+    _unit_test_dV_dq()
+    _unit_test_q()
+    _unit_test_k_i()
+    _unit_test_p()
+
 def next_q(q_0,D_q,beta,delta_t,dV_dq):
     """
     Returns the next molecular extension, as in appendix of Hummer, 2010
@@ -52,7 +116,8 @@ def single_step(q_n,D_q,beta,delta_t,dV_dq,k_i):
     q_n_plus_one = next_q(q_0=q_n,D_q=D_q,beta=beta,delta_t=delta_t,dV_dq=dV_dq)
     p_jump_tmp = p_jump_n(k_i=k_i,q_n=q_n,q_n_plus_one=q_n_plus_one,
                           delta_t=delta_t)
-    jump_bool = np.random.rand() < p_jump_tmp
+    random_uniform = np.random.rand()
+    jump_bool = random_uniform < p_jump_tmp
     return q_n_plus_one,jump_bool
 
 def k_i_f(k_0_i,beta,k_L,q_n,x_i,x_cap):
@@ -85,7 +150,7 @@ def dV_dq_i(k_L,x_i,q_n,k,z_n,F_q_i):
        force, units of N
     """
     # see: near equation 16 (we just take the derivative)
-    return -k_L * (x_i-q_n) + k*(q_n-z_n) + F_q_i
+    return -k_L * (x_i-q_n) + k*(q_n-z_n) 
 
 def F_q_i(k_L,x_i,q_n):
     """
@@ -97,7 +162,7 @@ def F_q_i(k_L,x_i,q_n):
         force in N
     """
     # see: near equation 16
-    return k_L * (x_i - q_n)
+    return -k_L * (x_i - q_n)
 
 class simulation_state:
     def __init__(self,state,q_n,F_n,k_n,dV_n,z=None,i=None):
@@ -120,11 +185,11 @@ class simulation_state:
 def single_attempt(states,state,k,z,**kw):
     dV_tmp = lambda q: state.dV_n(q,z=z)
     q_next,swap = single_step(q_n=state.q_n,dV_dq=dV_tmp,k_i=state.k_n,**kw)
-    state = 1-state.state if swap else state.state
-    k_n,dV_n = states[state]
-    force = k * (z - q_next)
-    return simulation_state(state=state,q_n=q_next,F_n=force,k_n=k_n,dV_n=dV_n,
-                            z=z)
+    state_n = 1-state.state if swap else state.state
+    k_n,dV_n = states[state_n]
+    force = dV_tmp(q_next)
+    return simulation_state(state=state_n,q_n=q_next,F_n=force,k_n=k_n,
+                            dV_n=dV_n,z=z)
 
 def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
              k_L,k,k_0_1,k_0_2,beta,z_0,z_f,s_0,delta_t,D_q):
@@ -144,7 +209,8 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     q_n = z_0
     q_equil = [q_n]
     F_equil = [0]
-    state_current = simulation_state(state=s_0,q_n=z_0,k_n=k_n,dV_n=dV_n,F_n=0)
+    state_current = simulation_state(state=s_0,q_n=z_0,k_n=k_n,dV_n=dV_n,F_n=0,
+                                     z=z_0)
     state_equil = [state_current]
     kw = dict(k=k,D_q=D_q,beta=beta,delta_t=delta_t)
     for i in range(n_steps_equil):
@@ -155,14 +221,20 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     state_exp = [state_current] 
     for i in range(n_steps_experiment):
         z_tmp = z_f(i)
+        # save the iteration information
         state_current.i = i
         state_current.t = i * delta_t
         state_current = single_attempt(states,state_current,z=z_tmp,**kw)
         state_exp.append(state_current)
     force = [s.force for s in state_equil + state_exp]
-    ext = [s.extension for s in state_equil + state_exp]
-    z = [s.z for s in state_equil + state_exp]
-    plt.plot(ext,force)
+    ext = np.array([s.extension for s in state_equil + state_exp])
+    z = np.array([s.z for s in state_equil + state_exp])
+    print(ext,z)
+    plt.subplot(2,1,1)
+    plt.plot(ext)
+    plt.plot(z)
+    plt.subplot(2,1,2)
+    plt.plot(ext,k*(ext-z))
     plt.show()
             
 
@@ -183,10 +255,11 @@ def run():
 
     everything is in SI units
     """
+    unit_test()
     z_0 = 270e-9
     z_f = 470e-9
-    v = 500e-9
-    n =10000
+    v = 10000e-9
+    n = int(2e4)
     time_total = (z_f-z_0)/v
     delta_t = time_total/n
     params = dict(x1=170e-9,
@@ -202,7 +275,7 @@ def run():
                   s_0=0,
                   delta_t=delta_t,
                   D_q=(250 * 1e-18)/1e-3)
-    simulate(n_steps_equil=1000,n_steps_experiment=n,**params)
+    simulate(n_steps_equil=10000,n_steps_experiment=n,**params)
 
 if __name__ == "__main__":
     run()
