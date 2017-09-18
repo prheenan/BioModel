@@ -79,6 +79,7 @@ def _unit_test_utilities():
     # make sure the rates *are* the same when q=x_i (ie: exactly at the bottom
     # of the well, so only the distance to the transition matters)
     np.testing.assert_allclose(k1(x_1),k2(x_2),**kw_tol)
+    # POST: 
     
 
 def unit_test():
@@ -263,7 +264,7 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     plt.plot(ext)
     plt.plot(z)
     plt.subplot(3,1,3)
-    plt.plot(ext,force)
+    plt.plot(ext,force*-1,linewidth=0.5)
     plt.show()
             
 
@@ -284,15 +285,16 @@ def run():
 
     everything is in SI units
     """
+    np.random.seed(42)
     unit_test()
     z_0 = 130e-9
     z_f = 470e-9
-    R = 200e-12
+    R = 25e-12
     k = 0.1e-3
     k_L = 0.29e-3
     v = R * ((1/k)+(1/k_L))
     delta_t = 1e-5
-    time_total = (z_f-z_0)/v
+    time_total = abs(z_f-z_0)/v
     n = int(np.ceil(time_total/delta_t))
     params = dict(x1=170e-9,
                   x2=192e-9,
