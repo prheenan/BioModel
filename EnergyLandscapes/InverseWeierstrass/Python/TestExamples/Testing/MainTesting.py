@@ -10,8 +10,9 @@ from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
     InverseWeierstrass,WeierstrassUtil
 from scipy.integrate import cumtrapz
 import copy
-from GeneralUtil.python import PlotUtilities
+from GeneralUtil.python import PlotUtilities,CheckpointUtilities,GenUtilities
 from scipy.interpolate import interp1d
+import Simulation
 
 def AddNoise(signal,snr,function=None):
     size = signal.size
@@ -400,7 +401,23 @@ def assert_noisy_ensemble_correct(fwd,rev):
     # POST: the digitization is OK. 
     # check that the ensemble binning is OK.
 
-def HummerData():
+def get_simulated_ensemble(n,**kw):
+    to_ret = []
+    for _ in range(n):
+        t,q,z,f,p = Simulation.hummer_force_extension_curve(**kw)
+        velocity = p["velocity"]
+        spring_constant = p['k']
+        beta = p['beta']
+        kT = 1/beta
+        good_idx = np.where( (z > 325e-9) & (z < 425e-9))
+        initial_dict = dict(Time=t[good_idx],Extension=q[good_idx],
+                            Force=f[good_idx],Velocity=velocity,kT=kT,
+                            SpringConstant=spring_constant)
+        tmp = InverseWeierstrass.FEC_Pulling_Object(**initial_dict)
+        to_ret.append(tmp)
+    return to_ret
+
+def HummerData(cache_dir="./cache",seed=42):
     # estmate nose amplitude, Figure 3 A ibid
     snr = (10/2)**2
     #estimate stifness of system in forward and reverse
@@ -435,36 +452,20 @@ def HummerData():
     assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
                                       k_fwd,k_rev)
-    # POST: the ensemble data (without noise) are OK 
-    # really stupid way of flipping: just exponential increase/decrease from
-    # 'switch' location on forward and reverse 
-    # determine the 
-    fwd_switch_m = 230e-9
-    rev_switch_m = 225e-9
-    tau = 1e-9
-    state_fwd = []
-    state_rev = []
-    for fwd,rev in zip(fwd_objs,rev_objs):
-        N = fwd.Force.size
-        # add noise...
-        noise_func = lambda f,n : (np.random.rand(f.size) - 0.5) * 2 * n 
-        rev_switch = Swap(switch_m=fwd_switch_m,swap_from=rev,
-                          swap_to=fwd,sign=-1,tau_m=tau)
-        fwd_switch = Swap(switch_m=rev_switch_m,swap_from=fwd,
-                          swap_to=rev,sign=1,tau_m=tau)
-        f = WeierstrassUtil.set_separation_velocity_by_first_frac
-        f(rev_switch,fraction_for_vel=0.2)
-        f(fwd_switch,fraction_for_vel=0.2)
-        fwd_switch.Force += noise_func(fwd_switch.Force,1e-12)
-        rev_switch.Force += noise_func(rev_switch.Force,1e-12)
-
-        state_fwd.append(fwd_switch)
-        state_rev.append(rev_switch)
-        plt.plot(rev_switch.Extension,rev_switch.Force,color='r')
-        plt.plot(fwd_switch.Extension,fwd_switch.Force,color='g')
+    n = 5
+    np.random.seed(seed)
+    cache_fwd,cache_rev = [cache_dir + s +"/" for s in ["_fwd","_rev"]]
+    GenUtilities.ensureDirExists(cache_fwd)
+    GenUtilities.ensureDirExists(cache_rev)
+    func_fwd = lambda : get_simulated_ensemble(n)
+    fwd = CheckpointUtilities.multi_load(cache_fwd,func_fwd)
+    for f in zip(fwd):
+        plt.plot(f.Time,f.Force)
         plt.show()
-    assert_noisy_ensemble_correct(state_fwd,state_rev)
-    return state_fwd,state_rev
+    # POST: the ensemble data (without noise) are OK 
+    # read in the simulateddata 
+    #assert_noisy_ensemble_correct(state_fwd,state_rev)
+    return fwd,rev
 
 def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     ToX = lambda x: x*1e9
@@ -540,11 +541,6 @@ def TestHummer2010():
             FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
     landscape_rev_only = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_rev,num_bins,[])
-    plt.plot(landscape_both.EnergyLandscape,'r')
-    plt.plot(landscape.EnergyLandscape,'b')
-    plt.plot(landscape_rev_only.EnergyLandscape,'g')
-    plt.show()
-
     # POST: height should be quite close to Figure 3
     fig = PlotUtilities.figure(figsize=(4,7))
     landscape_plot(landscape,landscape_both,landscape_rev_only,kT,f_one_half)

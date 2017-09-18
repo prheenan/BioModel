@@ -30,7 +30,7 @@ def ZFuncSimple(obj):
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
-                 Velocity=20e-9,kT=4.1e-21,ZFunc=None):
+                 Velocity=20e-9,kT=4.1e-21):
         """
         Args:
             Time: Time, in seconds
@@ -60,9 +60,6 @@ class FEC_Pulling_Object:
         self.Extension = Extension.copy()
         self.Force = Force.copy()
         self.SpringConstant=SpringConstant
-        self.ZFunc = lambda obj=self,*args,**kwargs:\
-            ZFuncSimple(obj,*args,**kwargs) if ZFunc is None else \
-            ZFunc(obj,*args,**kwargs)
         self.SetOffsetAndVelocity(Extension[0],Velocity)
         self.WorkDigitized=None
     @property
@@ -94,6 +91,9 @@ class FEC_Pulling_Object:
             ZFunc: see GetDigitizedBoltzmann
         """
         return self.SpringConstant,self.Velocity,self.Time,self.Extension
+    @property
+    def ZFunc(self):
+        return ZFuncSimple
     def CalculateForceCummulativeWork(self):
         """
         Gets the position-averaged work, see methods section of 
@@ -494,6 +494,7 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     xopt = newton(ToMin,**FMinArgs)
     to_ret = (xopt/(beta))
     return to_ret
+
     
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
@@ -521,8 +522,8 @@ def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     DeltaA = NumericallyGetDeltaA(UnfoldingObjs,RefoldingObjs)
     # create the extension bins 
     ExtBins = BinIt(ExtBounds,NumBins)
-    # Set up functions for getting the force and boltzmann factors
     BinDataTo = ExtBins
+    # Set up functions for getting the force and boltzmann factors
     BoltzmanFunc = lambda o : o.GetDigitizedBoltzmann(BinDataTo)
     ForceFunc = lambda o: o.GetDigitizedForce(BinDataTo)
     ForceSqFunc = lambda o : o._GetDigitizedGen(BinDataTo,o.Force**2)
