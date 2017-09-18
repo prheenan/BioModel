@@ -255,38 +255,18 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
         state_exp.append(state_current)
     all_data = state_exp
     force = np.array([s.force for s in all_data])
+    time = np.array([s.t for s in all_data])
     ext = np.array([s.extension for s in all_data])
     z = np.array([s.z for s in all_data])
     states = np.array([s.state for s in all_data])
-    plt.subplot(3,1,1)
-    plt.plot(states)
-    plt.subplot(3,1,2)
-    plt.plot(ext)
-    plt.plot(z)
-    plt.subplot(3,1,3)
-    plt.plot(ext,force*-1,linewidth=0.5)
-    plt.show()
-            
+    return time,ext,z,force
 
-def run():
+def hummer_force_extension_curve():
     """
-    For ...
-        all paraamters except k_0_1 and k_0_2...
-    ... see appendix of Hummer, 2010, "Free energy profiles"
-
-    k_0_1 = np.exp(-39)
-
-    while
-      delta_g = 193kJ/mol = 3.21e-19 J =78.2 kT, and (near equation 16)
-
-    k_0_1/k_0_2 = exp(-beta DeltaG)
-    
-    so k_0_2 = k_0_1 np.exp(78.2) = exp(39.2)
-
-    everything is in SI units
+    returns: 
+       tuple of <time,sep,force,
+       a single force-extension curve using the hummer 2010 formalism
     """
-    np.random.seed(42)
-    unit_test()
     z_0 = 130e-9
     z_f = 470e-9
     R = 25e-12
@@ -309,7 +289,33 @@ def run():
                   s_0=0,
                   delta_t=delta_t,
                   D_q=(250 * 1e-18)/1e-3)
-    simulate(n_steps_equil=20000,n_steps_experiment=n,**params)
+    time,ext,z,force = \
+        simulate(n_steps_equil=20000,n_steps_experiment=n,**params)
+    full_params = dict(velocity=v,**params)
+    plt.plot(z,force)
+    plt.show()
+    return time,ext,z,force,full_params
+
+def run():
+    """
+    For ...
+        all paraamters except k_0_1 and k_0_2...
+    ... see appendix of Hummer, 2010, "Free energy profiles"
+
+    k_0_1 = np.exp(-39)
+
+    while
+      delta_g = 193kJ/mol = 3.21e-19 J =78.2 kT, and (near equation 16)
+
+    k_0_1/k_0_2 = exp(-beta DeltaG)
+    
+    so k_0_2 = k_0_1 np.exp(78.2) = exp(39.2)
+
+    everything is in SI units
+    """
+    np.random.seed(42)
+    unit_test()
+    hummer_force_extension_curve()
 
 if __name__ == "__main__":
     run()
