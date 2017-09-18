@@ -33,7 +33,7 @@ def _unit_test_dV_dq():
     """
     Tests that the force with respect to q (dV_dq) is OK...
     """
-    kw = dict(k_L=1,k=1,F_q_i=0)
+    kw = dict(k_L=1,k=1)
     # test varying x_i
     _f_assert(0,dV_dq_i,x_i=1,q_n=1,z_n=1,**kw)
     _f_assert(-1,dV_dq_i,x_i=2,q_n=1,z_n=1,**kw)
@@ -42,7 +42,7 @@ def _unit_test_dV_dq():
     _f_assert(1,dV_dq_i,x_i=2,q_n=2,z_n=1,**kw)
     _f_assert(-3,dV_dq_i,x_i=-2,q_n=-2,z_n=1,**kw)
     # test varying everything at once, including the spring constant
-    _f_assert(13.5,dV_dq_i,x_i=-2,q_n=2,z_n=1,k=1.5,k_L=3,F_q_i=0)
+    _f_assert(13.5,dV_dq_i,x_i=-2,q_n=2,z_n=1,k=1.5,k_L=3)
 
 def _unit_test_k_i():
     """
@@ -68,13 +68,21 @@ def _unit_test_p():
     _f_assert(1-np.exp(-8),p_jump_n,q_n=2,q_n_plus_one=2,**kw)
 
 def _unit_test_utilities():
-    k1,k2 = get_ks(barrier_x=[170e-9,192e-9],k_arr=[np.exp(-39),np.exp(39)],
+    x_1 = 170e-9
+    x_2 = 192e-9
+    k1,k2 = get_ks(barrier_x=[x_1,x_2],k_arr=[1,1],
                    beta=1/(4.1e-21),k_L=0.3e-9,x_cap=(170e-9 + 11.9e-9))
-    print(k1(250e-9),k2(250e-9))
+    # make sure the rates are *not* the same far from the basins
+    kw_tol = dict(atol=0,rtol=1e-5)
+    for q in [100e-9,160e-9,200e-9,300e-9]:
+        assert not np.allclose(k1(250e-9),k2(250e-9),**kw_tol)
+    # make sure the rates *are* the same when q=x_i (ie: exactly at the bottom
+    # of the well, so only the distance to the transition matters)
+    np.testing.assert_allclose(k1(x_1),k2(x_2),**kw_tol)
+    
 
 def unit_test():
     _unit_test_utilities()
-    exit(1)
     _unit_test_dV_dq()
     _unit_test_q()
     _unit_test_k_i()
@@ -142,19 +150,16 @@ def k_i_f(q_n,k_0_i,beta,k_L,x_i,x_cap):
         transition rate, 1/s
     """
     # see: near equation 16
-    print("cap -- q_n -- x_i")
-    print(x_cap,q_n,x_i)
     return k_0_i * np.exp(-beta/2 * k_L * ((x_cap-q_n)**2 - (x_i-q_n)**2))
 
-def dV_dq_i(q_n,k_L,x_i,k,z_n,F_q_i):
+def dV_dq_i(q_n,z_n,k_L,x_i,k):
     """
     Returns the force on a molecule with extension q in state i
 
     Args:
        k: stiffness of the probe, N/m
        z_n: the current probe location, m
-       F_q_i: thje force on the molecule at position q, in state i
-       otherS: see k_i_f, or next_q
+       others: see k_i_f, or next_q
     Returns:
        force, units of N
     """
@@ -192,29 +197,28 @@ class simulation_state:
 
 
 def single_attempt(states,state,k,z,**kw):
-    dV_tmp = lambda q: state.dV_n(q,z=z)
+    dV_tmp = lambda q: state.dV_n(q,z)
     q_next,swap = single_step(q_n=state.q_n,dV_dq=dV_tmp,k_i=state.k_n,**kw)
     state_n = 1-state.state if swap else state.state
     k_n,dV_n = states[state_n]
-    if (swap):
-        print("...")
-        print(state.k_n,k_n)
-        print(state.k_n(state.q_n),k_n(q_next))
     force = k * (q_next-z)
     return simulation_state(state=state_n,q_n=q_next,F_n=force,k_n=k_n,
                             dV_n=dV_n,z=z)
 
-def build_lambda(function,**kw):
+def _build_lambda(function,**kw):
     return (lambda *args:  function(*args,**kw))
 
 def get_ks(barrier_x,k_arr,**kw):
     n = len(barrier_x)
-    arr = [build_lambda(k_i_f,x_i=barrier_x[i],k_0_i=k_arr[i],**kw)
+    arr = [_build_lambda(k_i_f,x_i=barrier_x[i],k_0_i=k_arr[i],**kw)
            for i in range(n)]
-    print("get_ks")
-    print(arr[0](0),arr[1](0))
     return arr
-    
+
+def get_dV_dq(barrier_x,**kw):
+    n = len(barrier_x)
+    arr = [_build_lambda(dV_dq_i,x_i=barrier_x[i],**kw)
+           for i in range(n)]
+    return arr
 
 def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
              k_L,k,k_0_1,k_0_2,beta,z_0,z_f,s_0,delta_t,D_q):
@@ -222,13 +226,9 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
     barrier_x = [x1,x2]
     k_arr = [k_0_1,k_0_2]
     x_cap = x_cap_minus_x1 + x1
-    F1,F2 = [lambda q: F_q_i(k_L,x,q) for x in barrier_x]
     # get the potential gradient (dV/dQ) as a function of q and z
-    dV1,dV2 = [lambda q,z: dV_dq_i(k_L=k_L,x_i=x,q_n=q,k=k,z_n=z,F_q_i=F(q))
-               for (x,F) in zip(barrier_x,[F1,F2])]
+    dV1,dV2 =  get_dV_dq(barrier_x,k_L=k_L,k=k)
     k1,k2 = get_ks(barrier_x,k_arr,beta=beta,k_L=k_L,x_cap=x_cap)
-    print("____")
-    print(k1(200e-9),k2(200e-9))
     states = [ [k1,dV1],
                [k2,dV2]]
     k_n,dV_n = states[s_0]
@@ -252,19 +252,18 @@ def simulate(n_steps_equil,n_steps_experiment,x1,x2,x_cap_minus_x1,
         state_current.t = i * delta_t
         state_current = single_attempt(states,state_current,z=z_tmp,**kw)
         state_exp.append(state_current)
-    all_data = state_equil + state_exp
+    all_data = state_exp
     force = np.array([s.force for s in all_data])
     ext = np.array([s.extension for s in all_data])
     z = np.array([s.z for s in all_data])
     states = np.array([s.state for s in all_data])
-    print(ext,z)
     plt.subplot(3,1,1)
     plt.plot(states)
     plt.subplot(3,1,2)
     plt.plot(ext)
     plt.plot(z)
     plt.subplot(3,1,3)
-    plt.plot(force)
+    plt.plot(ext,force)
     plt.show()
             
 
@@ -286,7 +285,6 @@ def run():
     everything is in SI units
     """
     unit_test()
-    exit(1)
     z_0 = 130e-9
     z_f = 470e-9
     R = 200e-12
