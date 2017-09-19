@@ -535,6 +535,109 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     to_ret = (xopt/(beta))
     return to_ret
 
+def _check_inputs(objects,expected_inputs,f_input):
+    """
+    ensures that all of objects have a consistent z and size
+
+    Args:
+        objects: list of InverseWeierstrass objects
+        expected_inputs: list of expected inputs
+        f_input: function, takes in element of objects, returns list like
+        expected_inputs
+    Returns:
+        nothing, throws an error if something was wrong
+    """
+    error_kw = dict(atol=0,rtol=1e-6)
+    for i,u in enumerate(objects):
+        actual_data = f_input(u)
+        err_data = "iwt needs all objects to have the same properties" + \
+                   "Expected (z0,v,N,k,kT)={:s}, but object {:d} had {:s}".\
+                   format(str(expected_inputs),i,str(actual_data))
+        np.testing.assert_allclose(expected_inputs,actual_data,
+                                   err_msg=err_data,**error_kw)
+        # POST: data matches
+    # POST: all data and sizes match
+
+def _work_weighted_numerator(betas,works,value=1,axis=0):
+    """
+    returns the work weighted numerator (ie: unnormalized average)
+    
+    Args:
+        betas: (1/kT), units of J
+        works: to average along axis 0, units of J
+        value: arbitrary value, defaults to 1 (parition funciton)
+        axis: which axis to use
+
+    Returns:
+        work_weighted value, unnormalized
+    """
+    to_ret = np.mean(np.exp(-betas*works) * value,axis=axis)
+    return to_ret
+
+def _work_weighted_value(betas,works,value):
+    """
+    see: _work_weighted_numerator, except divides by the parition function
+    """
+    axis_kw = dict(axis=0)
+    numer = _work_weighted_numerator(betas,works,value=value,**axis_kw)
+    denom = _work_weighted_numerator(betas,works,value=1,**axis_kw)
+    return numer/denom
+
+def free_energy_inverse_weierstrass(unfolding,refolding=[]):
+    """
+    XXX DEBUGGING REPLACE
+
+    Args:
+        <un/re>folding: list of unfolding and refolding objects to use
+    """
+    assert len(unfolding) > 0
+    key = unfolding[0]
+    input_check = lambda x: [x.Offset,x.Velocity,x.SpringConstant,x.Force.size,
+                             x.kT]
+    unfolding_inputs = input_check(key)
+    # set z0 -> z0+v, v -> -v for redfolding
+    z0,v = unfolding_inputs[0],unfolding_inputs[1]
+    refolding_inputs = [z0+v,-v] + unfolding_inputs[2:]
+    _check_inputs(unfolding,unfolding_inputs,input_check)
+    _check_inputs(refolding,refolding_inputs,input_check)
+    # POST: refolding and unfolding objects are OK
+    works = np.array([u.Work for u in unfolding])
+    force = np.array([u.Force for u in unfolding])
+    force_sq = np.array([u.Force**2 for u in unfolding])
+    n_size_expected = key.Force.size
+    assert works.shape[1] == n_size_expected , "Programming error"
+    # works[i,j] is 'bin' (z) i, fec j. Subtract the mean
+    offset = np.mean(works)
+    works -= offset
+    beta = key.Beta
+    k = key.SpringConstant
+    weighted_kw = dict(betas=beta,works=works)
+    partition = _work_weighted_numerator(**weighted_kw)
+    assert partition.size == n_size_expected , "Programming error"
+    weighted_force = _work_weighted_value(value=force,**weighted_kw)
+    weighted_force_sq = _work_weighted_value(value=force_sq,**weighted_kw)
+    weighted_variance = weighted_force_sq - (weighted_force**2)
+    A_z =  (-1/beta)*np.log(partition)
+    A_z_dot = weighted_force
+    one_minus_A_z_dot_over_k = beta * weighted_variance/k
+    print(one_minus_A_z_dot_over_k)
+    first_deriv_term  = -A_z_dot**2/(2*k)
+    second_deriv_term = 1/(2*beta) * np.log(one_minus_A_z_dot_over_k)
+    G_0 = A_z + first_deriv_term +second_deriv_term
+    z = key.ZFunc(key)
+    q = z - A_z_dot/k
+    sort_idx = np.argsort(q)
+    G_0 = G_0[sort_idx]
+    A_z = A_z[sort_idx]
+    plt.subplot(2,1,1)
+    plt.plot(q,A_z/4.1e-21)
+    plt.plot(q,G_0/4.1e-21)
+    plt.subplot(2,1,2)
+    plt.plot(q,(G_0-(14e-12*q))/4.1e-21)
+    plt.show()
+
+
+    
     
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """
