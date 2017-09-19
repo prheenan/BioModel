@@ -19,36 +19,6 @@ def _f_assert(exp,f,atol=0,rtol=1e-9,**d):
     value = f(**d)
     np.testing.assert_allclose(value,exp,atol=atol,rtol=rtol)
 
-def _test_numerator_weighting():
-    """
-    Tests InverseWeierstass._work_weighted_numerators
-    """
-    beta = np.array([1])
-    f = InverseWeierstrass._work_weighted_numerator
-    kw = dict(betas=beta,f=f)
-    _f_assert(np.exp(-1),works=1,value=1,**kw)
-    _f_assert(np.exp(-2.5),works=2.5,value=1,**kw)
-    _f_assert(0.5 *(np.exp(0)+np.exp(-1)),works=np.array([1,0]),**kw)
-    _f_assert(0,works=1,value=0,**kw)
-    _f_assert(0.5 *(1+np.exp(-1)),f,betas=beta,works=np.array([1,0]),value=1)
-
-def _test_work_weighted_values():
-    """
-    Tests InverseWeierstass._work_weighted_numerator, assuming 
-     _test_numerator_weighting works
-    """
-    n = 10
-    n_per = 50
-    f = InverseWeierstrass._work_weighted_value
-    numer = InverseWeierstrass._work_weighted_numerator
-    for i in range(n):
-        beta = np.random.rand()
-        works = np.random.rand(n_per)
-        value = np.random.rand(n_per)
-        dict_v = dict(betas=beta,works=works)
-        expected = numer(value=value,**dict_v)/numer(**dict_v)
-        _f_assert(expected,f,value=value,**dict_v)
-
 def TestWeighting():
     """
     Tests the forward and reverse weighing function from equation 18 
@@ -57,34 +27,31 @@ def TestWeighting():
     Free energy profiles from single-molecule pulling experiments. 
     PNAS 107, 21441-21446 (2010)
     """
-    _test_numerator_weighting()
-    _test_work_weighted_values()
     Fwd = InverseWeierstrass.ForwardWeighted
     Rev = InverseWeierstrass.ReverseWeighted
-    _test_numerator_weighting()
     # test one and zero conditions for forward
     beta = np.array([0])
-    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,Beta=beta,DeltaA=0,nr=0)
-    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,Beta=beta,DeltaA=0,nr=0)
+    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nr=0)
+    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nr=0)
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))
     np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
     # test one and zero conditions for revese
-    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,Beta=beta,DeltaA=0,nf=0)
-    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,Beta=beta,DeltaA=0,nf=0)
+    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nf=0)
+    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nf=0)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
     # POST: very simple conditions work. now try ones with still no deltaA
     beta = np.array([1])
     np.testing.assert_allclose(np.exp(-1)/2,
-                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,Beta=beta,DeltaA=0))
+                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,beta=beta,delta_A=0))
     np.testing.assert_allclose(np.exp(1)/2,
-                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,Beta=beta,DeltaA=0))
+                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,beta=beta,delta_A=0))
     # POST: no delta A works, check with DeltaA
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
-                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,Beta=beta,DeltaA=-1))
+                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,beta=beta,delta_A=-1))
     # XXX reverse is broken? typo between hummer and etc...
-    np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),
-                               Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,Beta=beta,DeltaA=1))
+    rev = Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,beta=beta,delta_A=1)
+    np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),rev)
     # POST: also works with DeltaA... pretty convincing imo
 
 def TestBidirectionalEnsemble():
@@ -109,18 +76,25 @@ def TestBidirectionalEnsemble():
     diff_rel = diff/np.mean([mean_fwd,mean_rev])
     kT = 4.1e-21
     np.testing.assert_allclose(diff_rel,0,atol=0.185,rtol=0)
-    # POST: correct DeltaA to within tolerance. For small DeltaA,
-    # Exp(DeltaA +/- Err)/Exp(DeltaA)=Exp(+/- Err)~1+Err, so
-    # we should have very small errors in the energy landscape
-    # the forward and reverse landscapes should be pretty much identical (?)
-    landscape = InverseWeierstrass.FreeEnergyAtZeroForce(fwd_objs,num_bins,[])
-    landscape_rev = InverseWeierstrass.\
-        FreeEnergyAtZeroForce(fwd_objs,num_bins,rev_objs)
-    np.testing.\
-        assert_allclose(landscape.EnergyLandscape/kT,
-                        landscape_rev.EnergyLandscape/kT,
-                        atol=tol_energy_atol_kT,
-                        rtol=tol_energy_rtol)
+    # POST: correct DeltaA to within tolerance. 
+    # # check that the code works for forward and reverse directions
+    f = InverseWeierstrass.free_energy_inverse_weierstrass
+    landscape = f(fwd_objs)
+    landscape_both = f(fwd_objs,rev_objs)
+    landscape_rev_only = f(rev_objs)
+    plt.subplot(2,1,1)
+    plt.plot(landscape.q,landscape.G_0)
+    plt.plot(landscape.q,landscape_both.G_0,color='g')
+    plt.plot(landscape.q,landscape_rev_only.G_0)
+    plt.subplot(2,1,2)
+    plt.plot(landscape.q,landscape.G_0-landscape.q*14.5e-12,color='g')
+    plt.show()
+    np.testing.assert_allclose(landscape_both.G_0,landscape.G_0,
+                               atol=0,rtol=1e-1)
+    np.testing.assert_allclose(landscape_both.G_0,landscape_rev_only.G_0,
+                               atol=0,rtol=1e-1)
+    # POST: the forward, reverse, and bidirectional landscapes are reasonable
+
     
 def TestForwardBackward():
     """
@@ -567,15 +541,15 @@ def assert_landscapes_disagree(new_obj,expected_landscape):
     # the landscapes are normalized to zero; so we ignore the first point 
     assert ((new_obj.EnergyLandscape[1:] != expected_landscape[1:]).all())
                                                
-    
+
+
 def run():
     """
     Runs all IWT unit tests
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
-    # XXX fic
+    TestWeighting()
     TestForwardBackward()
     #TestHummer2010()
 
