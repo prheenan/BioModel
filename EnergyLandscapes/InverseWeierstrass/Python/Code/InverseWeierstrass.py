@@ -382,6 +382,33 @@ def _refolding_weighted(forward,reverse,f_work,f_value,**kw):
         ret_rev = np.zeros(n_bins)
     return ret_fwd + ret_rev 
 
+
+def _digitized_combined(histograms):
+    """
+    Given histogrm[i,j,k] is point k in bin j of FEC i, returns
+    a list digitized[j,p], where j is bin j, and p is an index into the data...
+    """
+    n_bins = len(histograms)
+    # note: zip(*l) transposes, see:
+    # https://stackoverflow.com/questions/6473679/transpose-list-of-lists
+    # -->  histograms[i,j]  is FEC i, bin j, but...
+    # zip(*histograms)[i,j] is FEc j, bin i (swapped indices)
+    return [ [item for sublist in single_bin for item in sublist]
+             for single_bin in zip(*histograms)]
+
+def _digitized_f(objs,f,bins):
+    """
+    returns the digitization function f applied to each member of obj
+    
+    Args:
+       objs: list of objects
+       f: function, takes in object and bins
+       bins: bins for the function
+    Returns:
+       output of f(o,bins) formatted as _digitized_combined
+    """
+    return _digitized_combined([f(o,bins) for o in objs])
+
 def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
                                 DeltaA,PartitionDivision):
     """
@@ -423,31 +450,6 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
     to_ret[good_idx] = np.array(weighted[good_idx])/good_partition
     return to_ret
 
-def _digitized_combined(histograms):
-    """
-    Given histogrm[i,j,k] is point k in bin j of FEC i, returns
-    a list digitized[j,p], where j is bin j, and p is an index into the data...
-    """
-    n_bins = len(histograms)
-    # note: zip(*l) transposes, see:
-    # https://stackoverflow.com/questions/6473679/transpose-list-of-lists
-    # -->  histograms[i,j]  is FEC i, bin j, but...
-    # zip(*histograms)[i,j] is FEc j, bin i (swapped indices)
-    return [ [item for sublist in single_bin for item in sublist]
-             for single_bin in zip(*histograms)]
-
-def _digitized_f(objs,f,bins):
-    """
-    returns the digitization function f applied to each member of obj
-    
-    Args:
-       objs: list of objects
-       f: function, takes in object and bins
-       bins: bins for the function
-    Returns:
-       output of f(o,bins) formatted as _digitized_combined
-    """
-    return _digitized_combined([f(o,bins) for o in objs])
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """

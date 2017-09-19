@@ -417,11 +417,18 @@ def _single_direction_assert(dir_objs,n):
                          for fec in digitized_ext
                          for sublist in fec
                          for item in sublist])
-    np.testing.assert_allclose(test_items,digitized_items)
+    np.testing.assert_allclose(test_items,digitized_items,atol=0)
     # POST: digitized_items is just a flat list of all the original items,
     # so that is what the algirthm should give too 
     # check that the ensemble-wide binning is OK.
-    
+    f_ext = lambda obj,bins: obj._GetDigitizedGen(Bins=bins,
+                                                  ToDigitize=obj.Extension)
+    digitized_ext = InverseWeierstrass._digitized_f(dir_objs,
+                                                    f=f_ext,
+                                                    bins=bins)
+    for actual,expected in zip(digitized_ext,digitized_by_bins):
+        np.testing.assert_allclose(actual,expected,atol=0)
+    # POST: digitization worked fine 
     
 
 def assert_noisy_ensemble_correct(fwd,rev):
