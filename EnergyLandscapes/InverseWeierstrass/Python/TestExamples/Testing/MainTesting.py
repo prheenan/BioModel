@@ -129,26 +129,28 @@ def TestWeighting():
     Fwd = InverseWeierstrass.ForwardWeighted
     Rev = InverseWeierstrass.ReverseWeighted
     # test one and zero conditions for forward
-    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,Beta=0,DeltaA=0,nr=0)
-    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,Beta=0,DeltaA=0,nr=0)
+    beta = np.array([0])
+    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,Beta=beta,DeltaA=0,nr=0)
+    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,Beta=beta,DeltaA=0,nr=0)
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))
     np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
     # test one and zero conditions for revese
-    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,Beta=0,DeltaA=0,nf=0)
-    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,Beta=0,DeltaA=0,nf=0)
+    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,Beta=beta,DeltaA=0,nf=0)
+    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,Beta=beta,DeltaA=0,nf=0)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
     # POST: very simple conditions work. now try ones with still no deltaA
+    beta = np.array([1])
     np.testing.assert_allclose(np.exp(-1)/2,
-                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,Beta=1,DeltaA=0))
+                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,Beta=beta,DeltaA=0))
     np.testing.assert_allclose(np.exp(1)/2,
-                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,Beta=1,DeltaA=0))
+                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,Beta=beta,DeltaA=0))
     # POST: no delta A works, check with DeltaA
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
-                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,Beta=1,DeltaA=-1))
+                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,Beta=beta,DeltaA=-1))
     # XXX reverse is broken? typo between hummer and etc...
     np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),
-                               Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,Beta=1,DeltaA=1))
+                               Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,Beta=beta,DeltaA=1))
     # POST: also works with DeltaA... pretty convincing imo
 
 def TestBidirectionalEnsemble(seed=42,tolerance_deltaA=0.01,snr=10,
@@ -421,11 +423,10 @@ def _single_direction_assert(dir_objs,n):
     # POST: digitized_items is just a flat list of all the original items,
     # so that is what the algirthm should give too 
     # check that the ensemble-wide binning is OK.
-    f_ext = lambda obj,bins: obj._GetDigitizedGen(Bins=bins,
+    f_ext = lambda obj: obj._GetDigitizedGen(Bins=bins,
                                                   ToDigitize=obj.Extension)
     digitized_ext = InverseWeierstrass._digitized_f(dir_objs,
-                                                    f=f_ext,
-                                                    bins=bins)
+                                                    f=f_ext)
     for actual,expected in zip(digitized_ext,digitized_by_bins):
         np.testing.assert_allclose(actual,expected,atol=0)
     # POST: digitization worked fine 
@@ -566,7 +567,7 @@ def TestHummer2010():
 
     # POST: fwd and reverse have the forward and reverse trajectories 
     # go ahead and made the energy landscapes
-    num_bins=100
+    num_bins=200
     kT = 4.1e-21
     f_one_half = 14e-12
     state_fwd,state_rev = HummerData()

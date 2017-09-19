@@ -304,8 +304,43 @@ def FreeEnergyAtZeroForceWeightedHistogram(Beta,MolExtesionBins,TimeBins,
     FreeEnergyAtZeroForce = -np.log(np.array(Numer)/np.array(Denom))/Beta
     return FreeEnergyAtZeroForce
 
+
 def Exp(x):
-    return np.exp(x)
+    tol = 700
+    safe_idx = np.where( (x < tol) | (x > -tol))[0]
+    zero_idx = np.where(x <= -tol)[0]
+    inf_idx = np.where(x >= tol)[0]
+    to_ret = np.zeros(x.size)
+    to_ret[safe_idx] = np.exp(x[safe_idx])
+    to_ret[inf_idx] = np.inf
+    return to_ret
+
+
+def _digitized_combined(histograms):
+    """
+    Given histogrm[i,j,k] is point k in bin j of FEC i, returns
+    a list digitized[j,p], where j is bin j, and p is an index into the data...
+    """
+    n_bins = len(histograms)
+    # note: zip(*l) transposes, see:
+    # https://stackoverflow.com/questions/6473679/transpose-list-of-lists
+    # -->  histograms[i,j]  is FEC i, bin j, but...
+    # zip(*histograms)[i,j] is FEc j, bin i (swapped indices)
+    return [ [item for sublist in single_bin for item in sublist]
+             for single_bin in zip(*histograms)]
+
+def _digitized_f(objs,f):
+    """
+    returns the digitization function f applied to each member of obj
+    
+    Args:
+       objs: list of objects
+       f: function, takes in object, returns the histogram for that object
+       bins: bins for the function
+    Returns:
+       output of f(o,bins) formatted as _digitized_combined
+    """
+    return _digitized_combined([f(o) for o in objs])
 
 def ForwardWeighted(nf,nr,v,W,Wn,DeltaA,Beta):
     """
@@ -340,24 +375,28 @@ def _boltzmann_weighted(is_reverse,**kw):
 def _single_direction_weighted(objs,f_work,f_value,beta,**kw):
     # get the values and work arrays; index [i,j] is all points from FEC <i>
     # in bin <j>
-    value_raw = np.array([f_value(f) for f in objs])
-    work_raw = np.array([f_work(f) for f in objs])
+    value_histograms = [f_value(f) for f in objs]
+    work_histograms = [f_work(f) for f in objs]
     # average all the work in the last bin for all objects; 
-    # w_f[i] is the average last work for FEC i 
-    w_f = np.array([np.mean(w) for w in work_raw[:,-1]])
-    n_bins = value_raw.shape[1]
+    # w_f[i] is the last work for FEC i 
+    w_f = [histogram[-1][-1]
+           if len(histogram[-1]) > 0 else 0 \
+           for histogram in work_histograms] 
+    # get the digitized values/work. Index [i,j] is bin i, point j
+    digitized_values = _digitized_combined(value_histograms)
+    digitized_work = _digitized_combined(work_histograms)
+    n_bins = len(digitized_values)
     to_ret = np.zeros(n_bins)
     for i in range(n_bins):
         # get all the values and work present here. 
-        values_raw_tmp = value_raw[:,i]
-        values_tmp = np.concatenate(values_raw_tmp)
+        values_tmp = np.array(digitized_values[i])
         # XXX should probably check this... bins shouldn't be empty
         if len(values_tmp) == 0:
             continue
-        work_tmp = np.concatenate(work_raw[:,i])
-        w_f_tmp = np.concatenate([w_f[k_tmp] * np.ones(v.size) 
-                                  for k_tmp,v in enumerate(values_raw_tmp)
-                                  if len(v) > 0])
+        work_tmp = np.array(digitized_work[i])
+        w_f_tmp = np.concatenate([w * np.ones(len(v[i])) 
+                                  for w,v in zip(w_f,value_histograms)
+                                  if len(v[i]) > 0])
         kw_tmp = dict(W=work_tmp,
                       Wn=w_f_tmp,
                       Beta=beta,
@@ -381,33 +420,6 @@ def _refolding_weighted(forward,reverse,f_work,f_value,**kw):
         # affect anything... 
         ret_rev = np.zeros(n_bins)
     return ret_fwd + ret_rev 
-
-
-def _digitized_combined(histograms):
-    """
-    Given histogrm[i,j,k] is point k in bin j of FEC i, returns
-    a list digitized[j,p], where j is bin j, and p is an index into the data...
-    """
-    n_bins = len(histograms)
-    # note: zip(*l) transposes, see:
-    # https://stackoverflow.com/questions/6473679/transpose-list-of-lists
-    # -->  histograms[i,j]  is FEC i, bin j, but...
-    # zip(*histograms)[i,j] is FEc j, bin i (swapped indices)
-    return [ [item for sublist in single_bin for item in sublist]
-             for single_bin in zip(*histograms)]
-
-def _digitized_f(objs,f,bins):
-    """
-    returns the digitization function f applied to each member of obj
-    
-    Args:
-       objs: list of objects
-       f: function, takes in object and bins
-       bins: bins for the function
-    Returns:
-       output of f(o,bins) formatted as _digitized_combined
-    """
-    return _digitized_combined([f(o,bins) for o in objs])
 
 def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
                                 DeltaA,PartitionDivision):
