@@ -8,23 +8,20 @@ import sys
 from scipy.integrate import cumtrapz
 import itertools
 from collections import defaultdict
-from scipy.optimize import fminbound,newton
+from scipy.optimize import fminbound,newton,brentq
 from scipy import sparse
 
 
-class landscape:
+class Landscape:
     def __init__(self,q,energy,kT,
                  free_energy_A,first_deriv_term,second_deriv_term):
         sort_idx = np.argsort(q)
         f_sort = lambda x: x[sort_idx].copy()
         self.q = f_sort(q)
         self.energy = f_sort(energy)
-        offset = min(self.energy)
-        self.offset = offset
-        self.energy -= offset
-        self.A_z = f_sort(free_energy_A-offset)
-        self.first_deriv_term = f_sort(first_deriv_term-offset)
-        self.second_deriv_term = f_sort(second_deriv_term-offset)
+        self.A_z = f_sort(free_energy_A)
+        self.first_deriv_term = f_sort(first_deriv_term)
+        self.second_deriv_term = f_sort(second_deriv_term)
         self.kT = kT
     @property
     def beta(self):
@@ -470,6 +467,8 @@ def GetBoltzmannWeightedAverage(Forward,Reverse,ValueFunction,WorkFunction,
     to_ret[good_idx] = np.array(weighted[good_idx])/good_partition
     return to_ret
 
+def _work_offset_value(works,**kw):
+    return np.mean(works,**kw)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -490,15 +489,38 @@ def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     # catch over and underflow errors, since these will screw things up later
     with np.errstate(over="raise",under="raise"):
         try:
-            Forward = 1/(nr + nf * np.exp(Beta * (ForwardWork-DeltaA)))
-            Reverse = 1/(nf + nr * np.exp(Beta * (ReverseWork+DeltaA)))
+            Forward = 1/(nr + nf * Exp(Beta * (ForwardWork-DeltaA)))
+            Reverse = 1/(nf + nr * Exp(Beta * (ReverseWork+DeltaA)))
         except (RuntimeWarning,FloatingPointError) as e:
             print("Weierstrass: Over/underflow encountered. " + \
                   "Need fewer kT of integrated work. Try reducing data size")
             raise(e)
     # we really only case about the abolute value of the expression, since
     # we want the two sides to be equal...
-    return np.mean(Forward)-np.mean(Reverse)
+    return abs(np.mean(Forward)-np.mean(Reverse))
+
+def _fwd_and_reverse_w_f(fwd,rev):
+    """
+    Returns: the forward and reverse work's last point, offset to the 
+    mean of the forward, or the naegation of that mean for the reverse work
+
+    Args:
+        fwd: list of forward objects
+        rev: list of reverse objects
+    Returns:
+        tuple of <forward offset, reverse offset (negation of forward,
+                  Fwd work offsets, reverse work offsets>
+    """
+    # get the work in terms of beta, should make it easier to converge
+    w_f_fwd = np.array([f.Work[-1] for f in fwd])
+    w_f_rev = np.array([f.Work[-1] for f in rev])
+    # offset the forward and reverse work, to make sure we dont have any
+    # floating point problems
+    offset_fwd = _work_offset_value(w_f_fwd)
+    offset_rev = -offset_fwd
+    w_f_fwd -= offset_fwd
+    w_f_rev -= offset_rev
+    return offset_fwd,offset_rev,w_f_fwd,w_f_rev
 
 def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     """
@@ -524,24 +546,24 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     """
     if len(Reverse) == 0:
         return 0
+    # POST: reverse is not zero; have at least one
     beta = Forward[0].Beta
-    # get the work in terms of beta, should make it easier to converge
-    Fwd = [f.Work[-1]*beta for f in Forward]
-    Rev = [f.Work[-1]*beta for f in Reverse]
-    MaxWorks = [np.max(np.abs(Fwd)),
-                np.max(np.abs(Rev))]
-    MinWorks = [np.min(Fwd), 
-                np.min(Rev)]
-    Max = max(MaxWorks)
-    Min = min(MinWorks)
+    # multiply by beta, so we aren't dealing with incredibly small numbers
+    offset_fwd,_,Fwd,Rev = _fwd_and_reverse_w_f(Forward,Reverse)
+    max_r,max_f = np.max(np.abs(Rev)),np.max(np.abs(Fwd))
+    max_abs = max(max_r,max_f)
+    Max = max_abs
+    Min = -max_abs
     # only look between +/- the max. Note that range is guarenteed positive
     Range = Max-Min
-    FMinArgs = dict(x0=(Max-Min)/2,maxiter=maxiter,**kwargs)
+    FMinArgs = dict(maxfun=maxiter,**kwargs)
     # note we set beta to one, since it is easier to solve in units of kT
-    ToMin = lambda A: DistanceToRoot(A,Beta=1,ForwardWork=Fwd,ReverseWork=Rev)
-    xopt = newton(ToMin,**FMinArgs)
-    to_ret = (xopt/(beta))
-    return to_ret
+    list_v = []
+    ToMin = lambda A: DistanceToRoot(A,Beta=beta,ForwardWork=Fwd,
+                                     ReverseWork=Rev)
+    xopt = fminbound(ToMin,x1=-Max,x2=Max,**FMinArgs)
+    to_ret = (xopt)
+    return to_ret + offset_fwd
 
 def _check_inputs(objects,expected_inputs,f_input):
     """
@@ -633,7 +655,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     G_0 = A_z + first_deriv_term +second_deriv_term
     z = key.ZFunc(key)
     q = z - A_z_dot/k
-    to_ret = landscape(q=q,energy=G_0,kT=1/beta,
+    to_ret = Landscape(q=q,energy=G_0,kT=1/beta,
                        free_energy_A=A_z,first_deriv_term=first_deriv_term,
                        second_deriv_term=second_deriv_term)
     offset = to_ret.offset

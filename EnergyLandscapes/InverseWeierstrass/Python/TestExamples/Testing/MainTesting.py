@@ -87,40 +87,28 @@ def TestWeighting():
                                Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,Beta=beta,DeltaA=1))
     # POST: also works with DeltaA... pretty convincing imo
 
-def TestBidirectionalEnsemble(seed=42,tolerance_deltaA=0.01,snr=10,
-                              tol_energy_atol_kT = 0.5,num_points=1000,
-                              num_bins=50,
-                              tol_energy_rtol = 0,ensemble_kwargs=dict()):
+def TestBidirectionalEnsemble():
     """
-    Tests that a (simple) Bi directional ensemble gives the correct energy
-
-    Args:
-        seed: what to seed the PRNG with
-        tolerances_deltaA: what tolerance to allow for energy differences
-        snr: signal to noise ratio for the enesemble FECs
-        num_points: number of points in each FEC
-        num_bins: number of bins (energy landscape points)
-
-        tol_energy_atol_kT/ tol_energy_rtol: the absolute and relative energy 
-        tolerance; all point on the forward and reverse curves should be the 
-        same up to these tolerances
-        
-        ensemble_kwargs: passed to the ensemble
-    Returns:  
-        nothing, but fails if DeltaA is calculated wrong, of if the forward
-        and revese parts dont quite work...
+    Tests that the DeltaA calculation works well, also that the forward and 
+    reverse get the same answer
     """
-    # keep a common seed (could iterate)
-    np.random.seed(seed)
-    fwd_objs,rev_objs,deltaA_true= GetEnsemble(num_points=num_points,
-                                               snr=snr,**ensemble_kwargs)
+    n = 10
+    fwd_objs,rev_objs = load_simulated_data(n=n)
     delta_A_calc = InverseWeierstrass.NumericallyGetDeltaA(fwd_objs,
                                                            rev_objs)
+    # the delta_A_calc should make the bennet ratio true. Since we have n_r=n_f,
+    # I ignor that part
+    beta = fwd_objs[0].Beta
+    boltz_fwd = np.exp([beta*(f.Work[-1]-delta_A_calc) for f in fwd_objs])
+    boltz_rev = np.exp([beta*(r.Work[-1]+delta_A_calc) for r in rev_objs])
+    lhs = 1/(n+n*boltz_fwd)
+    rhs = 1/(n+n*boltz_rev)
+    mean_fwd = np.mean(lhs)
+    mean_rev = np.mean(rhs)
+    diff = abs(mean_fwd-mean_rev)
+    diff_rel = diff/np.mean([mean_fwd,mean_rev])
     kT = 4.1e-21
-    deltaA = deltaA_true[-1]
-    diff = deltaA-delta_A_calc
-    np.testing.assert_allclose(deltaA/kT,delta_A_calc/kT,atol=0,
-                               rtol=tolerance_deltaA)
+    np.testing.assert_allclose(diff_rel,0,atol=0.185,rtol=0)
     # POST: correct DeltaA to within tolerance. For small DeltaA,
     # Exp(DeltaA +/- Err)/Exp(DeltaA)=Exp(+/- Err)~1+Err, so
     # we should have very small errors in the energy landscape
@@ -145,21 +133,7 @@ def TestForwardBackward():
         energy landscape for the same setup as (1)
     """
     # 'normal' snr should have normal toleance
-    """
-    XXXx need to fix...
-    TestBidirectionalEnsemble(snr=10,
-                              tol_energy_atol_kT=1,
-                              tol_energy_rtol=0)
-    # high SNR, should match OK...
-    TestBidirectionalEnsemble(snr=200,
-                              tol_energy_atol_kT=0.2,
-                              tol_energy_rtol=0)
-    # infinite SNR, should match pretty much exactly
-    TestBidirectionalEnsemble(snr=np.inf,
-                              tol_energy_atol_kT=0.0,
-                              tol_energy_rtol=1e-9)
-    """
-    pass
+    TestBidirectionalEnsemble()
     
 
 def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
@@ -400,9 +374,7 @@ def get_simulated_ensemble(n,**kw):
         to_ret.append(tmp)
     return to_ret
 
-def HummerData(cache_dir="./cache",seed=42):
-    n = 200
-    np.random.seed(seed)
+def load_simulated_data(n,cache_dir="./cache"):
     cache_fwd,cache_rev = [cache_dir + s +"/" for s in ["_fwd","_rev"]]
     GenUtilities.ensureDirExists(cache_fwd)
     GenUtilities.ensureDirExists(cache_rev)
@@ -410,7 +382,13 @@ def HummerData(cache_dir="./cache",seed=42):
     func_rev = lambda : get_simulated_ensemble(n,reverse=True)
     fwd = CheckpointUtilities.multi_load(cache_fwd,func_fwd)
     rev = CheckpointUtilities.multi_load(cache_rev,func_rev)
+    return fwd,rev
+
+def HummerData(seed=42,**kw):
+    n = 200
+    np.random.seed(seed)
     # POST: the ensemble data (without noise) are OK 
+    fwd,rev = load_simulated_data(n=n,**kw)
     # read in the simulateddata 
     #assert_noisy_ensemble_correct(fwd,rev)
     return fwd,rev
@@ -596,10 +574,10 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
+    #TestWeighting()
     # XXX fic
-    #TestForwardBackward()
-    TestHummer2010()
+    TestForwardBackward()
+    #TestHummer2010()
 
 
 
