@@ -298,6 +298,14 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
+def _get_bins_and_digitized(x_m_abs,obj,n):
+    """
+    Returns: tuple of <bins,digitized_extension> for object
+    """
+    bins = np.linspace(min(x_m_abs),max(x_m_abs),endpoint=True,num=n)
+    digitized_ext = obj._GetDigitizedGen(Bins=bins,ToDigitize=obj.Extension)
+    return bins,digitized_ext
+
 def _assert_digitization_correct(x_m_abs,n,obj):
     """
     checks that the digitization procedure works fine
@@ -308,12 +316,11 @@ def _assert_digitization_correct(x_m_abs,n,obj):
         obj: the obhect to digitize 
 
     Returns:
-        nothing, throws an error if something went wrong
+        nothing, throws an error if things go wrong
     """
-    bins = np.linspace(min(x_m_abs),max(x_m_abs),endpoint=True,num=n)
-    digitized_ext = obj._GetDigitizedGen(Bins=bins,ToDigitize=obj.Extension)
+    bins,digitized_ext = _get_bins_and_digitized(x_m_abs,obj,n)
     combined_digitized_data = sorted(np.concatenate(digitized_ext))
-    np.testing.assert_allclose(combined_digitized_data,sorted(x_m_abs)), \
+    np.testing.assert_allclose(combined_digitized_data,sorted(obj.Extension)), \
         "error, digitization lost data"
     # POST: exactly the correct data points were digitized. check that 
     # they wount up in the right bin
@@ -359,6 +366,7 @@ def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
     # # XXX check that the digitization routine works well 
     _assert_digitization_correct(x_m_abs=x_m_abs,n=50,obj=obj)
     
+
 def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
                                       k_fwd,k_rev,**kw):
@@ -385,6 +393,37 @@ def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
         _assert_data_correct(r,x_nm=x_rev,offset_pN=rev_offset_pN,
                              k_pN_per_nm=k_rev,**kw)
 
+def _single_direction_assert(dir_objs,n):
+    digitized_ext = []
+    min_x = min([min(o.Extension) for o in dir_objs])
+    max_x = max([max(o.Extension) for o in dir_objs])
+    x_m_abs = [min_x,max_x]
+    for o in dir_objs:
+        _assert_digitization_correct(x_m_abs,n=n,obj=o)
+        bins,digitized_tmp = _get_bins_and_digitized(x_m_abs,o,n=n)
+        digitized_ext.append(digitized_tmp)
+    # # POST: the (single) digitization is OK. 
+    # concatenate all the bins
+    digitized_by_bins = []
+    for i in range(n):
+        these_items = [item for fec in digitized_ext
+                       for item in fec[i]]
+        digitized_by_bins.append(these_items)
+    # post: digitzed_by_bins has all of digitized_ext... internal check:
+    digitized_items = sorted([item 
+                              for bin_v in digitized_by_bins 
+                              for item in bin_v])
+    test_items = sorted([item
+                         for fec in digitized_ext
+                         for sublist in fec
+                         for item in sublist])
+    np.testing.assert_allclose(test_items,digitized_items)
+    # POST: digitized_items is just a flat list of all the original items,
+    # so that is what the algirthm should give too 
+    # check that the ensemble-wide binning is OK.
+    
+    
+
 def assert_noisy_ensemble_correct(fwd,rev):
     """
     Assuming that the digitization functions work well on the noiseless
@@ -395,11 +434,8 @@ def assert_noisy_ensemble_correct(fwd,rev):
     Returns:
     """
     n = 50
-    for f,r in zip(fwd,rev):
-        _assert_digitization_correct(f.Extension,n=n,obj=f)
-        _assert_digitization_correct(r.Extension,n=n,obj=r)
-    # POST: the digitization is OK. 
-    # check that the ensemble binning is OK.
+    _single_direction_assert(fwd,n)
+    _single_direction_assert(rev,n)
 
 def get_simulated_ensemble(n,**kw):
     to_ret = []
@@ -414,6 +450,7 @@ def get_simulated_ensemble(n,**kw):
                             Force=f[good_idx],Velocity=velocity,kT=kT,
                             SpringConstant=spring_constant)
         tmp = InverseWeierstrass.FEC_Pulling_Object(**initial_dict)
+        tmp.SetOffsetAndVelocity(z[good_idx][0],tmp.Velocity)
         to_ret.append(tmp)
     return to_ret
 
@@ -452,7 +489,7 @@ def HummerData(cache_dir="./cache",seed=42):
     assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
                                       k_fwd,k_rev)
-    n = 200
+    n = 10
     np.random.seed(seed)
     cache_fwd,cache_rev = [cache_dir + s +"/" for s in ["_fwd","_rev"]]
     GenUtilities.ensureDirExists(cache_fwd)
@@ -463,7 +500,7 @@ def HummerData(cache_dir="./cache",seed=42):
     rev = CheckpointUtilities.multi_load(cache_rev,func_rev)
     # POST: the ensemble data (without noise) are OK 
     # read in the simulateddata 
-    #assert_noisy_ensemble_correct(state_fwd,state_rev)
+    assert_noisy_ensemble_correct(fwd,rev)
     return fwd,rev
 
 def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
@@ -494,12 +531,6 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
-
-def assert_work_correct(obj,expected,atol=1e-100,rtol=1e-12):
-    plt.semilogy(obj.Work)
-    plt.semilogy(expected)
-    plt.show()
-    np.testing.assert_allclose(obj.Work,expected)
 
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """

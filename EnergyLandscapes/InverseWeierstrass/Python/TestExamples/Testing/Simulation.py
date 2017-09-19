@@ -410,6 +410,7 @@ def run():
         t,x,z,f,p = hummer_force_extension_curve(reverse=reverse)
         plt.subplot(2,1,1)
         plt.plot(t,z)
+        plt.plot(t,x)
         plt.subplot(2,1,2)
         plt.plot(t,f)
         plt.show()
