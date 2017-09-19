@@ -356,7 +356,6 @@ def hummer_force_extension_curve(delta_t=1e-5,reverse=False):
     z_0 = 270e-9
     z_f = 470e-9
     # swap the forward and reverse if we are reversing
-    print(delta_t,reverse)
     if (reverse):
         tmp = z_0
         z_0 = z_f

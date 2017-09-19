@@ -11,19 +11,27 @@ from collections import defaultdict
 from scipy.optimize import fminbound,newton
 from scipy import sparse
 
-class EnergyLandscape:
-    def __init__(self,EnergyLandscape,Extensions,ExtensionBins,Beta,
+
+class landscape:
+    def __init__(self,q,energy,kT,
                  free_energy_A,first_deriv_term,second_deriv_term):
-        # sort the energy landscape by the exensions
-        SortIdx = np.argsort(Extensions)
-        self.EnergyLandscape = EnergyLandscape[SortIdx]
-        self.Extensions = Extensions[SortIdx]
-        self.ExtensionBins = ExtensionBins
-        self.Beta = Beta
-        # terms for reconstructing the energy landsscape 
-        self.free_energy_A=free_energy_A
-        self.first_deriv_term=first_deriv_term
-        self.second_deriv_term=second_deriv_term        
+        sort_idx = np.argsort(q)
+        f_sort = lambda x: x[sort_idx].copy()
+        self.q = f_sort(q)
+        self.energy = f_sort(energy)
+        offset = min(self.energy)
+        self.offset = offset
+        self.energy -= offset
+        self.A_z = f_sort(free_energy_A-offset)
+        self.first_deriv_term = f_sort(first_deriv_term-offset)
+        self.second_deriv_term = f_sort(second_deriv_term-offset)
+        self.kT = kT
+    @property
+    def beta(self):
+        return 1/self.kT
+    @property
+    def G_0(self):
+        return self.energy
 
 def ZFuncSimple(obj):
     return obj.Offset + (obj.Velocity * obj.Time)        
@@ -620,24 +628,17 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     A_z =  (-1/beta)*np.log(partition)
     A_z_dot = weighted_force
     one_minus_A_z_dot_over_k = beta * weighted_variance/k
-    print(one_minus_A_z_dot_over_k)
     first_deriv_term  = -A_z_dot**2/(2*k)
     second_deriv_term = 1/(2*beta) * np.log(one_minus_A_z_dot_over_k)
     G_0 = A_z + first_deriv_term +second_deriv_term
     z = key.ZFunc(key)
     q = z - A_z_dot/k
-    sort_idx = np.argsort(q)
-    G_0 = G_0[sort_idx]
-    A_z = A_z[sort_idx]
-    plt.subplot(2,1,1)
-    plt.plot(q,A_z/4.1e-21)
-    plt.plot(q,G_0/4.1e-21)
-    plt.subplot(2,1,2)
-    plt.plot(q,(G_0-(14e-12*q))/4.1e-21)
-    plt.show()
+    to_ret = landscape(q=q,energy=G_0,kT=1/beta,
+                       free_energy_A=A_z,first_deriv_term=first_deriv_term,
+                       second_deriv_term=second_deriv_term)
+    offset = to_ret.offset
+    return to_ret
 
-
-    
     
 def FreeEnergyAtZeroForce(UnfoldingObjs,NumBins,RefoldingObjs=[]):
     """

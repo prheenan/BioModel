@@ -412,7 +412,7 @@ def HummerData(cache_dir="./cache",seed=42):
     rev = CheckpointUtilities.multi_load(cache_rev,func_rev)
     # POST: the ensemble data (without noise) are OK 
     # read in the simulateddata 
-    assert_noisy_ensemble_correct(fwd,rev)
+    #assert_noisy_ensemble_correct(fwd,rev)
     return fwd,rev
 
 def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
@@ -479,6 +479,13 @@ def TestHummer2010():
     # mess with it
     state_fwd_o,state_rev_o = copy.deepcopy(state_fwd),copy.deepcopy(state_rev)
     landscape = InverseWeierstrass.free_energy_inverse_weierstrass(state_fwd)
+    plt.subplot(2,1,1)
+    plt.plot(landscape.q,landscape.A_z/4.1e-21)
+    plt.plot(landscape.q,landscape.G_0/4.1e-21)
+    plt.subplot(2,1,2)
+    plt.plot(landscape.q,
+             ((landscape.G_0+landscape.offset)-(14e-12*landscape.q))/4.1e-21)
+    plt.show()
     landscape = InverseWeierstrass.FreeEnergyAtZeroForce(state_fwd,num_bins,[])
     landscape_both = InverseWeierstrass.\
             FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
@@ -590,6 +597,7 @@ def run():
     np.seterr(all='raise')
     np.random.seed(42)
     TestWeighting()
+    # XXX fic
     #TestForwardBackward()
     TestHummer2010()
 
