@@ -10,7 +10,7 @@ from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
     InverseWeierstrass,WeierstrassUtil
 from scipy.integrate import cumtrapz
 import copy
-from GeneralUtil.python import PlotUtilities,CheckpointUtilities,GenUtilities
+from GeneralUtil.python import CheckpointUtilities,GenUtilities,PlotUtilities
 from scipy.interpolate import interp1d
 import Simulation
 
@@ -452,16 +452,15 @@ def HummerData(cache_dir="./cache",seed=42):
     assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                                       fwd_offset_pN,rev_offset_pN,
                                       k_fwd,k_rev)
-    n = 5
+    n = 200
     np.random.seed(seed)
     cache_fwd,cache_rev = [cache_dir + s +"/" for s in ["_fwd","_rev"]]
     GenUtilities.ensureDirExists(cache_fwd)
     GenUtilities.ensureDirExists(cache_rev)
     func_fwd = lambda : get_simulated_ensemble(n)
+    func_rev = lambda : get_simulated_ensemble(n,reverse=True)
     fwd = CheckpointUtilities.multi_load(cache_fwd,func_fwd)
-    for f in zip(fwd):
-        plt.plot(f.Time,f.Force)
-        plt.show()
+    rev = CheckpointUtilities.multi_load(cache_rev,func_rev)
     # POST: the ensemble data (without noise) are OK 
     # read in the simulateddata 
     #assert_noisy_ensemble_correct(state_fwd,state_rev)
@@ -541,6 +540,10 @@ def TestHummer2010():
             FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
     landscape_rev_only = InverseWeierstrass.\
                     FreeEnergyAtZeroForce(state_rev,num_bins,[])
+    plt.plot(landscape.EnergyLandscape/4.1e-21,color='b')
+    plt.plot(landscape_both.EnergyLandscape/4.1e-21,color='r')
+    plt.plot(landscape_rev_only.EnergyLandscape/4.1e-21,color='g')
+    plt.show()
     # POST: height should be quite close to Figure 3
     fig = PlotUtilities.figure(figsize=(4,7))
     landscape_plot(landscape,landscape_both,landscape_rev_only,kT,f_one_half)

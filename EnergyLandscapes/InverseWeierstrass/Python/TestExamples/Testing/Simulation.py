@@ -67,6 +67,22 @@ def _unit_test_p():
     _f_assert(1-np.exp(-6),p_jump_n,q_n=2,q_n_plus_one=1,**kw)
     _f_assert(1-np.exp(-8),p_jump_n,q_n=2,q_n_plus_one=2,**kw)
 
+def safe_exp(arg,tol=np.log(np.finfo('d').max-1)):
+    """
+    Args:
+       arg: what we want to exponentiate
+       tol: the maximum argument, defaults to max thing that exp can apply to
+    returns: 
+       exp(arg), unless arg>tol (then np.inf) or arg<-|tol| (then 0)
+    """
+    tol = abs(tol)
+    if (arg > tol):
+        return np.inf
+    elif (arg < -tol):
+        return 0
+    else:
+        return np.exp(arg)
+
 def _unit_test_utilities():
     """
     tests that the utility functions work well
@@ -136,7 +152,9 @@ def p_jump_n(k_i,q_n,q_n_plus_one,delta_t):
     Returns:
         probability between 0 and 1
     """
-    return 1-np.exp(-(k_i(q_n) + k_i(q_n_plus_one)) * delta_t/2)
+    exp_arg = -(k_i(q_n) + k_i(q_n_plus_one)) * delta_t/2
+    to_ret = 1-safe_exp(exp_arg)
+    return to_ret
 
 def single_step(q_n,D_q,beta,delta_t,dV_dq,k_i):
     """
@@ -169,7 +187,7 @@ def k_i_f(q_n,k_0_i,beta,k_L,x_i,x_cap):
         transition rate, 1/s
     """
     # see: near equation 16
-    return k_0_i * np.exp(-beta/2 * k_L * ((x_cap-q_n)**2 - (x_i-q_n)**2))
+    return k_0_i * safe_exp(-beta/2 * k_L * ((x_cap-q_n)**2 - (x_i-q_n)**2))
 
 def dV_dq_i(q_n,z_n,k_L,x_i,k):
     """
@@ -335,9 +353,10 @@ def hummer_force_extension_curve(delta_t=1e-5,reverse=False):
     Returns: 
        tuple of <time,q,z,force,params>
     """
-    z_0 = 130e-9
+    z_0 = 270e-9
     z_f = 470e-9
     # swap the forward and reverse if we are reversing
+    print(delta_t,reverse)
     if (reverse):
         tmp = z_0
         z_0 = z_f
@@ -364,7 +383,7 @@ def hummer_force_extension_curve(delta_t=1e-5,reverse=False):
                   delta_t=delta_t,
                   D_q=(250 * 1e-18)/1e-3)
     time,ext,z,force = \
-        simulate(n_steps_equil=20000,n_steps_experiment=n,**params)
+        simulate(n_steps_equil=2000,n_steps_experiment=n,**params)
     full_params = dict(velocity=v,**params)
     return time,ext,z,force*-1,full_params
 
@@ -394,6 +413,9 @@ def run():
         plt.subplot(2,1,2)
         plt.plot(t,f)
         plt.show()
+    # do the reverse a bunch of times
+    for _ in range(5):
+        hummer_force_extension_curve(reverse=True)
 
 if __name__ == "__main__":
     run()
