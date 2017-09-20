@@ -84,11 +84,11 @@ def TestBidirectionalEnsemble():
     landscape_rev_only = f(rev_objs)
     to_tilt = landscape_both
     plt.subplot(2,1,1)
-    plt.plot(landscape.G_0,color='b',)
-    plt.plot(landscape_rev_only.G_0,color='g')
-    plt.plot(landscape_both.G_0,color='g')
+    plt.plot(landscape.q,landscape.G_0,color='b',)
+    plt.plot(landscape_rev_only.q,landscape_rev_only.G_0,color='g')
+    plt.plot(landscape_both.q,landscape_both.G_0,color='r')
     plt.subplot(2,1,2)
-    plt.plot(to_tilt.q,to_tilt.G_0-to_tilt.q*14e-12,
+    plt.plot(to_tilt.q,(to_tilt.G_0-to_tilt.q*14e-12)/4.1e-21,
              color='b')
     plt.show()
     np.testing.assert_allclose(landscape.G_0,landscape_rev.G_0,

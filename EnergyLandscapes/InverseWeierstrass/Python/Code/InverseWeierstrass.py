@@ -221,7 +221,7 @@ def Exp(x):
 def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
     Returns the weighted value for the forward part of the bi-directionary free
-    energy landscape
+    energy landscape. See: Hummer, 2010, equation 19
     
     Args: see EnsembleAverage
     """
@@ -229,14 +229,11 @@ def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta):
 
 def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
-    Returns the weighted value for a reverse step
+    Returns the weighted value for a reverse step. see: ForwardWeighted
 
     Args: see EnsembleAverage
     """
     return (v*nr*Exp(-beta*(W + delta_A)))/(nr + nf*Exp(-beta*(Wn + delta_A)))
-
-def _work_offset_value(works,**kw):
-    return np.mean(works,**kw)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -283,8 +280,8 @@ def _fwd_and_reverse_w_f(fwd,rev):
     w_f_fwd = np.array([f.Work[-1] for f in fwd])
     w_f_rev = np.array([f.Work[-1] for f in rev])
     # offset the forward and reverse work, to make sure we dont have any
-    # floating point problems
-    offset_fwd = _work_offset_value(w_f_fwd)
+    # floating point problems. Note that we later add in the offset
+    offset_fwd = np.mean(w_f_fwd)
     offset_rev = -offset_fwd
     w_f_fwd -= offset_fwd
     w_f_rev -= offset_rev
@@ -425,7 +422,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     """
     n_f = len(unfolding)
     n_r = len(refolding)
-    assert len(unfolding) > 0 , "IWT recquires at least one unfolding object"
+    assert n_f > 0 , "IWT recquires at least one unfolding object"
     # POST: at least one to look at
     key = unfolding[0]
     input_check = lambda x: [x.Offset,x.Velocity,x.SpringConstant,x.Force.size,
@@ -442,14 +439,24 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     # get the free energy change between the states (or zero, if none)
     delta_A = NumericallyGetDeltaA(unfolding,refolding)
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
-    unfolding = get_work_weighted_object(unfolding,value_func=ForwardWeighted,
-                                         **kw)
-    refolding = get_work_weighted_object(refolding,value_func=ReverseWeighted,
-                                         **kw)
-    # add up the weighted results (if no refolding, we are just adding 0)
-    weighted_force     = unfolding.f          + refolding.f
-    weighted_partition = unfolding.partition  + refolding.partition
-    weighted_variance  = unfolding.f_variance + refolding.f_variance
+    unfold_weighted = get_work_weighted_object(unfolding,
+                                               value_func=ForwardWeighted,
+                                               **kw)
+    refold_weighted = get_work_weighted_object(refolding,
+                                               value_func=ReverseWeighted,
+                                               **kw)
+    # Justification for *averaging* forward and reverse. 
+    # (1) Hummer, 2010, equation 1 gives A(z) = -beta * ln(<exp(-beta*W>))
+    # (2) ibid, equaiton 19 for unfolding and refolding gives the same in
+    # terms of just adding folding and refolding, not averaging
+    merge = lambda *x: np.mean(x,axis=0) if n_f > 0 else x[0]
+    weighted_force     = \
+        merge(unfold_weighted.f,refold_weighted.f)
+    weighted_partition = \
+        merge(unfold_weighted.partition,refold_weighted.partition)
+    weighted_variance  = \
+        merge(unfold_weighted.f_variance,refold_weighted.f_variance)
+    assert weighted_force.size == key.Time.size , "Programming error"
     z = key.ZFunc(key)
     # due to numerical stability problems, may need to exclude some points
     assert (weighted_variance > 0).all() , "Landscape gave <= varianace"
