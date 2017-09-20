@@ -20,6 +20,9 @@ class _WorkWeighted:
         self.partition = partition
         self.f = f_work_weighted
         self.f_squared = f_squared_work_weighted
+    @property
+    def f_variance(self):
+        return self.f_squared - self.f**2
 
 class Landscape:
     def __init__(self,q,energy,kT,
@@ -204,7 +207,16 @@ def SetAllWorkOfObjects(PullingObjects):
     _ = [o.update_work() for o in PullingObjects]
 
 def Exp(x):
-    return np.exp(x)
+    max_number = np.finfo(np.float64).max
+    tol = np.log(max_number)-50
+    to_ret = np.zeros(x.shape,dtype=np.longdouble)
+    safe_idx = np.where((x < tol) & (x > -tol))
+    inf_idx = np.where(x >= tol)
+    zero_idx = np.where(x <= -tol)
+    to_ret[safe_idx] = np.exp(x[safe_idx])
+    to_ret[inf_idx] = np.exp(tol)
+    to_ret[zero_idx] = np.exp(-tol)
+    return to_ret
 
 def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
@@ -221,8 +233,8 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
 
     Args: see EnsembleAverage
     """
-    #note reverse swaps n1 <-> n0, and delta_A -> -Delta A (Hummer,2010,e19)
     return (v*nr*Exp(-beta*(W + delta_A)))/(nr + nf*Exp(-beta*(Wn + delta_A)))
+
 
 def _work_offset_value(works,**kw):
     return np.mean(works,**kw)
@@ -369,9 +381,10 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         to_ret.set_variables(0,0,0)
         return to_ret
     # POST: have at least one thing to do...
-    works = np.array([u.Work for u in objs])
-    force = np.array([u.Force for u in objs])
-    force_sq = np.array([u.Force**2 for u in objs])
+    array_kw = dict(dtype=np.longdouble)
+    works = np.array([u.Work for u in objs],**array_kw)
+    force = np.array([u.Force for u in objs],**array_kw)
+    force_sq = np.array([u.Force**2 for u in objs],**array_kw)
     n_size_expected = objs[0].Force.size
     assert works.shape[0] == n_objs , "Programming error"
     assert works.shape[1] == n_size_expected , "Programming error"
@@ -380,15 +393,19 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # subtract the mean work 
     offset = np.mean(works)
     works -= offset
+    delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
     key = objs[0]
     beta = key.Beta
     k = key.SpringConstant
-    Wn_raw = np.array([w[-1] for w in works])
-    Wn = (np.ones(works.shape).T * Wn_raw).T
+    Wn_raw = np.array([w[-1] for w in works],**array_kw)
+    Wn = (np.ones(works.shape,**array_kw).T * Wn_raw).T
     weighted_kw = dict(delta_A=delta_A,beta=beta,W=works,Wn=Wn,**kw)
     partition = _work_weighted_value(values=1,**weighted_kw)
     assert partition.size == n_size_expected , "Programming error"
+    where_zero = np.where(partition <= 0)[0]
+    assert (where_zero.size==0) , "Partition had {:d} elements that were zero".\
+        format(where_zero.size)
     weighted_force = \
         _work_weighted_value(values=force,**weighted_kw)/partition
     weighted_force_sq = \
@@ -428,13 +445,22 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
     unfolding = get_work_weighted_object(unfolding,value_func=ForwardWeighted,
                                          **kw)
-    refolding = get_work_weighted_object([],value_func=ReverseWeighted,
+    refolding = get_work_weighted_object(refolding,value_func=ReverseWeighted,
                                          **kw)
     # add up the weighted results (if no refolding, we are just adding 0)
-    weighted_force     = unfolding.f         + refolding.f
-    weighted_force_sq  = unfolding.f_squared + refolding.f_squared
-    weighted_partition = unfolding.partition + refolding.partition
-    weighted_variance = weighted_force_sq - (weighted_force**2)
+    weighted_force     = unfolding.f          + refolding.f
+    weighted_partition = unfolding.partition  + refolding.partition
+    weighted_variance  = unfolding.f_variance + refolding.f_variance
+    z = key.ZFunc(key)
+    # due to numerical stability problems, may need to exclude some points
+    assert (weighted_variance > 0).all() , "Landscape gave <= varianace"
+    # POST: landscape is fine everywhere
+    sanit = lambda x: x
+    weighted_force = sanit(weighted_force)
+    weighted_partition = sanit(weighted_partition)
+    weighted_variance = sanit(weighted_variance)
+    z = sanit(z)
+    # POST: everything is 'sanitized'
     beta = key.Beta
     k = key.SpringConstant
     A_z =  (-1/beta)*np.log(weighted_partition)
@@ -443,7 +469,6 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     first_deriv_term  = -A_z_dot**2/(2*k)
     second_deriv_term = 1/(2*beta) * np.log(one_minus_A_z_dot_over_k)
     G_0 = A_z + first_deriv_term +second_deriv_term
-    z = key.ZFunc(key)
     q = z - A_z_dot/k
     to_ret = Landscape(q=q,energy=G_0,kT=1/beta,
                        free_energy_A=A_z,first_deriv_term=first_deriv_term,

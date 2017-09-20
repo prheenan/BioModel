@@ -82,18 +82,9 @@ def TestBidirectionalEnsemble():
     landscape = f(fwd_objs)
     landscape_both = f(fwd_objs,rev_objs)
     landscape_rev_only = f(rev_objs)
-    plt.subplot(2,1,1)
-    plt.plot(landscape.q,landscape.G_0)
-    plt.plot(landscape.q,landscape_both.G_0,color='g')
-    plt.plot(landscape.q,landscape_rev_only.G_0)
-    plt.subplot(2,1,2)
-    plt.plot(landscape.q,landscape.G_0-landscape.q*14.5e-12,color='g')
-    plt.show()
-    np.testing.assert_allclose(landscape_both.G_0,landscape.G_0,
-                               atol=0,rtol=1e-1)
-    np.testing.assert_allclose(landscape_both.G_0,landscape_rev_only.G_0,
-                               atol=0,rtol=1e-1)
-    # POST: the forward, reverse, and bidirectional landscapes are reasonable
+    np.testing.assert_allclose(landscape.G_0,landscape_rev_only.G_0,
+                               atol=0,rtol=5e-2)
+    # POST: the forward landscape is close to the reverse, as expected
 
     
 def TestForwardBackward():
