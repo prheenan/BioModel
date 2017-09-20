@@ -17,15 +17,15 @@ def _default_slice_func(obj,s):
     Returns: a copy of obj, sliced to s 
     """
     to_ret = copy.deepcopy(obj)
-    to_ret.Force = to_ret.Force[s]
-    to_ret.Separation = to_ret.Separation[s]
-    to_ret.Time = to_ret.Time[s]
+    to_ret._slice(s)
     n_time = to_ret.Time.size
     assert ((n_time == to_ret.Force.size) and \
-            (n_time == to_ret.Separation.size)) , "Not all x/y values the same"
+            (n_time == to_ret.Separation.size)) , \
+        "Not all x/y values the same. Expected {:d}, got {:s}".\
+        format(n_time,str([to_ret.Force.size,to_ret.Separation.size]))
     return to_ret 
 
-def ToIWTObject(o,**kw):
+def ToIWTObject(o,Offset=0,**kw):
     """
     Returns: o, truend into a IWT object
     """
@@ -34,6 +34,7 @@ def ToIWTObject(o,**kw):
                                                 Force=o.Force,
                                                 SpringConstant=o.SpringConstant,
                                                 Velocity=o.Velocity,
+                                                Offset=Offset,
                                                 **kw)
     return obj
 
@@ -47,8 +48,9 @@ def ToIWTObjects(TimeSepForceObjects):
     Objs = [ToIWTObject(o) for o in TimeSepForceObjects]
     return Objs
 
-def split_into_iwt_objects(d,idx_end_of_unfolding=None,idx_end_of_folding=None,
-                           fraction_for_vel=0.2,flip_forces=False,
+def split_into_iwt_objects(d,z_0,v,
+                           idx_end_of_unfolding=None,idx_end_of_folding=None,
+                           flip_forces=False,
                            slice_to_use=None,f_split=None,
                            slice_func=None,
                            unfold_start_idx=None,**kw):
@@ -98,20 +100,18 @@ def split_into_iwt_objects(d,idx_end_of_unfolding=None,idx_end_of_folding=None,
         IwtData_fold = ToIWTObject(fold_tmp,**kw)
     except (AttributeError,KeyError) as e:
         # Rob messes with the notes; he also gives the velocities
-        IwtData = RobTimeSepForceToIWT(unfold_tmp,ZFunc=None,
-                                       fraction_for_vel=fraction_for_vel,**kw)
-        IwtData_fold = RobTimeSepForceToIWT(fold_tmp,ZFunc=None,
-                                            fraction_for_vel=fraction_for_vel,
-                                            **kw)
+        IwtData = RobTimeSepForceToIWT(unfold_tmp,ZFunc=None,**kw)
+        IwtData_fold = RobTimeSepForceToIWT(fold_tmp,ZFunc=None,**kw)
     # switch the velocities of all ToIWTObject folding objects..
     # set the velocity and Z functions
-    set_separation_velocity_by_first_frac(IwtData,fraction_for_vel)
-    set_separation_velocity_by_first_frac(IwtData_fold,fraction_for_vel)
+    delta_t = IwtData.Time[-1]-IwtData.Time[0]
+    z_f = z_0 + v * delta_t
+    IwtData.SetOffsetAndVelocity(z_0,v)
+    IwtData_fold.SetOffsetAndVelocity(z_f,-v)
     return IwtData,IwtData_fold    
 
 def get_unfold_and_refold_objects(data,number_of_pairs,flip_forces=False,
-                                  fraction_for_vel=0.1,slice_func=None,
-                                  **kwargs):
+                                  slice_func=None,**kwargs):
     """
     Splits a TimeSepForceObj into number_of_pairs unfold/refold pairs,
     converting into IWT Objects.
@@ -121,7 +121,6 @@ def get_unfold_and_refold_objects(data,number_of_pairs,flip_forces=False,
         number_of_pairs: how many unfold/refold *pairs* there are (ie: single
         'out and back' would be one, etc
         flip_forces: if true, multiply all the forces by -1
-        fraction_for_vel: fraction to use for the velocity
         get_slice: how to slice the data
 
         slice_func: see split_into_iwt_objects
@@ -139,8 +138,7 @@ def get_unfold_and_refold_objects(data,number_of_pairs,flip_forces=False,
     unfold,refold = [],[]
     for p in pairs:
         unfold_tmp,refold_tmp = \
-            split_into_iwt_objects(p,fraction_for_vel=fraction_for_vel,
-                                   flip_forces=flip_forces,
+            split_into_iwt_objects(p,flip_forces=flip_forces,
                                    slice_func=slice_func,**kwargs)
         unfold.append(unfold_tmp)
         refold.append(refold_tmp)
@@ -160,43 +158,6 @@ def get_slice(data,j,n):
     Length = data.Force.size    
     data_per_curve = int(np.round(Length/n))    
     return slice(j*data_per_curve,(j+1)*data_per_curve,1)
-
-def set_separation_velocity_by_first_frac(iwt_data,fraction_for_vel):
-    """
-    Sets the velocity and offset of the given iwt_object by the first
-    fraction [0,1] points in iwt_data.Time
-
-    Args:
-        see set_separation_velocity_by_first_num, except:
-        fraction_for_vel: the fraction [0,1] to use for the fitting
-    Returns:
-        see set_separation_velocity_by_first_num
-    """
-    Num = int(np.ceil(iwt_data.Time.size * fraction_for_vel))
-    return set_separation_velocity_by_first_num(iwt_data,Num)
-                                
-                                
-def set_separation_velocity_by_first_num(iwt_data,num):
-    """
-    Sets the velocity and offset of the given iwt_object by the first
-    num points in the separation vs time curve
-
-    Args:
-        iwt_data: the data to use
-        num: the number of points to use
-    Returns:
-        nothing, but sets the iwt_data offset and velocity
-    """
-    time_slice = iwt_data.Time[:num]
-    sep_slice = iwt_data.Extension[:num]
-    coeffs = np.polyfit(x=time_slice,y=sep_slice,deg=1)
-    # XXX could just get slope from all, then get offset from np.percentile
-    velocity = coeffs[0]
-    offset = coeffs[1]
-    # adjust the Z function for the fitted velocity and time
-    iwt_data.SetOffsetAndVelocity(offset,velocity)
-
-    
    
 def convert_to_iwt(time_sep_force,frac_vel=0.1):
     """
@@ -211,7 +172,6 @@ def convert_to_iwt(time_sep_force,frac_vel=0.1):
         iwt_object 
     """
     iwt_data = ToIWTObject(time_sep_force)
-    set_separation_velocity_by_first_frac(iwt_data,fraction_for_vel=frac_vel)  
     return iwt_data    
     
 def convert_list_to_iwt(time_sep_force_list,**kwargs):
@@ -221,7 +181,7 @@ def convert_list_to_iwt(time_sep_force_list,**kwargs):
     return [convert_to_iwt(d) for d in time_sep_force_list]
 
 
-def RobTimeSepForceToIWT(o,ZFunc,fraction_for_vel,**kw):
+def RobTimeSepForceToIWT(o,ZFunc,**kw):
     """
     converts a Rob-Walder style pull into a FEC_Pulling_Object
 
@@ -241,14 +201,11 @@ def RobTimeSepForceToIWT(o,ZFunc,fraction_for_vel,**kw):
                                                 SpringConstant=k,
                                                 Velocity=velocity,
                                                 ZFunc=ZFunc,**kw)
-    # set the proper offset 
-    set_separation_velocity_by_first_frac(Obj,fraction_for_vel)
     return Obj
     
 
 def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
-                           fraction_for_vel=0.1,
-                           flip_forces=False,velocity=0):
+                           flip_forces=False,velocity=0,**kw):
     """
 
     """
@@ -256,8 +213,7 @@ def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
         get_unfold_and_refold_objects(data,
                                       number_of_pairs=number_of_pairs,
                                       flip_forces=flip_forces,
-                                      fraction_for_vel=fraction_for_vel,
-                                      kT=kT)
+                                      kT=kT,**kw)
     if (velocity > 0):
         for un,re in zip(unfold,refold):
             # keep the offsets, reset the velocites
@@ -265,7 +221,7 @@ def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
             re.SetOffsetAndVelocity(re.Offset,velocity * -1)
     # POST: have the unfolding and refolding objects, get the energy landscape
     LandscapeObj =  InverseWeierstrass.\
-            free_energy_inverse_weierstrass(unfold,RefoldingObjs=refold)  
+            free_energy_inverse_weierstrass(unfold,refold)  
     return LandscapeObj
 
 

@@ -47,7 +47,7 @@ def ZFuncSimple(obj):
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
-                 Velocity=20e-9,kT=4.1e-21):
+                 Velocity=20e-9,Offset=None,kT=4.1e-21):
         """
         Args:
             Time: Time, in seconds
@@ -77,11 +77,19 @@ class FEC_Pulling_Object:
         self.Extension = Extension.copy()
         self.Force = Force.copy()
         self.SpringConstant=SpringConstant
-        self.SetOffsetAndVelocity(Extension[0],Velocity)
-        self.WorkDigitized=None
+        if (Offset is None):
+            Offset = 0
+        self.SetOffsetAndVelocity(Offset,Velocity)
     @property
     def Separation(self):
         return self.Extension
+    def _slice(self,s):
+        z_old = self.ZFunc(self)
+        new_offset = z_old[s][0]
+        self.Time = self.Time[s]
+        self.Force = self.Force[s]
+        self.Extension = self.Extension[s]
+        self.SetOffsetAndVelocity(new_offset,self.Velocity)
     def update_work(self):
         """
         Updates the internal work variable
@@ -342,7 +350,7 @@ def _check_inputs(objects,expected_inputs,f_input):
     Returns:
         nothing, throws an error if something was wrong
     """
-    error_kw = dict(atol=0,rtol=1e-4)
+    error_kw = dict(atol=0,rtol=1e-3)
     for i,u in enumerate(objects):
         actual_data = f_input(u)
         err_data = "iwt needs all objects to have the same properties.\n" + \
@@ -382,8 +390,10 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     force = np.array([u.Force for u in objs],**array_kw)
     force_sq = np.array([u.Force**2 for u in objs],**array_kw)
     n_size_expected = objs[0].Force.size
-    assert works.shape[0] == n_objs , "Programming error"
-    assert works.shape[1] == n_size_expected , "Programming error"
+    shape_expected = (n_objs,n_size_expected)
+    assert works.shape == shape_expected , \
+        "Programming error, shape should be {:s}, got {:s}".\
+        format(works.shape,shape_expected)
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
     # subtract the mean work 
@@ -435,7 +445,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     refolding_inputs = [zf,-v] + unfolding_inputs[2:]
     _check_inputs(unfolding,unfolding_inputs,input_check)
     _check_inputs(refolding,refolding_inputs,input_check)
-    # POST: refolding and unfolding objects are OK
+    # POST: refolding and unfolding objects are OK.      
     # get the free energy change between the states (or zero, if none)
     delta_A = NumericallyGetDeltaA(unfolding,refolding)
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
