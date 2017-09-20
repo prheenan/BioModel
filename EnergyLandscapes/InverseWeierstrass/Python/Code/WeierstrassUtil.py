@@ -265,8 +265,7 @@ def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
             re.SetOffsetAndVelocity(re.Offset,velocity * -1)
     # POST: have the unfolding and refolding objects, get the energy landscape
     LandscapeObj =  InverseWeierstrass.\
-        FreeEnergyAtZeroForce(unfold,NumBins=number_of_bins,
-                              RefoldingObjs=refold)  
+            free_energy_inverse_weierstrass(unfold,RefoldingObjs=refold)  
     return LandscapeObj
 
 

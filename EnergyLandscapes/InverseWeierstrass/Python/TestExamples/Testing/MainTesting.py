@@ -82,9 +82,9 @@ def TestBidirectionalEnsemble():
     landscape = f(fwd_objs)
     landscape_both = f(fwd_objs,rev_objs)
     landscape_rev_only = f(rev_objs)
-    to_tilt = landscape_both
-    np.testing.assert_allclose(landscape.G_0,landscape_rev.G_0,
-                               atol=0,rtol=1e-1)
+    kT = 4.1e-21
+    np.testing.assert_allclose(landscape.G_0,landscape_rev_only.G_0,
+                               atol=3*kT,rtol=1e-1)
 
     
 def TestForwardBackward():
@@ -106,32 +106,17 @@ def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
     # test)
     # for some reason, they offset the energies?... Figure 3A
     energy_offset_kT = 20
-    energy_offset_fwd_only_kT = 75
-    num_bins = landscape.EnergyLandscape.size
-    landscape.EnergyLandscape -= min(landscape.EnergyLandscape)
-    landscape_both.EnergyLandscape -= \
-            min(landscape_both.EnergyLandscape)
-    landscape_fwd_kT = landscape.EnergyLandscape/kT + energy_offset_fwd_only_kT
-    landscape_both_kT = landscape_both.EnergyLandscape/kT + energy_offset_kT
-    ext_fwd = landscape.Extensions
-    ext_both = landscape_both.Extensions
-    # should be very close before XXXnm
-    split_point_meters = 235e-9
-    CloseIdxFwd = np.where(ext_fwd < split_point_meters)[0]
-    CloseIdxBoth = np.where(ext_both < split_point_meters)[0]
-    limit = min(CloseIdxFwd.size,CloseIdxBoth.size)
-    assert limit > num_bins/3 , "Should have roughly half of data before 230nm"
-    # want landscapees before 230nm to be within 10% of each other
-    np.testing.assert_allclose(landscape_fwd_kT[CloseIdxFwd[limit:]],
-                               landscape_both_kT[CloseIdxBoth[limit:]],
-                               rtol=0.1)
+    num_bins = landscape.G_0.size
+    landscape_both_kT = (landscape_both.G_0-min(landscape_both.G_0))/kT + \
+                        energy_offset_kT
+    q_both_rel = landscape_both.q - min(landscape_both.q)
+    idx_ok = np.where(q_both_rel < 70e-9)
+    ext_both = q_both_rel[idx_ok]
+    landscape_both_kT = landscape_both_kT[idx_ok]
     # POST: 'early' region is fine
     # check the bound on the last points (just estimate these by eye)
-    forward_maximum_energy_kT = 250
     both_maximum_energy_kT = 250
-    np.testing.assert_allclose(landscape_fwd_kT[-1],forward_maximum_energy_kT,
-                               rtol=0.05)
-    np.testing.assert_allclose(landscape_both_kT[-1],reverse_maximum_energy_kT,
+    np.testing.assert_allclose(landscape_both_kT[-1],both_maximum_energy_kT,
                                rtol=0.05)
     # POST: endpoints match Figure 3 bounds
     landscape_fonehalf_kT = (landscape_both_kT*kT-ext_both* f_one_half)/kT
@@ -141,10 +126,10 @@ def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
     landscape_fonehalf_kT_rel =  \
         landscape_fonehalf_kT - min( landscape_fonehalf_kT) + offset_kT_tilted
     # make sure the barrier height is about right
-    idx_barrier = np.where( (ext_both > 220e-9) &
-                            (ext_both < 240e-9) )
+    idx_barrier = np.where( (ext_both > 20e-9) &
+                            (ext_both < 55e-9) )
     barrier_region = landscape_fonehalf_kT_rel[idx_barrier]
-    expected_barrier_height_kT = 5
+    expected_barrier_height_kT = 3.5
     barrier_delta = np.max(barrier_region)-np.min(landscape_fonehalf_kT_rel)
     np.testing.assert_allclose(barrier_delta,
                                expected_barrier_height_kT,atol=1)
@@ -340,6 +325,10 @@ def get_simulated_ensemble(n,**kw):
     return to_ret
 
 def load_simulated_data(n,cache_dir="./cache"):
+    """
+    returns: at most n forward and reverse (2*n total) from cache_dir, or
+    re-creates using get_simulated_ensemble
+    """
     cache_fwd,cache_rev = [cache_dir + s +"/" for s in ["_fwd","_rev"]]
     GenUtilities.ensureDirExists(cache_fwd)
     GenUtilities.ensureDirExists(cache_rev)
@@ -357,35 +346,6 @@ def HummerData(seed=42,**kw):
     # read in the simulateddata 
     #assert_noisy_ensemble_correct(fwd,rev)
     return fwd,rev
-
-def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
-    ToX = lambda x: x*1e9
-    xlim = lambda: plt.xlim([190,265])
-    landscape_rev_kT = landscape_rev.EnergyLandscape/kT
-    landscape_fwd_kT = landscape.EnergyLandscape/kT
-    landscape_rev_only_kT = landscape_rev_only.EnergyLandscape/kT
-    ext_fwd = landscape_rev.Extensions
-    ext_rev = landscape.Extensions
-    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
-    landscape_fonehalf_kT_rel = landscape_fonehalf_kT-min(landscape_fonehalf_kT)
-    plt.subplot(2,1,1)
-    # add in the offsets, since we dont simulate before...
-    plt.plot(ToX(ext_fwd),landscape_rev_kT+20,color='r',alpha=0.6,
-             linestyle='-',linewidth=3,label="Bi-directional")
-    plt.plot(ToX(ext_rev),landscape_fwd_kT+75,color='b',
-             linestyle='--',label="Only Forward")
-    plt.plot(ToX(landscape_rev_only.Extensions),landscape_rev_only_kT+20,
-             "g--",label="Only Reverse")
-    plt.ylim([0,300])
-    xlim()
-    PlotUtilities.lazyLabel("","Free Energy (kT)",
-                            "Hummer 2010, Figure 3")
-    plt.subplot(2,1,2)
-    plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
-    plt.ylim([0,25])
-    xlim()
-    PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
-
 
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """
@@ -414,34 +374,16 @@ def TestHummer2010():
 
     # POST: fwd and reverse have the forward and reverse trajectories 
     # go ahead and made the energy landscapes
-    num_bins=200
     kT = 4.1e-21
     f_one_half = 14e-12
     state_fwd,state_rev = HummerData()
     # make copy of the data; we check this below to make sure we dont 
     # mess with it
     state_fwd_o,state_rev_o = copy.deepcopy(state_fwd),copy.deepcopy(state_rev)
-    landscape = InverseWeierstrass.free_energy_inverse_weierstrass(state_fwd)
-    plt.subplot(2,1,1)
-    plt.plot(landscape.q,landscape.A_z/4.1e-21)
-    plt.plot(landscape.q,landscape.G_0/4.1e-21)
-    plt.subplot(2,1,2)
-    plt.plot(landscape.q,
-             ((landscape.G_0+landscape.offset)-(14e-12*landscape.q))/4.1e-21)
-    plt.show()
-    landscape = InverseWeierstrass.FreeEnergyAtZeroForce(state_fwd,num_bins,[])
-    landscape_both = InverseWeierstrass.\
-            FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
-    landscape_rev_only = InverseWeierstrass.\
-                    FreeEnergyAtZeroForce(state_rev,num_bins,[])
-    plt.plot(landscape.EnergyLandscape/4.1e-21,color='b')
-    plt.plot(landscape_both.EnergyLandscape/4.1e-21,color='r')
-    plt.plot(landscape_rev_only.EnergyLandscape/4.1e-21,color='g')
-    plt.show()
+    f = InverseWeierstrass.free_energy_inverse_weierstrass
+    landscape = f(state_fwd)
+    landscape_both = f(state_fwd,state_rev)
     # POST: height should be quite close to Figure 3
-    fig = PlotUtilities.figure(figsize=(4,7))
-    landscape_plot(landscape,landscape_both,landscape_rev_only,kT,f_one_half)
-    PlotUtilities.savefig(fig,"out.png")
     check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half=f_one_half)
     # POST: ensemble works well.
     # combine all the forward and reverse states
@@ -469,8 +411,7 @@ def TestHummer2010():
         check_iwt_obj(re_org,re,**tolerance_kwargs)
     # make sure we didn't mess with the 'original', generated data
     # (for the purposes of IWT)
-    landscape_rev_2 = InverseWeierstrass.\
-            FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
+    landscape_rev_2 = f(state_fwd,state_rev)
     np.testing.assert_allclose(landscape_rev.EnergyLandscape,
                                landscape_rev_2.EnergyLandscape)
     # POST:the new landscape matches the original one. make sure the data is ok
@@ -480,8 +421,7 @@ def TestHummer2010():
         check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
     # POST: should be able to get the same landscape; data havent been corrupted
     # check that the sliced data is OK. 
-    landscape_bidirectional = InverseWeierstrass.\
-        FreeEnergyAtZeroForce(state_fwd,num_bins,state_rev)
+    landscape_bidirectional = f(state_fwd,state_rev)
     np.testing.assert_allclose(landscape_rev.EnergyLandscape,
                                landscape_bidirectional.EnergyLandscape)
     # check that the command-line style calling works 
