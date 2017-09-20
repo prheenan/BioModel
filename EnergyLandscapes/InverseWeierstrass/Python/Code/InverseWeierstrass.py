@@ -235,7 +235,6 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
     return (v*nr*Exp(-beta*(W + delta_A)))/(nr + nf*Exp(-beta*(Wn + delta_A)))
 
-
 def _work_offset_value(works,**kw):
     return np.mean(works,**kw)
 
