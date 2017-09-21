@@ -157,48 +157,6 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
-def _get_bins_and_digitized(x_m_abs,obj,n):
-    """
-    Returns: tuple of <bins,digitized_extension> for object
-    """
-    bins = np.linspace(min(x_m_abs),max(x_m_abs),endpoint=True,num=n)
-    digitized_ext = obj._GetDigitizedGen(Bins=bins,ToDigitize=obj.Extension)
-    return bins,digitized_ext
-
-def _assert_digitization_correct(x_m_abs,n,obj):
-    """
-    checks that the digitization procedure works fine
-
-    Args:
-        x_m_abs: the 'absolute' x value in meters expected
-        n: the number of bins to use for digitixation
-        obj: the obhect to digitize 
-
-    Returns:
-        nothing, throws an error if things go wrong
-    """
-    bins,digitized_ext = _get_bins_and_digitized(x_m_abs,obj,n)
-    combined_digitized_data = sorted(np.concatenate(digitized_ext))
-    np.testing.assert_allclose(combined_digitized_data,sorted(obj.Extension)), \
-        "error, digitization lost data"
-    # POST: exactly the correct data points were digitized. check that 
-    # they wount up in the right bin
-    for i,arr in enumerate(digitized_ext):
-        # data with data between bin[i] and [i+1] is binned into i.
-        # endpoints: data in the last bin (N-1) should be > bin N-2
-        # endpoints: data in the first bin (0) should be < bin 1
-        if (i < n-1):
-            assert (arr <= bins[i]).all(), "upper bound broken"
-        else:
-            # bin n-1 should be entirely greater than n-2
-            assert (arr > bins[i-1]).all(), "upper bound broken"            
-        if (i > 0):
-            assert (arr >= bins[i-1]).all(), "lower bound broken"            
-        else:
-            # bin 0 should be entirely less than 0 
-            assert (arr < bins[i+1]).all(), "lower bound broken"
-    # POST: all bins work 
-
 def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
                          assert_dict=dict(atol=1e-30,rtol=1e-9)):
     """
