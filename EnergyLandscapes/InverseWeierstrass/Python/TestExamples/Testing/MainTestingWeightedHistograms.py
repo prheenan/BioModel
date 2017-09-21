@@ -11,6 +11,8 @@ from Util.Test import _f_assert,HummerData,load_simulated_data
 from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
     InverseWeierstrass,WeierstrassUtil
 
+
+
 def _digitize_idx(x,bins):
     # Hummer, 2010, near S2: j is defined centered arounda q
     diff = np.diff(bins)
