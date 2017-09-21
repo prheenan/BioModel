@@ -11,6 +11,20 @@ from Util.Test import _f_assert,HummerData,load_simulated_data
 from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
     InverseWeierstrass,WeierstrassUtil
 
+def _digitize_idx(x,bins):
+    # Hummer, 2010, near S2: j is defined centered arounda q
+    diff = np.diff(bins)
+    assert np.testing.assert_allclose(diff[0],diff,atol=0,rtol=1e-6,
+                                      err_msg="Bin sizes must be the same")
+    # POST: arrays match
+    return np.digitize(x=x,bins=(bins-diff/2))
+
+def _mask_iwt_object(data_x,data_y,bins):
+    bin_idx = _digitize_idx(x=data_y)
+
+def weighted_histogram():
+    pass
+
 
 def _get_bins_and_digitized(x_m_abs,obj,n):
     """

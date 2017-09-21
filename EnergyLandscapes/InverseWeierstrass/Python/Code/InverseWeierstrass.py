@@ -423,16 +423,10 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     return to_ret
 
 
-def free_energy_inverse_weierstrass(unfolding,refolding=[]):
-    """
-    XXX DEBUGGING REPLACE
-
-    Args:
-        <un/re>folding: list of unfolding and refolding objects to use
-    """
+def _assert_inputs_valid(unfolding,refolding):
     n_f = len(unfolding)
     n_r = len(refolding)
-    assert n_f > 0 , "IWT recquires at least one unfolding object"
+    assert n_f > 0 , "Need at least one unfolding object"
     # POST: at least one to look at
     key = unfolding[0]
     input_check = lambda x: [x.Offset,x.Velocity,x.SpringConstant,x.Force.size,
@@ -445,8 +439,20 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     refolding_inputs = [zf,-v] + unfolding_inputs[2:]
     _check_inputs(unfolding,unfolding_inputs,input_check)
     _check_inputs(refolding,refolding_inputs,input_check)
+
+
+def free_energy_inverse_weierstrass(unfolding,refolding=[]):
+    """
+    XXX DEBUGGING REPLACE
+
+    Args:
+        <un/re>folding: list of unfolding and refolding objects to use
+    """
+    _assert_inputs_valid(unfolding,refolding)
     # POST: refolding and unfolding objects are OK.      
+    key = unfolding[0]
     # get the free energy change between the states (or zero, if none)
+    n_f,n_r = len(unfolding),len(refolding)
     delta_A = NumericallyGetDeltaA(unfolding,refolding)
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
     unfold_weighted = get_work_weighted_object(unfolding,
