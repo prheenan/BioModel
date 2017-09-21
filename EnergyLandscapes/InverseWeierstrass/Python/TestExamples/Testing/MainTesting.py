@@ -12,8 +12,8 @@ from scipy.integrate import cumtrapz
 import copy
 from GeneralUtil.python import CheckpointUtilities,GenUtilities,PlotUtilities
 from scipy.interpolate import interp1d
-import Simulation,TestUtil
-from TestUtil import _f_assert,HummerData,load_simulated_data
+from Util import Test
+from Util.Test import _f_assert,HummerData,load_simulated_data
 
 def TestWeighting():
     """

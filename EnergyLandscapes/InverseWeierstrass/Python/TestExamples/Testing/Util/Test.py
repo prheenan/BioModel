@@ -1,4 +1,4 @@
-# force floating point division. Can still use integer with //
+# force floating point division. Can still use integer with // 
 from __future__ import division
 # other good compatibility recquirements for python3
 from __future__ import absolute_import
