@@ -19,6 +19,15 @@ def _f_assert(exp,f,atol=0,rtol=1e-9,**d):
 
 
 def get_simulated_ensemble(n,**kw):
+    """
+    Returns: at most n curves (n) using the parameters
+
+    Args:
+        n: number of curves 
+        **kw: for Util.Simulation.hummer_force_extension_curve
+    Returns:
+        n IWT objects
+    """
     to_ret = []
     for _ in range(n):
         t,q,z,f,p = Util.Simulation.hummer_force_extension_curve(**kw)
@@ -51,26 +60,12 @@ def load_simulated_data(n,cache_dir="./cache"):
     return fwd,rev
 
 def HummerData(seed=42,n=10,**kw):
+    """
+    See: load_simulated_data
+    """
     np.random.seed(seed)
     # POST: the ensemble data (without noise) are OK 
     fwd,rev = load_simulated_data(n=n,**kw)
     # read in the simulateddata 
     #assert_noisy_ensemble_correct(fwd,rev)
     return fwd,rev
-
-
-
-def run():
-    """
-    <Description>
-
-    Args:
-        param1: This is the first param.
-    
-    Returns:
-        This is a description of what is returned.
-    """
-    pass
-
-if __name__ == "__main__":
-    run()
