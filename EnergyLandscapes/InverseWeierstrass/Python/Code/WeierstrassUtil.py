@@ -101,8 +101,8 @@ def split_into_iwt_objects(d,z_0,v,
         IwtData_fold = ToIWTObject(fold_tmp,**kw)
     except (AttributeError,KeyError) as e:
         # Rob messes with the notes; he also gives the velocities
-        IwtData = RobTimeSepForceToIWT(unfold_tmp,ZFunc=None,**kw)
-        IwtData_fold = RobTimeSepForceToIWT(fold_tmp,ZFunc=None,**kw)
+        IwtData = RobTimeSepForceToIWT(unfold_tmp,v=v,**kw)
+        IwtData_fold = RobTimeSepForceToIWT(fold_tmp,v=v,**kw)
     # switch the velocities of all ToIWTObject folding objects..
     # set the velocity and Z functions
     delta_t = IwtData.Time[-1]-IwtData.Time[0]
@@ -182,7 +182,7 @@ def convert_list_to_iwt(time_sep_force_list,**kwargs):
     return [convert_to_iwt(d) for d in time_sep_force_list]
 
 
-def RobTimeSepForceToIWT(o,ZFunc,**kw):
+def RobTimeSepForceToIWT(o,v,**kw):
     """
     converts a Rob-Walder style pull into a FEC_Pulling_Object
 
@@ -195,13 +195,12 @@ def RobTimeSepForceToIWT(o,ZFunc,**kw):
     """
     # spring constant should be in N/m
     k = o.Meta.__dict__["K"]
-    velocity = o.Meta.__dict__["RetractVelocity"]
     Obj = InverseWeierstrass.FEC_Pulling_Object(Time=o.Time,
                                                 Extension=o.Separation,
                                                 Force=o.Force,
                                                 SpringConstant=k,
-                                                Velocity=velocity,
-                                                ZFunc=ZFunc,**kw)
+                                                Velocity=v,
+                                                Offset=0,**kw)
     return Obj
     
 
@@ -215,11 +214,6 @@ def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
                                       number_of_pairs=number_of_pairs,
                                       flip_forces=flip_forces,
                                       kT=kT,**kw)
-    if (velocity > 0):
-        for un,re in zip(unfold,refold):
-            # keep the offsets, reset the velocites
-            un.SetOffsetAndVelocity(un.Offset,velocity)
-            re.SetOffsetAndVelocity(re.Offset,velocity * -1)
     # POST: have the unfolding and refolding objects, get the energy landscape
     LandscapeObj =  InverseWeierstrass.\
             free_energy_inverse_weierstrass(unfold,refold)  

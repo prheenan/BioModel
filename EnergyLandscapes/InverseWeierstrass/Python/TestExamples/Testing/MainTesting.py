@@ -12,12 +12,8 @@ from scipy.integrate import cumtrapz
 import copy
 from GeneralUtil.python import CheckpointUtilities,GenUtilities,PlotUtilities
 from scipy.interpolate import interp1d
-import Simulation
-
-
-def _f_assert(exp,f,atol=0,rtol=1e-9,**d):
-    value = f(**d)
-    np.testing.assert_allclose(value,exp,atol=atol,rtol=rtol)
+from Util import Test
+from Util.Test import _f_assert,HummerData,load_simulated_data
 
 def TestWeighting():
     """
@@ -161,48 +157,6 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     xlim()
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
-def _get_bins_and_digitized(x_m_abs,obj,n):
-    """
-    Returns: tuple of <bins,digitized_extension> for object
-    """
-    bins = np.linspace(min(x_m_abs),max(x_m_abs),endpoint=True,num=n)
-    digitized_ext = obj._GetDigitizedGen(Bins=bins,ToDigitize=obj.Extension)
-    return bins,digitized_ext
-
-def _assert_digitization_correct(x_m_abs,n,obj):
-    """
-    checks that the digitization procedure works fine
-
-    Args:
-        x_m_abs: the 'absolute' x value in meters expected
-        n: the number of bins to use for digitixation
-        obj: the obhect to digitize 
-
-    Returns:
-        nothing, throws an error if things go wrong
-    """
-    bins,digitized_ext = _get_bins_and_digitized(x_m_abs,obj,n)
-    combined_digitized_data = sorted(np.concatenate(digitized_ext))
-    np.testing.assert_allclose(combined_digitized_data,sorted(obj.Extension)), \
-        "error, digitization lost data"
-    # POST: exactly the correct data points were digitized. check that 
-    # they wount up in the right bin
-    for i,arr in enumerate(digitized_ext):
-        # data with data between bin[i] and [i+1] is binned into i.
-        # endpoints: data in the last bin (N-1) should be > bin N-2
-        # endpoints: data in the first bin (0) should be < bin 1
-        if (i < n-1):
-            assert (arr <= bins[i]).all(), "upper bound broken"
-        else:
-            # bin n-1 should be entirely greater than n-2
-            assert (arr > bins[i-1]).all(), "upper bound broken"            
-        if (i > 0):
-            assert (arr >= bins[i-1]).all(), "lower bound broken"            
-        else:
-            # bin 0 should be entirely less than 0 
-            assert (arr < bins[i+1]).all(), "lower bound broken"
-    # POST: all bins work 
-
 def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
                          assert_dict=dict(atol=1e-30,rtol=1e-9)):
     """
@@ -305,47 +259,6 @@ def assert_noisy_ensemble_correct(fwd,rev):
     n = 50
     _single_direction_assert(fwd,n)
     _single_direction_assert(rev,n)
-
-def get_simulated_ensemble(n,**kw):
-    to_ret = []
-    for _ in range(n):
-        t,q,z,f,p = Simulation.hummer_force_extension_curve(**kw)
-        velocity = p["velocity"]
-        spring_constant = p['k']
-        beta = p['beta']
-        kT = 1/beta
-        good_idx = np.where( (z > 325e-9) & (z < 425e-9))
-        initial_dict = dict(Time=t[good_idx]-t[good_idx][0],
-                            Extension=q[good_idx],
-                            Force=f[good_idx],Velocity=velocity,kT=kT,
-                            SpringConstant=spring_constant)
-        tmp = InverseWeierstrass.FEC_Pulling_Object(**initial_dict)
-        tmp.SetOffsetAndVelocity(z[good_idx][0],tmp.Velocity)
-        to_ret.append(tmp)
-    return to_ret
-
-def load_simulated_data(n,cache_dir="./cache"):
-    """
-    returns: at most n forward and reverse (2*n total) from cache_dir, or
-    re-creates using get_simulated_ensemble
-    """
-    cache_fwd,cache_rev = [cache_dir + s +"/" for s in ["_fwd","_rev"]]
-    GenUtilities.ensureDirExists(cache_fwd)
-    GenUtilities.ensureDirExists(cache_rev)
-    func_fwd = lambda : get_simulated_ensemble(n)
-    func_rev = lambda : get_simulated_ensemble(n,reverse=True)
-    fwd = CheckpointUtilities.multi_load(cache_fwd,func_fwd,limit=n)
-    rev = CheckpointUtilities.multi_load(cache_rev,func_rev,limit=n)
-    return fwd,rev
-
-def HummerData(seed=42,n=10,**kw):
-    np.random.seed(seed)
-    # POST: the ensemble data (without noise) are OK 
-    fwd,rev = load_simulated_data(n=n,**kw)
-    # read in the simulateddata 
-    #assert_noisy_ensemble_correct(fwd,rev)
-    return fwd,rev
-
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """
     checks that the 'act' iwt object matches the expected 'exp' object. kwargs
