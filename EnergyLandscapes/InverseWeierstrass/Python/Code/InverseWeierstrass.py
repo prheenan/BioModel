@@ -12,7 +12,7 @@ from scipy.optimize import fminbound,newton,brentq
 from scipy import sparse
 
 
-class _WorkWeighted:
+class _WorkWeighted(object):
     def __init__(self,objs,work_offset):
         self.objs = objs
         self.work_offset = work_offset
@@ -24,7 +24,7 @@ class _WorkWeighted:
     def f_variance(self):
         return self.f_squared - self.f**2
 
-class Landscape:
+class Landscape(object):
     def __init__(self,q,energy,kT,
                  free_energy_A,first_deriv_term,second_deriv_term):
         sort_idx = np.argsort(q)
@@ -354,7 +354,7 @@ def _check_inputs(objects,expected_inputs,f_input):
     for i,u in enumerate(objects):
         actual_data = f_input(u)
         err_data = "iwt needs all objects to have the same properties.\n" + \
-                   "Expected (z0,v,N,k,kT)={:s}, but object {:d} had {:s}".\
+                   "Expected (z0,v,k,N,kT)={:s}, but object {:d} had {:s}".\
                    format(str(expected_inputs),i,str(actual_data))
         np.testing.assert_allclose(expected_inputs,actual_data,
                                    err_msg=err_data,**error_kw)
