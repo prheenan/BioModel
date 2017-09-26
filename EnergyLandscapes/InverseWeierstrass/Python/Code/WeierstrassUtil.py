@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import numpy as np
 import matplotlib.pyplot as plt
 import sys,copy
+from scipy.interpolate import LSQUnivariateSpline
 
 from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
     InverseWeierstrass
@@ -224,4 +225,45 @@ def iwt_ramping_experiment(data,number_of_pairs,number_of_bins,kT,
             free_energy_inverse_weierstrass(unfold,refold)  
     return LandscapeObj
 
+def _filter_single_landscape(landscape_obj,bins,k=3,ext='const',**kw):
+    """
+    filters landscape_obj using a smooth splineaccording to bins. 
+    If bins goes outside of landscape_obj.q, then the interpolation is constant 
+    (preventing wackyness)
+    
+    Args:
+        landscape_obj: Landscape instance
+        bins: where we want to filter along
+    """
+    to_ret = copy.deepcopy(landscape_obj)
+    # fit a spline at the given bins
+    x = to_ret.q 
+    min_x,max_x = min(x),max(x)
+    # determine where the bins are in the range of the data for this landscape
+    good_idx =np.where( (bins >= min_x) & (bins <= max_x))
+    bins_relevant = bins[good_idx]
+    # the new q is just the bins
+    to_ret.q = bins
+    """
+    exclude the first and last bins, to make sure the Schoenberg-Whitney 
+    condition is met for all interior knots (see: 
+docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpline
+    """
+    kw = dict(x=x,t=bins_relevant[1:-1],ext=ext,k=k,**kw)
+    f_filter = lambda y_tmp: LSQUnivariateSpline(y=y_tmp,**kw)(bins)
+    # filter each property
+    to_ret.energy = f_filter(to_ret.energy)
+    to_ret.A_z = f_filter(to_ret.A_z)
+    to_ret.first_deriv_term = f_filter(to_ret.first_deriv_term)
+    to_ret.second_deriv_term = f_filter(to_ret.second_deriv_term)
+    return to_ret
+    
+def _bin_landscape(landscape_obj,n_bins,**kw):
+    """
+    See: _filter_single_landscape, except takes in a uniform number of bins to 
+    use
+    """
+    bins = np.linsapce(min(landscape.q),max(landscape.q),n_bins,endpoint=True)
+    filtered = _filter_single_landscape(landscape_obj,bins=bins,**kw)
+    return bins,filtered 
 
