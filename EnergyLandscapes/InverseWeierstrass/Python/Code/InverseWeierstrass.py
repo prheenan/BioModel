@@ -151,7 +151,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     max_number = np.finfo(np.float64).max
-    tol = np.log(max_number)-50
+    tol = np.log(max_number)-100
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)

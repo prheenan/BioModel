@@ -259,6 +259,7 @@ def assert_noisy_ensemble_correct(fwd,rev):
     n = 50
     _single_direction_assert(fwd,n)
     _single_direction_assert(rev,n)
+
 def check_iwt_obj(exp,act,**tolerance_kwargs):
     """
     checks that the 'act' iwt object matches the expected 'exp' object. kwargs
@@ -274,6 +275,55 @@ def check_iwt_obj(exp,act,**tolerance_kwargs):
     # make sure the work matches
     np.testing.assert_allclose(act.Work,exp.Work)
 
+
+def _assert_negative(expected,functor,atol=0,rtol=1e-6,min_loss_fraction=1):
+    l = functor()
+    assert (not np.allclose(l.G_0,expected.G_0,atol=0,rtol=rtol))
+    # make sure the total sqaured loss is greater than min_loss_fraction
+    loss = sum(np.abs(l.G_0-expected.G_0))
+    min_loss = sum(abs(min_loss_fraction * expected.G_0))
+    assert loss > min_loss
+
+def _check_negative_controls(landscape_both,single,single_rev,**kwargs):
+    # check that we get an incorrect answer if we mess up the velocity 
+    kwargs = dict(**kwargs)
+    # remove the velocity, so we can use it
+    del kwargs['v']
+    cmd_line_incorrect = lambda: WeierstrassUtil.\
+                         iwt_ramping_experiment(single,
+                                                v=single.Velocity*2,
+                                                **kwargs)
+    _assert_negative(landscape_both,cmd_line_incorrect)
+    # check that if we only flip one, things are also bad 
+    cmd_line_incorrect = lambda: WeierstrassUtil.\
+                         iwt_ramping_experiment(single_rev,
+                                                v=single.Velocity*1.5,
+                                                **kwargs)    
+    _assert_negative(landscape_both,cmd_line_incorrect)
+                   
+
+def _check_positive_controls(landscape_both,single,single_rev,**kwargs):
+    # check that the command-line style calling works 
+    expected_landscape = landscape_both.G_0
+    assert_correct = lambda actual: \
+        np.testing.assert_allclose(actual.G_0,
+                                   expected_landscape)
+    cmd_line = WeierstrassUtil.iwt_ramping_experiment(single,
+                                                      **kwargs)
+    assert_correct(cmd_line)     
+    # check that we get the same answer when we flip the data, and ask it
+    # to be flipped
+    kwargs_flipped = dict(**kwargs)
+    kwargs_flipped['flip_forces'] = True
+    cmd_line_flipped = WeierstrassUtil.\
+        iwt_ramping_experiment(single_rev,
+                               **kwargs_flipped)
+    assert_correct(cmd_line_flipped)    
+    # check that we get the same answer if we specify the velocity parameter
+    cmd_line_velocity = WeierstrassUtil.\
+                        iwt_ramping_experiment(single,
+                                               **kwargs)
+    assert_correct(cmd_line_velocity)     
 
 def TestHummer2010():
     """
@@ -347,54 +397,10 @@ def TestHummer2010():
     landscape_bidirectional = f(state_fwd,state_rev)
     np.testing.assert_allclose(landscape_both.G_0,
                                landscape_bidirectional.G_0)
-    # check that the command-line style calling works 
-    expected_landscape = landscape_both.G_0
-    assert_correct = lambda actual: \
-        np.testing.assert_allclose(actual.G_0,
-                                   expected_landscape)
-    num_bins = 0
-    cmd_line = WeierstrassUtil.iwt_ramping_experiment(single,
-                                                      number_of_bins=num_bins,
-                                                      **kwargs)
-    assert_correct(cmd_line)     
-    # check that we get the same answer when we flip the data, and ask it
-    # to be flipped
     single_rev = copy.deepcopy(single)
     single_rev.Force *= -1
-    kwargs_flipped = dict(**kwargs)
-    kwargs_flipped['flip_forces'] = True
-    cmd_line_flipped = WeierstrassUtil.\
-        iwt_ramping_experiment(single_rev,
-                               number_of_bins=num_bins,
-                               **kwargs_flipped)
-    assert_correct(cmd_line_flipped)    
-    # check that we get the same answer if we specify the velocity parameter
-    cmd_line_velocity = WeierstrassUtil.\
-                        iwt_ramping_experiment(single,
-                                               number_of_bins=num_bins,
-                                               velocity=single.Velocity,
-                                               **kwargs)
-    assert_correct(cmd_line_velocity)    
-    # check that we get an incorrect answer if we mess up the velocity 
-    try:
-        cmd_line_incorrect = WeierstrassUtil.\
-                             iwt_ramping_experiment(single,
-                                                    velocity=single.Velocity*2,
-                                                    number_of_bins=num_bins,
-                                                    **kwargs)
-        assert "Previous line should have broken code"
-    except AssertionError:
-        pass
-    try:
-        # check that if we only flip one, things are also bad 
-        cmd_line_incorrect = WeierstrassUtil.\
-                             iwt_ramping_experiment(single_rev,
-                                                    number_of_bins=num_bins,
-                                                    **kwargs)    
-        assert "Previous line should have broken code"
-    except AssertionError:
-        pass
-                               
+    _check_positive_controls(landscape_both,single,single_rev,**kwargs)
+    _check_negative_controls(landscape_both,single,single_rev,**kwargs)
     
 def assert_landscapes_disagree(new_obj,expected_landscape):
     # the landscapes are normalized to zero; so we ignore the first point 

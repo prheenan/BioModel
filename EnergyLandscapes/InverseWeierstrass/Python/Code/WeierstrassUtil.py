@@ -204,8 +204,8 @@ def RobTimeSepForceToIWT(o,v,**kw):
     return Obj
     
 
-def iwt_ramping_experiment(data,number_of_pairs,kT,
-                           flip_forces=False,velocity=0,**kw):
+def iwt_ramping_experiment(data,number_of_pairs,kT,v,
+                           flip_forces=False,**kw):
     """
 
     """
@@ -213,7 +213,7 @@ def iwt_ramping_experiment(data,number_of_pairs,kT,
         get_unfold_and_refold_objects(data,
                                       number_of_pairs=number_of_pairs,
                                       flip_forces=flip_forces,
-                                      kT=kT,**kw)
+                                      kT=kT,v=v,**kw)
     # POST: have the unfolding and refolding objects, get the energy landscape
     LandscapeObj =  InverseWeierstrass.\
             free_energy_inverse_weierstrass(unfold,refold)  
