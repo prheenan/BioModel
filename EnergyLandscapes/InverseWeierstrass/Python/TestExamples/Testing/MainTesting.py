@@ -276,7 +276,7 @@ def check_iwt_obj(exp,act,**tolerance_kwargs):
     np.testing.assert_allclose(act.Work,exp.Work)
 
 
-def _assert_negative(expected,functor,atol=0,rtol=1e-6,min_loss_fraction=1):
+def _assert_negative(expected,functor,atol=0,rtol=1e-6,min_loss_fraction=0.3):
     l = functor()
     assert (not np.allclose(l.G_0,expected.G_0,atol=0,rtol=rtol))
     # make sure the total sqaured loss is greater than min_loss_fraction
@@ -288,6 +288,7 @@ def _check_negative_controls(landscape_both,single,single_rev,**kwargs):
     # check that we get an incorrect answer if we mess up the velocity 
     kwargs = dict(**kwargs)
     # remove the velocity, so we can use it
+    v_orig = kwargs['v']
     del kwargs['v']
     cmd_line_incorrect = lambda: WeierstrassUtil.\
                          iwt_ramping_experiment(single,
@@ -300,6 +301,15 @@ def _check_negative_controls(landscape_both,single,single_rev,**kwargs):
                                                 v=single.Velocity*1.5,
                                                 **kwargs)    
     _assert_negative(landscape_both,cmd_line_incorrect)
+    del kwargs['kT']
+    # check that if we change the temperature, things are still bad. 
+    cmd_line_incorrect = lambda: WeierstrassUtil.\
+                         iwt_ramping_experiment(single_rev,
+                                                v=v_orig,
+                                                kT=8.2e-21,
+                                                **kwargs)    
+    _assert_negative(landscape_both,cmd_line_incorrect)
+
                    
 
 def _check_positive_controls(landscape_both,single,single_rev,**kwargs):
@@ -319,11 +329,19 @@ def _check_positive_controls(landscape_both,single,single_rev,**kwargs):
         iwt_ramping_experiment(single_rev,
                                **kwargs_flipped)
     assert_correct(cmd_line_flipped)    
-    # check that we get the same answer if we specify the velocity parameter
-    cmd_line_velocity = WeierstrassUtil.\
-                        iwt_ramping_experiment(single,
-                                               **kwargs)
-    assert_correct(cmd_line_velocity)     
+    # check that we get the same answer if we zero the offset
+    z_0 = kwargs['z_0']
+    kw_no_z0 = dict(**kwargs)
+    del kw_no_z0['z_0']
+    cmd_line_offset = WeierstrassUtil.\
+                      iwt_ramping_experiment(single,
+                                             z_0=0,
+                                             **kw_no_z0)
+    assert_correct(cmd_line_offset)
+    # make sure the extension is off by exactly the offset
+    np.testing.assert_allclose(cmd_line_offset.q+z_0,landscape_both.q,
+                               atol=0,rtol=1e-6)
+                               
 
 def TestHummer2010():
     """
