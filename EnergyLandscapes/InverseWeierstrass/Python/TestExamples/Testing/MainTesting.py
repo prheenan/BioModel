@@ -341,7 +341,53 @@ def _check_positive_controls(landscape_both,single,single_rev,**kwargs):
     # make sure the extension is off by exactly the offset
     np.testing.assert_allclose(cmd_line_offset.q+z_0,landscape_both.q,
                                atol=0,rtol=1e-6)
-                               
+                        
+def _concatenate_data(state_fwd,state_rev):
+    single = copy.deepcopy(state_fwd[0])
+    single.Force = []
+    single.Extension = []
+    single.Time = []
+    for fwd,rev in zip(state_fwd,state_rev):
+        single.Force += list(fwd.Force) + list(rev.Force)
+        single.Extension += list(fwd.Extension) + list(rev.Extension)
+        single.Time += list(fwd.Time) + list(rev.Time)
+    # combine all the data
+    N = len(state_fwd)
+    single.Force = np.array(single.Force)
+    single.Extension = np.array(single.Extension)
+    single.Time = np.array(single.Time)
+    return single 
+
+def command_line_kw(state_fwd):
+    key = state_fwd[0]
+    v = key.Velocity
+    z_0 = key.Offset
+    N = len(state_fwd)
+    kwargs = dict(number_of_pairs=N,
+                  flip_forces=False,
+                  kT=4.1e-21,
+                  v=v,z_0=z_0)
+    return kwargs
+
+def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
+                        state_fwd_o,state_rev_o):
+    kwargs = command_line_kw(state_fwd)
+    unfold,refold = WeierstrassUtil.get_unfold_and_refold_objects(single,
+                                                                  **kwargs)
+    tolerance_kwargs = dict(atol=0,rtol=1e-6)
+    for un,re,un_org,re_org in zip(unfold,refold,state_fwd,state_rev):
+        check_iwt_obj(un_org,un,**tolerance_kwargs)
+        check_iwt_obj(re_org,re,**tolerance_kwargs)
+    # make sure we didn't mess with the 'original', generated data
+    # (for the purposes of IWT)
+    landscape_both_2 = f(state_fwd,state_rev)
+    np.testing.assert_allclose(landscape_both.G_0,
+                               landscape_both_2.G_0)
+    # POST:the new landscape matches the original one. make sure the data is ok
+    for fwd,rev,fwd_orig,rev_orig in \
+        zip(state_fwd,state_rev,state_fwd_o,state_rev_o):
+        check_iwt_obj(fwd,fwd_orig,**tolerance_kwargs)
+        check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
 
 def TestHummer2010():
     """
@@ -374,42 +420,11 @@ def TestHummer2010():
     check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half=f_one_half)
     # POST: ensemble works well.
     # combine all the forward and reverse states
-    single = copy.deepcopy(state_fwd[0])
-    single.Force = []
-    single.Extension = []
-    single.Time = []
-    for fwd,rev in zip(state_fwd,state_rev):
-        single.Force += list(fwd.Force) + list(rev.Force)
-        single.Extension += list(fwd.Extension) + list(rev.Extension)
-        single.Time += list(fwd.Time) + list(rev.Time)
-    # combine all the data
-    N = len(state_fwd)
-    single.Force = np.array(single.Force)
-    single.Extension = np.array(single.Extension)
-    single.Time = np.array(single.Time)
-    key = state_fwd[0]
-    v = key.Velocity
-    z_0 = key.Offset
-    kwargs = dict(number_of_pairs=N,
-                  flip_forces=False,
-                  kT=4.1e-21,
-                  v=v,z_0=z_0)
-    unfold,refold = WeierstrassUtil.get_unfold_and_refold_objects(single,
-                                                                  **kwargs)
-    tolerance_kwargs = dict(atol=0,rtol=1e-6)
-    for un,re,un_org,re_org in zip(unfold,refold,state_fwd,state_rev):
-        check_iwt_obj(un_org,un,**tolerance_kwargs)
-        check_iwt_obj(re_org,re,**tolerance_kwargs)
-    # make sure we didn't mess with the 'original', generated data
-    # (for the purposes of IWT)
-    landscape_both_2 = f(state_fwd,state_rev)
-    np.testing.assert_allclose(landscape_both.G_0,
-                               landscape_both_2.G_0)
-    # POST:the new landscape matches the original one. make sure the data is ok
-    for fwd,rev,fwd_orig,rev_orig in \
-        zip(state_fwd,state_rev,state_fwd_o,state_rev_o):
-        check_iwt_obj(fwd,fwd_orig,**tolerance_kwargs)
-        check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
+    single = _concatenate_data(state_fwd,state_rev) 
+    # make sure thr command line utilityies work
+    kwargs = command_line_kw(state_fwd)
+    _check_command_line(f,state_fwd,state_rev,single,landscape_both,
+                        state_fwd_o,state_rev_o)
     # POST: should be able to get the same landscape; data havent been corrupted
     # check that the sliced data is OK. 
     landscape_bidirectional = f(state_fwd,state_rev)
