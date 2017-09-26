@@ -211,6 +211,9 @@ def assert_noiseless_ensemble_correct(z0_nm,z1_nm,fwd_objs,rev_objs,
                              k_pN_per_nm=k_rev,**kw)
 
 def _single_direction_assert(dir_objs,n):
+    """
+    makes sure that the digitization works well for all of dir_objs
+    """
     digitized_ext = []
     min_x = min([min(o.Extension) for o in dir_objs])
     max_x = max([max(o.Extension) for o in dir_objs])
@@ -277,6 +280,9 @@ def check_iwt_obj(exp,act,**tolerance_kwargs):
 
 
 def _assert_negative(expected,functor,atol=0,rtol=1e-6,min_loss_fraction=0.3):
+    """
+    Checks that the landscape returns by functor *doesnt* match expected
+    """
     l = functor()
     assert (not np.allclose(l.G_0,expected.G_0,atol=0,rtol=rtol))
     # make sure the total sqaured loss is greater than min_loss_fraction
@@ -285,6 +291,10 @@ def _assert_negative(expected,functor,atol=0,rtol=1e-6,min_loss_fraction=0.3):
     assert loss > min_loss
 
 def _check_negative_controls(landscape_both,single,single_rev,**kwargs):
+    """
+    Checks that changing the velocity or temperature shifts the landscape. 
+    See: check_command_line
+    """
     # check that we get an incorrect answer if we mess up the velocity 
     kwargs = dict(**kwargs)
     # remove the velocity, so we can use it
@@ -313,7 +323,9 @@ def _check_negative_controls(landscape_both,single,single_rev,**kwargs):
                    
 
 def _check_positive_controls(landscape_both,single,single_rev,**kwargs):
-    # check that the command-line style calling works 
+    """
+    check that the command-line style calling works. See: check_command_line
+    """
     expected_landscape = landscape_both.G_0
     assert_correct = lambda actual: \
         np.testing.assert_allclose(actual.G_0,
@@ -343,6 +355,9 @@ def _check_positive_controls(landscape_both,single,single_rev,**kwargs):
                                atol=0,rtol=1e-6)
                         
 def _concatenate_data(state_fwd,state_rev):
+    """
+    Returns: single IWT object, concatenating all in state_fwd and state_rev
+    """
     single = copy.deepcopy(state_fwd[0])
     single.Force = []
     single.Extension = []
@@ -359,6 +374,10 @@ def _concatenate_data(state_fwd,state_rev):
     return single 
 
 def command_line_kw(state_fwd):
+    """
+    Returns: the keywords needed for the command line, given the list of foward
+    (unfolding) obects, sttae_fwd
+    """
     key = state_fwd[0]
     v = key.Velocity
     z_0 = key.Offset
@@ -371,6 +390,19 @@ def command_line_kw(state_fwd):
 
 def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
                         state_fwd_o,state_rev_o):
+    """
+    Checks that splitting a 'single' combined FEC with N unfolding/refolding
+    pairs works as expected
+
+    Args:
+        f: landscpe function, takes in fwd and reverse
+        state_<fwd/rev><_o>: the working copies of the forward and reverse. 
+        'o' is the original, which we check to make sure everythign matches
+     
+        single: state_fwd and state_rev concatenate
+      
+        landscape_bobth: the 'gold standard' landscape to reproduce
+    """
     kwargs = command_line_kw(state_fwd)
     unfold,refold = WeierstrassUtil.get_unfold_and_refold_objects(single,
                                                                   **kwargs)
@@ -388,6 +420,25 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
         zip(state_fwd,state_rev,state_fwd_o,state_rev_o):
         check_iwt_obj(fwd,fwd_orig,**tolerance_kwargs)
         check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
+
+def _check_filtering(landscape_both,max_loss_fraction=1e-3):
+    """
+    checks that filtering the landscape results in a faithful approximation
+    """
+    n_bins = 50
+    filtered_landscape = WeierstrassUtil.\
+        _bin_landscape(landscape_obj=landscape_both,n_bins=n_bins)
+    # make sure the filtered landscape is within bounds
+    q_orig = landscape_both.q
+    min_q,max_q = min(q_orig),max(q_orig)
+    assert ((filtered_landscape.q <= max_q) & \
+            (filtered_landscape.q >= min_q)).all() , "Landscape not in bounds"
+    # make sure the interpolates landscape is close to the original
+    interp_G = interp1d(x=filtered_landscape.q,y=filtered_landscape.G_0)(q_orig)
+    loss = sum(abs(interp_G - landscape_both.G_0))
+    max_loss = sum(abs(max_loss_fraction * landscape_both.G_0))
+    assert loss <= max_loss 
+    
 
 def TestHummer2010():
     """
@@ -434,6 +485,7 @@ def TestHummer2010():
     single_rev.Force *= -1
     _check_positive_controls(landscape_both,single,single_rev,**kwargs)
     _check_negative_controls(landscape_both,single,single_rev,**kwargs)
+    _check_filtering(landscape_both)
     
 def assert_landscapes_disagree(new_obj,expected_landscape):
     # the landscapes are normalized to zero; so we ignore the first point 
