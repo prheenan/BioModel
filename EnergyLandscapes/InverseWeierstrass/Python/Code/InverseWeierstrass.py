@@ -3,7 +3,7 @@ from __future__ import division
 # This file is used for importing the common utilities classes.
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+import sys,warnings
 
 from scipy.integrate import cumtrapz
 import itertools
@@ -135,71 +135,6 @@ class FEC_Pulling_Object:
         return ToRet
     def SetWork(self,Work):
         self.Work = Work
-    def _GetDigitizedGen(self,Bins,ToDigitize):
-        """
-        Generalized method to get 'digitized' results
-
-        Args:
-            Bins: see GetDigitizedBoltzmann
-            ToDigitize: Array to dizitize, e.g. self.Forces
-        Returns:
-            See GetDigitizedBoltzmann, except digitized contents of 
-            'GetDigitizedBoltzmann'
-        """
-        NumTimes = Bins.size
-        bin_idx_for_each_point = np.digitize(self.Extension,bins=Bins)
-        # force bin idx to be between 0 and N_bins-1
-        bin_idx_for_each_point = np.minimum(NumTimes-1,bin_idx_for_each_point)
-        n_points = ToDigitize.size
-        # get a digitized matrix where
-        # full[ [Bin Idx, Point Idx] ] = Value of the point 
-        idx_arr = np.arange(n_points)
-        full = sparse.csr_matrix((ToDigitize,(bin_idx_for_each_point,idx_arr)),
-                                  shape=(NumTimes,n_points))
-        # concatenate the columns together; data_by_rows[i] is "the value
-        # of every point from ToDigitize in the Bins[i]"
-        data_by_rows = [full.data[full.indptr[i]:full.indptr[i+1]]
-                        for i in range(NumTimes)]
-        return data_by_rows
-    def GetDigitizedOnes(self,Bins):
-        """
-        see GetDigitizedBoltzmann, except returns the 
-        """
-        return self._GetDigitizedGen(Bins,np.ones(self.Work.size))
-    def GetDigitizedWork(self,Bins):
-        return self._GetDigitizedGen(Bins,self.Work)
-    def GetDigitizedBoltzmann(self,Bins):
-        """
-        Gets the digitized boltzmann factor np.exp(-beta*W)
-        (averaged in a bin), given the Bins. For nomenclature, see:
-        
-        Hummer, G. & Szabo, A. 
-        Free energy profiles from single-molecule pulling experiments. 
-        PNAS 107, 21441-21446 (2010).
-
-        Especially equaitons 11-12 and 18-19 and relevant discussion
-
-
-        Args:
-            Bins: the bins to use
-        Returns: 
-            The digitized boltman matrix exp(-Beta*W), 
-            where W[i] is a *list* of Work values associated with BinTime[i]
-        """
-        ToDigitize = np.exp(-self.Beta*self.Work)
-        return self._GetDigitizedGen(Bins,ToDigitize)
-    def GetDigitizedForce(self,Bins):
-        """
-        Gets the digitized force within the bins. See materials cited in 
-        GetDigitizedBoltzmann
-
-        Args:
-            Bins: see ibid
-        Returns:
-            see GetDigitizedBoltzmann, except Force is the content
-        """
-        return self._GetDigitizedGen(Bins,self.Force)
-
 
 def SetAllWorkOfObjects(PullingObjects):
     """
@@ -358,7 +293,14 @@ def _check_inputs(objects,expected_inputs,f_input):
                    format(str(expected_inputs),i,str(actual_data))
         np.testing.assert_allclose(expected_inputs,actual_data,
                                    err_msg=err_data,**error_kw)
-        # POST: data matches
+        # POST: data matches; make sure arrays all the same size
+        z = u.ZFunc(u)
+        n_arrays_for_sizes = [x.size for x in [u.Force,u.Time,u.Separation,z]]
+        should_be_equal = [n_arrays_for_sizes[0] 
+                           for _ in range(len(n_arrays_for_sizes))]
+        np.testing.assert_allclose(n_arrays_for_sizes,should_be_equal,
+                                   err_msg="Not all arrays had the same size",
+                                   **error_kw)
     # POST: all data and sizes match
 
 def _work_weighted_value(values,value_func,**kw):
@@ -473,11 +415,22 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     weighted_variance  = \
         merge(unfold_weighted.f_variance,refold_weighted.f_variance)
     assert weighted_force.size == key.Time.size , "Programming error"
+    # all z values should be the same, so just use the key 
     z = key.ZFunc(key)
     # due to numerical stability problems, may need to exclude some points
-    assert (weighted_variance > 0).all() , "Landscape gave <= varianace"
+    landscape_ge_0 = (weighted_variance > 0)
+    n_ge_0 = sum(landscape_ge_0)
+    n_expected = weighted_variance.size
+    warning_msg = ("{:d}/{:d} ({:.2g}%) elements had variance <= 0. This is"+
+                   "likely the result of poor sampsling at some z").\
+        format(n_ge_0,n_expected,100 * (n_ge_0/n_expected))
+    # let the user know if we have to exclude some data
+    if (n_ge_0 != n_expected):
+        warnings.warn(warning_msg, RuntimeWarning)
+    where_ok = np.where(landscape_ge_0)[0]
+    assert where_ok.size > 0 , "Landscape was zero *everywhere*"
     # POST: landscape is fine everywhere
-    sanit = lambda x: x
+    sanit = lambda x: x[where_ok]
     weighted_force = sanit(weighted_force)
     weighted_partition = sanit(weighted_partition)
     weighted_variance = sanit(weighted_variance)
