@@ -152,7 +152,7 @@ def SetAllWorkOfObjects(PullingObjects):
 def Exp(x):
     max_number = np.finfo(np.float64).max
     tol = np.log(max_number)-50
-    to_ret = np.zeros(x.shape,dtype=np.longdouble)
+    to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
     zero_idx = np.where(x <= -tol)
@@ -327,7 +327,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         to_ret.set_variables(0,0,0)
         return to_ret
     # POST: have at least one thing to do...
-    array_kw = dict(dtype=np.longdouble)
+    array_kw = dict(dtype=np.float64)
     works = np.array([u.Work for u in objs],**array_kw)
     force = np.array([u.Force for u in objs],**array_kw)
     force_sq = np.array([u.Force**2 for u in objs],**array_kw)
