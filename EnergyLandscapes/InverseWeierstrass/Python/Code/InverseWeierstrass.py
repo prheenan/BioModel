@@ -25,16 +25,30 @@ class _WorkWeighted(object):
         return self.f_squared - self.f**2
 
 class Landscape(object):
-    def __init__(self,q,energy,kT,
-                 free_energy_A,first_deriv_term,second_deriv_term):
-        sort_idx = np.argsort(q)
-        f_sort = lambda x: x[sort_idx].copy()
-        self.q = f_sort(q)
-        self.energy = f_sort(energy)
-        self.A_z = f_sort(free_energy_A)
-        self.first_deriv_term = f_sort(first_deriv_term)
-        self.second_deriv_term = f_sort(second_deriv_term)
+    def __init__(self,q,kT,k,
+                 free_energy_A,A_z_dot,one_minus_A_z_ddot_over_k):
+        self.k = k
+        self.q = q
+        self.A_z = free_energy_A
+        self.A_z_dot = A_z_dot
+        self.one_minus_A_z_ddot_over_k = one_minus_A_z_ddot_over_k
         self.kT = kT
+        self.energy = self.A_z + self.first_deriv_term + self.second_deriv_term
+    def offset_energy(self,energy_offset):
+        refs = [self.energy,
+                self.A_z,
+                self.first_deriv_term,
+                self.second_deriv_term]
+        for r in refs:
+            r -= energy_offset
+    def offset_extension(self,extension_offset):
+        self.q -= extension_offset
+    @property
+    def first_deriv_term(self):
+        return -self.A_z_dot**2/(2*self.k)
+    @property
+    def second_deriv_term(self):
+        return 1/(2*self.beta) * np.log(self.one_minus_A_z_ddot_over_k)
     @property
     def beta(self):
         return 1/self.kT
@@ -440,13 +454,14 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     k = key.SpringConstant
     A_z =  (-1/beta)*np.log(weighted_partition)
     A_z_dot = weighted_force
-    one_minus_A_z_dot_over_k = beta * weighted_variance/k
-    first_deriv_term  = -A_z_dot**2/(2*k)
-    second_deriv_term = 1/(2*beta) * np.log(one_minus_A_z_dot_over_k)
-    G_0 = A_z + first_deriv_term +second_deriv_term
+    one_minus_A_z_ddot_over_k = beta * weighted_variance/k
     q = z - A_z_dot/k
-    to_ret = Landscape(q=q,energy=G_0,kT=1/beta,
-                       free_energy_A=A_z,first_deriv_term=first_deriv_term,
-                       second_deriv_term=second_deriv_term)
+    sort_idx = np.argsort(q)
+    f_sort = lambda x: x[sort_idx].copy()
+    to_ret = \
+        Landscape(q=f_sort(q),kT=1/beta,k=k,
+                  free_energy_A=f_sort(A_z),
+                  A_z_dot=f_sort(A_z_dot),
+                  one_minus_A_z_ddot_over_k=f_sort(one_minus_A_z_ddot_over_k))
     return to_ret
 

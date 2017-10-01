@@ -251,8 +251,9 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     to_ret.q = bins
     to_ret.energy = f_filter(to_ret.energy)
     to_ret.A_z = f_filter(to_ret.A_z)
-    to_ret.first_deriv_term = f_filter(to_ret.first_deriv_term)
-    to_ret.second_deriv_term = f_filter(to_ret.second_deriv_term)
+    to_ret.A_z_dot = f_filter(to_ret.first_deriv_term)
+    to_ret.one_minus_A_z_ddot_over_k = \
+        f_filter(to_ret.one_minus_A_z_ddot_over_k)
     return to_ret
     
 def _bin_landscape(landscape_obj,n_bins,**kw):
