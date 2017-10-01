@@ -436,7 +436,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     n_ge_0 = sum(landscape_ge_0)
     n_expected = weighted_variance.size
     warning_msg = ("{:d}/{:d} ({:.2g}%) elements had variance <= 0. This is"+
-                   "likely the result of poor sampsling at some z").\
+                   " likely the result of poor sampling at some z.").\
         format(n_ge_0,n_expected,100 * (n_ge_0/n_expected))
     # let the user know if we have to exclude some data
     if (n_ge_0 != n_expected):
