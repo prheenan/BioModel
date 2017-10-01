@@ -421,7 +421,7 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
         check_iwt_obj(fwd,fwd_orig,**tolerance_kwargs)
         check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
 
-def _check_filtering(landscape_both,max_loss_fraction=1e-3):
+def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.2]):
     """
     checks that filtering the landscape results in a faithful approximation
     """
@@ -434,10 +434,18 @@ def _check_filtering(landscape_both,max_loss_fraction=1e-3):
     assert ((filtered_landscape.q <= max_q) & \
             (filtered_landscape.q >= min_q)).all() , "Landscape not in bounds"
     # make sure the interpolates landscape is close to the original
-    interp_G = interp1d(x=filtered_landscape.q,y=filtered_landscape.G_0)(q_orig)
-    loss = sum(abs(interp_G - landscape_both.G_0))
-    max_loss = sum(abs(max_loss_fraction * landscape_both.G_0))
-    assert loss <= max_loss 
+    funcs = [lambda x: x.G_0,
+             lambda x: x.A_z_dot,
+             lambda x: x.one_minus_A_z_ddot_over_k]
+    # note: 1-A_z_ddot/k has a much higher loss fraction, since it is so
+    # noisy in the first place. Probably a better way to do this...
+    for max_loss_tmp,f in zip(max_loss_fraction,funcs):
+        y_filtered = f(filtered_landscape)
+        y_expected = f(landscape_both)
+        interp_G = interp1d(x=filtered_landscape.q,y=y_filtered)(q_orig)
+        loss = sum(abs(interp_G - y_expected))
+        max_loss = sum(abs(max_loss_tmp * y_expected))
+        assert loss <= max_loss 
     
 
 def TestHummer2010():
