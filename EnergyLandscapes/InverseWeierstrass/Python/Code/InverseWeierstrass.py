@@ -43,6 +43,9 @@ class Landscape(object):
             r -= energy_offset
     def offset_extension(self,extension_offset):
         self.q -= extension_offset
+    def offset_to_min(self):
+        self.offset_energy(min(self.G_0))
+        self.offset_extension(min(self.q))
     @property
     def first_deriv_term(self):
         return -self.A_z_dot**2/(2*self.k)

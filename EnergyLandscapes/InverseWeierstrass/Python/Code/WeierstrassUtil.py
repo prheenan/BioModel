@@ -245,11 +245,13 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     """
     t = bins_relevant[1:-1]
     kw = dict(x=x,t=t,ext=ext,k=k,**kw)
-    f_filter = lambda y_tmp: LSQUnivariateSpline(y=y_tmp,**kw)(bins)
+    f_spline = lambda y_tmp: LSQUnivariateSpline(y=y_tmp,**kw)
+    spline_energy = f_spline(to_ret.energy)
+    f_filter = lambda y_tmp: f_spline(y_tmp)(bins)
     # the new q is just the bins
     # filter each energy property
     to_ret.q = bins
-    to_ret.energy = f_filter(to_ret.energy)
+    to_ret.energy = spline_energy(bins)
     to_ret.A_z = f_filter(to_ret.A_z)
     to_ret.A_z_dot = f_filter(to_ret.A_z_dot)
     to_ret.one_minus_A_z_ddot_over_k = \
