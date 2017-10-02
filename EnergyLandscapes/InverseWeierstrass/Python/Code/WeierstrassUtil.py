@@ -256,6 +256,7 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     to_ret.A_z_dot = f_filter(to_ret.A_z_dot)
     to_ret.one_minus_A_z_ddot_over_k = \
         f_filter(to_ret.one_minus_A_z_ddot_over_k)
+    to_ret.spline_fit_residual = spline_energy.get_residual()
     return to_ret
     
 def _bin_landscape(landscape_obj,n_bins,**kw):

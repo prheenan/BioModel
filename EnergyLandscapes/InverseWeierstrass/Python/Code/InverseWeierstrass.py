@@ -34,6 +34,8 @@ class Landscape(object):
         self.one_minus_A_z_ddot_over_k = one_minus_A_z_ddot_over_k
         self.kT = kT
         self.energy = self.A_z + self.first_deriv_term + self.second_deriv_term
+        # later we can add a spline fit.
+        self.spline_fit_residual = None
     def offset_energy(self,energy_offset):
         refs = [self.energy,
                 self.A_z,
