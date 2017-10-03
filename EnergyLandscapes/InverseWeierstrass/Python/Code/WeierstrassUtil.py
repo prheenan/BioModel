@@ -257,7 +257,7 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     to_ret.one_minus_A_z_ddot_over_k = \
         f_filter(to_ret.one_minus_A_z_ddot_over_k)
     # dont allow the second derivative to go <= 0...
-    to_ret.one_minus_A_z_ddot_over_k = np.maximum(np.exp(-600),to_ret.one_minus_A_z_ddot_over_k)
+    to_ret.one_minus_A_z_ddot_over_k = np.maximum(0,to_ret.one_minus_A_z_ddot_over_k)
     # remove the 'data' property from the spline; otherwise it is too much
     # to store
     residual = spline_energy.get_residual()

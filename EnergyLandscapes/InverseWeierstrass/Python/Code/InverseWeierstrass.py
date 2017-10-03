@@ -31,6 +31,11 @@ class SplineInfo(object):
     def y(self,x):
         return self.spline(x)
 
+def first_deriv_term(A_z_dot,k):
+    return -A_z_dot**2/(2*k)
+    
+def second_deriv_term(one_minus_A_z_ddot_over_k,beta):
+    return 1/(2*beta) * np.log(one_minus_A_z_ddot_over_k)
 
 class Landscape(object):
     def __init__(self,q,kT,k,
@@ -58,10 +63,12 @@ class Landscape(object):
         self.offset_extension(min(self.q))
     @property
     def first_deriv_term(self):
-        return -self.A_z_dot**2/(2*self.k)
+        return first_deriv_term(A_z_dot=self.A_z_dot,k=self.k)
     @property
     def second_deriv_term(self):
-        return 1/(2*self.beta) * np.log(self.one_minus_A_z_ddot_over_k)
+        kw = dict(beta=self.beta,
+                  one_minus_A_z_ddot_over_k=self.one_minus_A_z_ddot_over_k)
+        return second_deriv_term(**kw)
     @property
     def beta(self):
         return 1/self.kT
