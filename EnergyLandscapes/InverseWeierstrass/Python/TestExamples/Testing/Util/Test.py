@@ -7,10 +7,11 @@ from __future__ import unicode_literals
 # This file is used for importing the common utilities classes.
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+import sys,Util
 sys.path.append("../../../../../../")
 from GeneralUtil.python import CheckpointUtilities,GenUtilities
-
+from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
+    InverseWeierstrass,WeierstrassUtil
 from Util import Simulation
 
 def _f_assert(exp,f,atol=0,rtol=1e-9,**d):

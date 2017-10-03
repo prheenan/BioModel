@@ -10,6 +10,7 @@ import itertools
 from collections import defaultdict
 from scipy.optimize import fminbound,newton,brentq
 from scipy import sparse
+from scipy.interpolate import splev
 
 
 class _WorkWeighted(object):
@@ -23,6 +24,13 @@ class _WorkWeighted(object):
     @property
     def f_variance(self):
         return self.f_squared - self.f**2
+        
+class SplineInfo(object):
+    def __init__(self,spline):
+        self.spline = spline
+    def y(self,x):
+        return self.spline(x)
+
 
 class Landscape(object):
     def __init__(self,q,kT,k,
@@ -35,7 +43,7 @@ class Landscape(object):
         self.kT = kT
         self.energy = self.A_z + self.first_deriv_term + self.second_deriv_term
         # later we can add a spline fit.
-        self.spline_fit_residual = None
+        self.spline_fit = None
     def offset_energy(self,energy_offset):
         refs = [self.energy,
                 self.A_z,

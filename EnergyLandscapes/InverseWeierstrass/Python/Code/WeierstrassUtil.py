@@ -233,7 +233,7 @@ def _filter_single_landscape(landscape_obj,bins,k=3,ext='const',**kw):
     """
     to_ret = copy.deepcopy(landscape_obj)
     # fit a spline at the given bins
-    x = to_ret.q 
+    x = to_ret.q
     min_x,max_x = min(x),max(x)
     # determine where the bins are in the range of the data for this landscape
     good_idx =np.where( (bins >= min_x) & (bins <= max_x))
@@ -256,7 +256,12 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     to_ret.A_z_dot = f_filter(to_ret.A_z_dot)
     to_ret.one_minus_A_z_ddot_over_k = \
         f_filter(to_ret.one_minus_A_z_ddot_over_k)
-    to_ret.spline_fit_residual = spline_energy.get_residual()
+    # remove the 'data' property from the spline; otherwise it is too much
+    # to store
+    residual = spline_energy.get_residual()
+    spline_energy.residual = residual
+    spline_energy._data = None
+    to_ret.spline_fit = InverseWeierstrass.SplineInfo(spline=spline_energy)
     return to_ret
     
 def _bin_landscape(landscape_obj,n_bins,**kw):
