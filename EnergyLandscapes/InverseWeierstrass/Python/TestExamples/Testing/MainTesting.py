@@ -422,7 +422,7 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
         check_iwt_obj(fwd,fwd_orig,**tolerance_kwargs)
         check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
 
-def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.2]):
+def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.3]):
     """
     checks that filtering the landscape results in a faithful approximation
     """
@@ -494,7 +494,9 @@ def TestHummer2010():
     single_rev.Force *= -1
     _check_positive_controls(landscape_both,single,single_rev,**kwargs)
     _check_negative_controls(landscape_both,single,single_rev,**kwargs)
+    _check_filtering(landscape)    
     _check_filtering(landscape_both)
+    
     
 def assert_landscapes_disagree(new_obj,expected_landscape):
     # the landscapes are normalized to zero; so we ignore the first point 
