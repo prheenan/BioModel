@@ -247,7 +247,7 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     kw = dict(x=x,t=t,ext=ext,k=k,**kw)
     f_spline = lambda y_tmp: LSQUnivariateSpline(y=y_tmp,**kw)
     spline_energy = f_spline(to_ret.energy)
-    f_filter = lambda y_tmp: f_spline(y_tmp)(bins)
+    f_filter = lambda y_tmp_filter: f_spline(y_tmp_filter)(bins)
     # the new q is just the bins
     # filter each energy property
     to_ret.q = bins
@@ -256,6 +256,8 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     to_ret.A_z_dot = f_filter(to_ret.A_z_dot)
     to_ret.one_minus_A_z_ddot_over_k = \
         f_filter(to_ret.one_minus_A_z_ddot_over_k)
+    # dont allow the second derivative to go <= 0...
+    to_ret.one_minus_A_z_ddot_over_k = np.maximum(np.exp(-600),to_ret.one_minus_A_z_ddot_over_k)
     # remove the 'data' property from the spline; otherwise it is too much
     # to store
     residual = spline_energy.get_residual()
