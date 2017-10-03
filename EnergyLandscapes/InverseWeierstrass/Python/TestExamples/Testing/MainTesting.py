@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append("../../../../../../")
+sys.path.append("./")
 from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
     InverseWeierstrass,WeierstrassUtil
 from scipy.integrate import cumtrapz
