@@ -17,10 +17,14 @@ class _WorkWeighted(object):
     def __init__(self,objs,work_offset):
         self.objs = objs
         self.work_offset = work_offset
+        self.partition = 0
+        self.f = 0
+        self.f_squared = 0
     def set_variables(self,partition,f_work_weighted,f_squared_work_weighted):
-        self.partition = partition
-        self.f = f_work_weighted
-        self.f_squared = f_squared_work_weighted
+        dtype = np.float64 
+        self.partition = partition.astype(dtype)
+        self.f = f_work_weighted.astype(dtype)
+        self.f_squared = f_squared_work_weighted.astype(dtype)
     @property
     def f_variance(self):
         return self.f_squared - self.f**2
@@ -183,10 +187,14 @@ def SetAllWorkOfObjects(PullingObjects):
     # calculate and set the work for each object
     _ = [o.update_work() for o in PullingObjects]
 
-def Exp(x):
-    max_number = np.finfo(np.float64).max
+def Exp(x,safe=True):
+    if (not safe):
+        return np.exp(x)
+    # POST: stuff to do 
+    dtype = x.dtype
+    max_number = np.finfo(dtype).max
     tol = np.log(max_number)-100
-    to_ret = np.zeros(x.shape,dtype=np.float64)
+    to_ret = np.zeros(x.shape,dtype=dtype)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
     zero_idx = np.where(x <= -tol)
@@ -195,22 +203,23 @@ def Exp(x):
     to_ret[zero_idx] = np.exp(-tol)
     return to_ret
 
-def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta):
+def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta,**kw):
     """
     Returns the weighted value for the forward part of the bi-directionary free
     energy landscape. See: Hummer, 2010, equation 19
     
     Args: see EnsembleAverage
     """
-    return (v*nf*Exp(-beta*W))/(nf + nr*Exp(-beta*(Wn - delta_A)))
+    return (v*nf*Exp(-beta*W,**kw))/(nf + nr*Exp(-beta*(Wn - delta_A),**kw))
 
-def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
+def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta,**kw):
     """
     Returns the weighted value for a reverse step. see: ForwardWeighted
 
     Args: see EnsembleAverage
     """
-    return (v*nr*Exp(-beta*(W + delta_A)))/(nr + nf*Exp(-beta*(Wn + delta_A)))
+    return (v*nr*Exp(-beta*(W + delta_A),**kw))/\
+           (nr + nf*Exp(-beta*(Wn + delta_A),**kw))
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -358,10 +367,9 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     n_objs = len(objs)
     if (n_objs == 0):
         to_ret = _WorkWeighted([],0)
-        to_ret.set_variables(0,0,0)
         return to_ret
     # POST: have at least one thing to do...
-    array_kw = dict(dtype=np.float64)
+    array_kw = dict(dtype=np.longdouble)
     works = np.array([u.Work for u in objs],**array_kw)
     force = np.array([u.Force for u in objs],**array_kw)
     force_sq = np.array([u.Force**2 for u in objs],**array_kw)

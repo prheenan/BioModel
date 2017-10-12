@@ -28,26 +28,30 @@ def TestWeighting():
     Rev = InverseWeierstrass.ReverseWeighted
     # test one and zero conditions for forward
     beta = np.array([0])
-    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nr=0)
-    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nr=0)
+    common = dict(safe=False)
+    fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nr=0,**common)
+    fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nr=0,**common)
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))
     np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
     # test one and zero conditions for revese
-    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nf=0)
-    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nf=0)
+    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nf=0,**common)
+    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nf=0,**common)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
     # POST: very simple conditions work. now try ones with still no deltaA
     beta = np.array([1])
     np.testing.assert_allclose(np.exp(-1)/2,
-                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,beta=beta,delta_A=0))
+                               Fwd(v=1,nf=1,nr=1,Wn=0,W=1,beta=beta,delta_A=0,
+                                   **common))
     np.testing.assert_allclose(np.exp(1)/2,
-                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,beta=beta,delta_A=0))
+                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,beta=beta,delta_A=0,
+                                   **common))
     # POST: no delta A works, check with DeltaA
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
-                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,beta=beta,delta_A=-1))
+                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,beta=beta,delta_A=-1,
+                                   **common))
     # XXX reverse is broken? typo between hummer and etc...
-    rev = Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,beta=beta,delta_A=1)
+    rev = Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,beta=beta,delta_A=1,**common)
     np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),rev)
     # POST: also works with DeltaA... pretty convincing imo
 
