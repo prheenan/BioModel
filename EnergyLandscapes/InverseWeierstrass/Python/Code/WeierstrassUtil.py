@@ -18,7 +18,7 @@ def _default_slice_func(obj,s):
     Returns: a copy of obj, sliced to s 
     """
     to_ret = copy.deepcopy(obj)
-    to_ret._slice(s)
+    to_ret = to_ret._slice(s)
     n_time = to_ret.Time.size
     assert ((n_time == to_ret.Force.size) and \
             (n_time == to_ret.Separation.size)) , \
@@ -85,9 +85,9 @@ def split_into_iwt_objects(d,z_0,v,
     if (unfold_start_idx is None):
         unfold_start_idx = 0
     if (idx_end_of_unfolding is None):
-        idx_end_of_unfolding = int(np.ceil(d.Force.size/2))
+        idx_end_of_unfolding = int(np.floor(d.Force.size/2))
     if (idx_end_of_folding is None):
-        idx_end_of_folding = 2 * idx_end_of_unfolding
+        idx_end_of_folding = idx_end_of_unfolding + (idx_end_of_unfolding-unfold_start_idx)
     if (flip_forces):
         d.Force *= -1
     # get the unfolding and unfolds
@@ -156,9 +156,13 @@ def get_slice(data,j,n):
     Returns:
         new slice object
     """
-    Length = data.Force.size    
-    data_per_curve = int(np.round(Length/n))    
-    return slice(j*data_per_curve,(j+1)*data_per_curve,1)
+    Length = data.Force.size
+    n_per_float = Length/n
+    offset_per_curve = int(np.round(n_per_float))
+    data_per_curve = int(np.floor(n_per_float))
+    offset = j*offset_per_curve
+    s = slice(offset,offset+data_per_curve,1)
+    return s
    
 def convert_to_iwt(time_sep_force,frac_vel=0.1):
     """
@@ -204,6 +208,11 @@ def RobTimeSepForceToIWT(o,v,**kw):
     return Obj
     
 
+def _check_slices(single_dir):
+    n = len(single_dir)
+    expected_sizes = np.ones(n) * single_dir[0].Force.size
+    np.testing.assert_allclose(expected_sizes,[d.Force.size for d in single_dir])
+
 def iwt_ramping_experiment(data,number_of_pairs,kT,v,
                            flip_forces=False,**kw):
     """
@@ -213,7 +222,23 @@ def iwt_ramping_experiment(data,number_of_pairs,kT,v,
         get_unfold_and_refold_objects(data,
                                       number_of_pairs=number_of_pairs,
                                       flip_forces=flip_forces,
-                                      kT=kT,v=v,**kw)
+                                      kT=kT,v=v,
+                                      unfold_start_idx=0,**kw)
+    # do some data checking
+    _check_slices(unfold)
+    _check_slices(refold)
+    # make sure the two sizes match up...
+    _check_slices([unfold[0],refold[0]])
+    # POST: all the unfolding and refolding objects should be OK
+    # make sure we actually slices
+    n = unfold[0].Force.size
+    n_data = data.Force.size
+    # we should have sliced the data (maybe with a little less)
+    n_per_float = (n_data/number_of_pairs)
+    upper_bound = int(np.ceil(n_per_float))
+    assert 2*n <= upper_bound , "Didn't actually slice the data"
+    # make sure we used all the data, +/- 2 per slice
+    np.testing.assert_allclose(2*n,np.floor(n_per_float),atol=2,rtol=0)
     # POST: have the unfolding and refolding objects, get the energy landscape
     LandscapeObj =  InverseWeierstrass.\
             free_energy_inverse_weierstrass(unfold,refold)  
@@ -257,7 +282,8 @@ docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.LSQUnivariateSpli
     to_ret.one_minus_A_z_ddot_over_k = \
         f_filter(to_ret.one_minus_A_z_ddot_over_k)
     # dont allow the second derivative to go <= 0...
-    to_ret.one_minus_A_z_ddot_over_k = np.maximum(0,to_ret.one_minus_A_z_ddot_over_k)
+    to_ret.one_minus_A_z_ddot_over_k = \
+            np.maximum(0,to_ret.one_minus_A_z_ddot_over_k)
     # remove the 'data' property from the spline; otherwise it is too much
     # to store
     residual = spline_energy.get_residual()

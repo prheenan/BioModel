@@ -128,6 +128,7 @@ class FEC_Pulling_Object:
         self.Force = self.Force[s]
         self.Extension = self.Extension[s]
         self.SetOffsetAndVelocity(new_offset,self.Velocity)
+        return self
     def update_work(self):
         """
         Updates the internal work variable
