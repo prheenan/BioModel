@@ -369,7 +369,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         to_ret = _WorkWeighted([],0)
         return to_ret
     # POST: have at least one thing to do...
-    array_kw = dict(dtype=np.longdouble)
+    array_kw = dict(dtype=np.float64)
     works = np.array([u.Work for u in objs],**array_kw)
     force = np.array([u.Force for u in objs],**array_kw)
     force_sq = np.array([u.Force**2 for u in objs],**array_kw)
@@ -470,7 +470,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     if (n_ge_0 != n_expected):
         warnings.warn(warning_msg, RuntimeWarning)
     where_ok = np.where(landscape_ge_0)[0]
-    assert where_ok.size > 0 , "Landscape was zero *everywhere*"
+    assert  n_ge_0 < n_expected , "Landscape was zero *everywhere*"
     # POST: landscape is fine everywhere
     sanit = lambda x: x[where_ok]
     weighted_force = sanit(weighted_force)
