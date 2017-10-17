@@ -28,7 +28,7 @@ def TestWeighting():
     Rev = InverseWeierstrass.ReverseWeighted
     # test one and zero conditions for forward
     beta = np.array([0])
-    common = dict(safe=False)
+    common = dict()
     fwd_is_one = dict(nf=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nr=0,**common)
     fwd_is_zero = dict(nf=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nr=0,**common)
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))

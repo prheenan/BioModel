@@ -187,14 +187,10 @@ def SetAllWorkOfObjects(PullingObjects):
     # calculate and set the work for each object
     _ = [o.update_work() for o in PullingObjects]
 
-def Exp(x,safe=True):
-    if (not safe):
-        return np.exp(x)
-    # POST: stuff to do 
-    dtype = x.dtype
-    max_number = np.finfo(dtype).max
-    tol = np.log(max_number)-100
-    to_ret = np.zeros(x.shape,dtype=dtype)
+def Exp(x):
+    # the argment should be consierably less than the max
+    tol = np.log(np.finfo(np.float64).max) - 75
+    to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
     zero_idx = np.where(x <= -tol)
@@ -203,23 +199,22 @@ def Exp(x,safe=True):
     to_ret[zero_idx] = np.exp(-tol)
     return to_ret
 
-def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta,**kw):
+def ForwardWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
     Returns the weighted value for the forward part of the bi-directionary free
     energy landscape. See: Hummer, 2010, equation 19
     
     Args: see EnsembleAverage
     """
-    return (v*nf*Exp(-beta*W,**kw))/(nf + nr*Exp(-beta*(Wn - delta_A),**kw))
+    return (v*nf*Exp(-beta*W))/(nf + nr*Exp(-beta*(Wn - delta_A)))
 
-def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta,**kw):
+def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
     Returns the weighted value for a reverse step. see: ForwardWeighted
 
     Args: see EnsembleAverage
     """
-    return (v*nr*Exp(-beta*(W + delta_A),**kw))/\
-           (nr + nf*Exp(-beta*(Wn + delta_A),**kw))
+    return (v*nr*Exp(-beta*(W + delta_A)))/(nr + nf*Exp(-beta*(Wn + delta_A)))
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -470,7 +465,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     if (n_ge_0 != n_expected):
         warnings.warn(warning_msg, RuntimeWarning)
     where_ok = np.where(landscape_ge_0)[0]
-    assert  n_ge_0 < n_expected , "Landscape was zero *everywhere*"
+    assert where_ok.size > 0 , "Landscape was zero *everywhere*"
     # POST: landscape is fine everywhere
     sanit = lambda x: x[where_ok]
     weighted_force = sanit(weighted_force)
