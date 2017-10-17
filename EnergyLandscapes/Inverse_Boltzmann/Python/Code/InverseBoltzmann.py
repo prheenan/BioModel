@@ -78,7 +78,7 @@ def f_assert_prob(x,msg):
     
 
 def deconvolve(p_0,S_q,P_q,r_0=1,n_iters=300,delta_tol=1e-9,return_full=False,
-               return_condition=lambda x: False):
+               return_condition=lambda *x,**kw: False):
     """
     deconvolve the probability distrubtion until whichever is first:
 
