@@ -194,7 +194,7 @@ def RobTimeSepForceToIWT(o,v,**kw):
          properly initialized FEC_Pulling_Object for use in IWT
     """
     # spring constant should be in N/m
-    k = o.Meta.__dict__["K"]
+    k = o.K
     Obj = InverseWeierstrass.FEC_Pulling_Object(Time=o.Time,
                                                 Extension=o.Separation,
                                                 Force=o.Force,

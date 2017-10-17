@@ -425,6 +425,18 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
         zip(state_fwd,state_rev,state_fwd_o,state_rev_o):
         check_iwt_obj(fwd,fwd_orig,**tolerance_kwargs)
         check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
+    # make the sure 'rob-style' stuff works OK
+    k = single.SpringConstant
+    del single.__dict__["SpringConstant"];
+    single.K = k
+    unfold_rob,refold_rob = WeierstrassUtil.get_unfold_and_refold_objects(single,
+                                                                          **kwargs)
+    # make the sure unfolding objects match
+    for u_r,r_r,u_exp,r_exp in zip(unfold_rob,refold_rob,state_fwd_o,state_rev_o):
+        check_iwt_obj(u_r,u_exp)
+        check_iwt_obj(r_r,r_exp)
+    # restore the spring constant
+    single.SpringConstant = k
 
 def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.3]):
     """
