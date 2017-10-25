@@ -77,6 +77,11 @@ class Landscape(object):
                   one_minus_A_z_ddot_over_k=self.one_minus_A_z_ddot_over_k)
         return second_deriv_term(**kw)
     @property
+    def A_z_ddot(self):
+        A_z_ddot_over_k = 1 - self.one_minus_A_z_ddot_over_k
+        A_z_ddot = A_z_ddot_over_k * self.k
+        return A_z_ddot
+    @property
     def beta(self):
         return 1/self.kT
     @property

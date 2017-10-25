@@ -12,7 +12,7 @@ from FitUtil.EnergyLandscapes.InverseWeierstrass.Python.Code import \
 from scipy.integrate import cumtrapz
 import copy
 from GeneralUtil.python import CheckpointUtilities,GenUtilities,PlotUtilities
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d,LSQUnivariateSpline
 from Util import Test
 from Util.Test import _f_assert,HummerData,load_simulated_data
 
@@ -136,13 +136,15 @@ def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
 
 def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
     ToX = lambda x: x*1e9
-    xlim = lambda: plt.xlim([190,265])
-    landscape_rev_kT = landscape_rev.EnergyLandscape/kT
-    landscape_fwd_kT = landscape.EnergyLandscape/kT
-    landscape_rev_only_kT = landscape_rev_only.EnergyLandscape/kT
-    ext_fwd = landscape_rev.Extensions
-    ext_rev = landscape.Extensions
-    landscape_fonehalf_kT = (landscape_rev_kT*kT-ext_rev* f_one_half)/kT
+    landscape_rev_kT = landscape_rev.G_0/kT
+    landscape_fwd_kT = landscape.G_0/kT
+    landscape_rev_only_kT = landscape_rev_only.G_0/kT
+    ext_fwd = landscape_rev.q
+    ext_rev = landscape.q
+    # tilt one of the landscapes
+    ext_tilt = ext_fwd
+    landscape_tilt_kT = landscape_rev_kT
+    landscape_fonehalf_kT = (landscape_tilt_kT*kT-ext_tilt* f_one_half)/kT
     landscape_fonehalf_kT_rel = landscape_fonehalf_kT-min(landscape_fonehalf_kT)
     plt.subplot(2,1,1)
     # add in the offsets, since we dont simulate before...
@@ -150,16 +152,12 @@ def landscape_plot(landscape,landscape_rev,landscape_rev_only,kT,f_one_half):
              linestyle='-',linewidth=3,label="Bi-directional")
     plt.plot(ToX(ext_rev),landscape_fwd_kT+75,color='b',
              linestyle='--',label="Only Forward")
-    plt.plot(ToX(landscape_rev_only.Extensions),landscape_rev_only_kT+20,
+    plt.plot(ToX(landscape_rev_only.q),landscape_rev_only_kT+20,
              "g--",label="Only Reverse")
-    plt.ylim([0,300])
-    xlim()
     PlotUtilities.lazyLabel("","Free Energy (kT)",
                             "Hummer 2010, Figure 3")
     plt.subplot(2,1,2)
-    plt.plot(ToX(ext_rev),landscape_fonehalf_kT_rel,color='r')
-    plt.ylim([0,25])
-    xlim()
+    plt.plot(ToX(ext_tilt),landscape_fonehalf_kT_rel,color='r')
     PlotUtilities.lazyLabel("Extension q (nm)","Energy at F_(1/2) (kT)","")
 
 def _assert_data_correct(obj,x_nm,offset_pN,k_pN_per_nm,
@@ -429,10 +427,12 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
     k = single.SpringConstant
     del single.__dict__["SpringConstant"];
     single.K = k
-    unfold_rob,refold_rob = WeierstrassUtil.get_unfold_and_refold_objects(single,
-                                                                          **kwargs)
+    unfold_rob,refold_rob = \
+            WeierstrassUtil.get_unfold_and_refold_objects(single,
+                                                          **kwargs)
     # make the sure unfolding objects match
-    for u_r,r_r,u_exp,r_exp in zip(unfold_rob,refold_rob,state_fwd_o,state_rev_o):
+    for u_r,r_r,u_exp,r_exp in zip(unfold_rob,refold_rob,state_fwd_o,
+                                   state_rev_o):
         check_iwt_obj(u_r,u_exp)
         check_iwt_obj(r_r,r_exp)
     # restore the spring constant
@@ -465,6 +465,30 @@ def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.3]):
         assert loss <= max_loss 
     
 
+def check_derivatives(landscape):
+    A_z = landscape.A_z
+    A_z_weighted = landscape.A_z_dot
+    A_z_ddot = landscape.A_z_ddot
+    q = landscape.q
+    # fit a spline...
+    n_bins = 20
+    knots = np.linspace(min(q),max(q),endpoint=True,num=n_bins)
+    spline_A_z = LSQUnivariateSpline(x=q,y=A_z,k=3,t=knots[1:-1])
+    A_dot_spline = spline_A_z.derivative(1)(q)
+    A_ddot_spline = spline_A_z.derivative(2)(q)
+    plt.subplot(3,1,1)
+    plt.plot(q,A_z)
+    plt.plot(q,spline_A_z(q))
+    plt.subplot(3,1,2)
+    plt.plot(q,A_z_weighted)
+    plt.plot(q,A_dot_spline,color='g')
+    plt.subplot(3,1,3)
+    plt.plot(q,A_z_ddot)
+    plt.plot(q,A_ddot_spline,color='g')
+    plt.show()
+    
+    
+
 def TestHummer2010():
     """
     Recreates the simulation from Figure 3 of 
@@ -491,7 +515,15 @@ def TestHummer2010():
     state_fwd_o,state_rev_o = copy.deepcopy(state_fwd),copy.deepcopy(state_rev)
     f = InverseWeierstrass.free_energy_inverse_weierstrass
     landscape = f(state_fwd)
+    # check that the derivatives are about right
     landscape_both = f(state_fwd,state_rev)
+    check_derivatives(landscape)
+    check_derivatives(landscape_both)
+    landscape_rev = f(state_rev)
+    fig = PlotUtilities.figure()
+    landscape_plot(landscape,landscape_both,landscape_rev_only=landscape_rev,
+                   kT=kT,f_one_half=14e-12)
+    PlotUtilities.savefig(fig,"./out")
     # POST: height should be quite close to Figure 3
     check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half=f_one_half)
     # POST: ensemble works well.
