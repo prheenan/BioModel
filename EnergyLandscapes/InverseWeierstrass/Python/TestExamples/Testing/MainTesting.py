@@ -567,8 +567,8 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
-    TestForwardBackward()
+    #TestWeighting()
+    #TestForwardBackward()
     TestHummer2010()
 
 
