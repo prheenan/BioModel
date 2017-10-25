@@ -87,7 +87,8 @@ def split_into_iwt_objects(d,z_0,v,
     if (idx_end_of_unfolding is None):
         idx_end_of_unfolding = int(np.floor(d.Force.size/2))
     if (idx_end_of_folding is None):
-        idx_end_of_folding = idx_end_of_unfolding + (idx_end_of_unfolding-unfold_start_idx)
+        idx_end_of_folding = idx_end_of_unfolding + \
+                             (idx_end_of_unfolding-unfold_start_idx)
     if (flip_forces):
         d.Force *= -1
     # get the unfolding and unfolds
@@ -211,7 +212,8 @@ def RobTimeSepForceToIWT(o,v,**kw):
 def _check_slices(single_dir):
     n = len(single_dir)
     expected_sizes = np.ones(n) * single_dir[0].Force.size
-    np.testing.assert_allclose(expected_sizes,[d.Force.size for d in single_dir])
+    np.testing.assert_allclose(expected_sizes,
+                               [d.Force.size for d in single_dir])
 
 def iwt_ramping_experiment(data,number_of_pairs,kT,v,
                            flip_forces=False,**kw):

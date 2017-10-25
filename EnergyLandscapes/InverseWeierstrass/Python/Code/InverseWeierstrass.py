@@ -66,6 +66,9 @@ class Landscape(object):
         self.offset_energy(min(self.G_0))
         self.offset_extension(min(self.q))
     @property
+    def z(self):
+        return self.q + self.A_z_dot/self.k
+    @property
     def first_deriv_term(self):
         return first_deriv_term(A_z_dot=self.A_z_dot,k=self.k)
     @property
@@ -81,7 +84,7 @@ class Landscape(object):
         return self.energy
 
 def ZFuncSimple(obj):
-    return obj.Offset + (obj.Velocity * obj.Time)        
+    return obj.Offset + (obj.Velocity * (obj.Time-obj.Time[0]))
 
 class FEC_Pulling_Object:
     def __init__(self,Time,Extension,Force,SpringConstant=0.4e-3,
