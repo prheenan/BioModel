@@ -10,7 +10,7 @@ import itertools
 from collections import defaultdict
 from scipy.optimize import fminbound,newton,brentq
 from scipy import sparse
-from scipy.interpolate import splev
+from scipy.interpolate import splev,LSQUnivariateSpline
 
 
 class _WorkWeighted(object):

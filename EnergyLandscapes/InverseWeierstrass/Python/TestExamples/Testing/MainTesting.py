@@ -38,6 +38,7 @@ def TestWeighting():
     rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nf=0,**common)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
+    np.testing.assert_allclose(2,Fwd(**fwd_is_one)+Rev(**rev_is_one))
     # POST: very simple conditions work. now try ones with still no deltaA
     beta = np.array([1])
     np.testing.assert_allclose(np.exp(-1)/2,
@@ -465,17 +466,22 @@ def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.3]):
         assert loss <= max_loss 
     
 
+def spline_derivatives(landscape,n_bins=60):
+    q = landscape.q
+    A_q = landscape.A_z
+    knots = np.linspace(min(q),max(q),endpoint=True,num=n_bins)
+    spline_A_z = LSQUnivariateSpline(x=q,y=A_q,k=3,t=knots[1:-1])
+    A_dot_spline = spline_A_z.derivative(1)(q)
+    A_ddot_spline = spline_A_z.derivative(2)(q)
+    return spline_A_z,A_dot_spline,A_ddot_spline
+
 def check_derivatives(landscape):
     A_z = landscape.A_z
     A_z_weighted = landscape.A_z_dot
     A_z_ddot = landscape.A_z_ddot
     q = landscape.q
+    spline_A_z,A_dot_spline,A_ddot_spline = spline_derivatives(landscape)
     # fit a spline...
-    n_bins = 20
-    knots = np.linspace(min(q),max(q),endpoint=True,num=n_bins)
-    spline_A_z = LSQUnivariateSpline(x=q,y=A_z,k=3,t=knots[1:-1])
-    A_dot_spline = spline_A_z.derivative(1)(q)
-    A_ddot_spline = spline_A_z.derivative(2)(q)
     plt.subplot(3,1,1)
     plt.plot(q,A_z)
     plt.plot(q,spline_A_z(q))
@@ -517,11 +523,14 @@ def TestHummer2010():
     landscape = f(state_fwd)
     # check that the derivatives are about right
     landscape_both = f(state_fwd,state_rev)
+    landscape_rev = f(state_rev)
     check_derivatives(landscape)
     check_derivatives(landscape_both)
-    landscape_rev = f(state_rev)
+    check_derivatives(landscape_rev)
     fig = PlotUtilities.figure()
-    landscape_plot(landscape,landscape_both,landscape_rev_only=landscape_rev,
+    # XXX move this, add in landscape rev
+    landscape_plot(landscape,landscape_both,
+                   landscape_rev_only=landscape_rev,
                    kT=kT,f_one_half=14e-12)
     PlotUtilities.savefig(fig,"./out")
     # POST: height should be quite close to Figure 3
