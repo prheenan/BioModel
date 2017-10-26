@@ -385,7 +385,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
     # subtract the mean work 
-    offset = np.mean(works)
+    offset = 0
     works -= offset
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
@@ -453,7 +453,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     # (1) Hummer, 2010, equation 1 gives A(z) = -beta * ln(<exp(-beta*W>))
     # (2) ibid, equaiton 19 for unfolding and refolding gives the same in
     # terms of just adding folding and refolding, not averaging
-    merge = lambda *x: np.mean(x,axis=0) if n_r > 0 else x[0]
+    merge = lambda *x: np.sum(x,axis=0) if n_r > 0 else x[0]
     weighted_force     = \
         merge(unfold_weighted.f,refold_weighted.f)
     weighted_partition = \

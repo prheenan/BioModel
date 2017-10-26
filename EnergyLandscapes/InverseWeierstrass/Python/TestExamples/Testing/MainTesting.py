@@ -62,7 +62,7 @@ def TestBidirectionalEnsemble():
     reverse get the same answer
     """
     n = 200
-    fwd_objs,rev_objs = load_simulated_data(n=n)
+    fwd_objs,rev_objs = HummerData(n=50)
     delta_A_calc = InverseWeierstrass.NumericallyGetDeltaA(fwd_objs,
                                                            rev_objs)
     # the delta_A_calc should make the bennet ratio true. Since we have n_r=n_f,
@@ -76,15 +76,23 @@ def TestBidirectionalEnsemble():
     mean_rev = np.mean(rhs)
     diff = abs(mean_fwd-mean_rev)
     diff_rel = diff/np.mean([mean_fwd,mean_rev])
-    np.testing.assert_allclose(diff_rel,0,atol=0.185,rtol=0)
+    np.testing.assert_allclose(diff_rel,0,atol=0.213,rtol=0)
     # POST: correct DeltaA to within tolerance. 
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
-    landscape = f(fwd_objs)
+    landscape_fwd = f(fwd_objs)
     landscape_both = f(fwd_objs,rev_objs)
-    landscape_rev_only = f(rev_objs)
+    # add in delta_A to the reverse; should be ~equal to the forward at that 
+    # point
+    landscape_rev = f(rev_objs)
+    landscape_rev.energy += delta_A_calc
     kT = 4.1e-21
-    np.testing.assert_allclose(landscape.G_0,landscape_rev_only.G_0,
+    print(delta_A_calc/kT)
+    plt.plot(landscape_fwd.G_0)
+    plt.plot(landscape_rev.G_0)
+    plt.plot(landscape_both.G_0)
+    plt.show()
+    np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
                                atol=3*kT,rtol=1e-1)
 
     
@@ -495,7 +503,7 @@ def check_derivatives(landscape):
     
     
 def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
-    for i_tmp,l in enumerate([fwd,rev]):
+    for i_tmp,l in enumerate([fwd,rev,both]):
         z_fwd = [o.ZFunc(o) for o in state_fwd]
         q_fwd = [o.Separation for o in state_fwd]
         for stat_fec,stat_landscape in zip([z_fwd,q_fwd],[l.z,l.q]):
@@ -586,9 +594,9 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
+    #TestWeighting()
     TestForwardBackward()
-    TestHummer2010()
+    #TestHummer2010()
 
 
 
