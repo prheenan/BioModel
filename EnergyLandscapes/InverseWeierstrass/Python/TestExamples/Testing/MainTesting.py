@@ -439,7 +439,7 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
     # restore the spring constant
     single.SpringConstant = k
 
-def _check_filtering(landscape_both,max_loss_fraction=[1e-2,1e-2,0.3]):
+def _check_filtering(landscape_both,max_loss_fraction=[2e-2,2e-2,0.3]):
     """
     checks that filtering the landscape results in a faithful approximation
     """
@@ -494,6 +494,23 @@ def check_derivatives(landscape):
     plt.show()
     
     
+def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
+    for i_tmp,l in enumerate([fwd,rev]):
+        z_fwd = [o.ZFunc(o) for o in state_fwd]
+        q_fwd = [o.Separation for o in state_fwd]
+        for stat_fec,stat_landscape in zip([z_fwd,q_fwd],[l.z,l.q]):
+            mean_stat_fec = np.mean(stat_fec,axis=0)
+            std_stat_fec = np.std(stat_fec,axis=0)
+            plt.errorbar(x=range(mean_stat_fec.size),
+                         y=mean_stat_fec,yerr=std_stat_fec,color='r')
+            # make sure the mean is close
+            np.testing.assert_allclose(stat_landscape,
+                                       mean_stat_fec,atol=2e-9,rtol=0.1)
+        # make sur the landscape statistics is withing error of the mean
+        mean_q,std_q = np.mean(q_fwd,axis=0),np.std(q_fwd,axis=0)
+        assert (l.q >= mean_q - std_q).all()
+        assert (l.q <= mean_q + std_q).all()
+
 
 def TestHummer2010():
     """
@@ -524,6 +541,8 @@ def TestHummer2010():
     # check that the derivatives are about right
     landscape_both = f(state_fwd,state_rev)
     landscape_rev = f(state_rev)
+    test_landscape_x_values(fwd=landscape,rev=landscape_rev,both=landscape_both,
+                            state_fwd=state_fwd,state_rev=state_rev)
     check_derivatives(landscape)
     check_derivatives(landscape_both)
     check_derivatives(landscape_rev)
@@ -567,8 +586,8 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
-    #TestForwardBackward()
+    TestWeighting()
+    TestForwardBackward()
     TestHummer2010()
 
 
