@@ -87,13 +87,14 @@ def TestBidirectionalEnsemble():
     landscape_rev = f(rev_objs)
     landscape_rev.energy += delta_A_calc
     kT = 4.1e-21
-    print(delta_A_calc/kT)
-    plt.plot(landscape_fwd.G_0)
-    plt.plot(landscape_rev.G_0)
-    plt.plot(landscape_both.G_0)
+    # XXX fit a spline to the data; check the x and y range; should match 
+    # (ish) the red line in Fig 3a of Hummer 2010
+    plt.plot(landscape_fwd.q,landscape_fwd.G_0)
+    plt.plot(landscape_rev.q,landscape_rev.G_0)
+    plt.plot(landscape_both.q,landscape_both.G_0)
     plt.show()
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
-                               atol=3*kT,rtol=1e-1)
+                               atol=15*kT,rtol=0)
 
     
 def TestForwardBackward():
@@ -594,9 +595,9 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
+    TestWeighting()
     TestForwardBackward()
-    #TestHummer2010()
+    TestHummer2010()
 
 
 
