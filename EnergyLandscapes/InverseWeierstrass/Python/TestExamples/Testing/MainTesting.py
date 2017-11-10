@@ -89,9 +89,19 @@ def TestBidirectionalEnsemble():
     kT = 4.1e-21
     # XXX fit a spline to the data; check the x and y range; should match 
     # (ish) the red line in Fig 3a of Hummer 2010
-    plt.plot(landscape_fwd.q,landscape_fwd.G_0)
-    plt.plot(landscape_rev.q,landscape_rev.G_0)
-    plt.plot(landscape_both.q,landscape_both.G_0)
+    q_f = np.mean([f.Extension for f in fwd_objs],axis=0)
+    # note: q_r is reversed, so that we are generally increasing in extension...
+    q_r = np.mean([r.Extension for r in rev_objs],axis=0)[::-1]
+    q_expected = (q_f + q_r)/2
+    plt.subplot(2,1,1)
+    plt.plot(q_expected,'k--')
+    plt.plot(landscape_fwd.q,'b')
+    plt.plot(landscape_rev.q,'r')
+    plt.plot(landscape_both.q,'g')
+    plt.subplot(2,1,2)
+    plt.plot(landscape_fwd.q,landscape_fwd.G_0,'b')
+    plt.plot(landscape_rev.q,landscape_rev.G_0,'r')
+    plt.plot(landscape_both.q,landscape_both.G_0,'g')
     plt.show()
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
                                atol=15*kT,rtol=0)
@@ -595,9 +605,9 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
+    #TestWeighting()
     TestForwardBackward()
-    TestHummer2010()
+    #TestHummer2010()
 
 
 

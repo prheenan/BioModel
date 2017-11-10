@@ -198,7 +198,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     # the argment should be consierably less than the max
-    tol = np.log(np.finfo(np.float64).max) - 75
+    tol = np.log(np.finfo(np.float64).max) - 100
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
@@ -428,6 +428,23 @@ def _assert_inputs_valid(unfolding,refolding):
     _check_inputs(unfolding,unfolding_inputs,input_check)
     _check_inputs(refolding,refolding_inputs,input_check)
 
+def _safe_len(x):
+    try:
+        return len(x)
+    except TypeError:
+        return 0
+
+def _merge(x1,x2):
+    len_1,len_2 = _safe_len(x1),_safe_len(x2)
+    # need to have at least one input...
+    assert len_1 + len_2 > 0
+    if (len_1 * len_2 > 0):
+        return np.sum([x1,x2],axis=0)
+    elif (len_1 > 0):
+        return x1
+    else:
+        return x2
+        
 
 def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     """
@@ -453,7 +470,7 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
     # (1) Hummer, 2010, equation 1 gives A(z) = -beta * ln(<exp(-beta*W>))
     # (2) ibid, equaiton 19 for unfolding and refolding gives the same in
     # terms of just adding folding and refolding, not averaging
-    merge = lambda *x: np.sum(x,axis=0) if n_r > 0 else x[0]
+    merge = _merge
     weighted_force     = \
         merge(unfold_weighted.f,refold_weighted.f)
     weighted_partition = \
