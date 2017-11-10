@@ -84,7 +84,7 @@ def TestBidirectionalEnsemble():
     landscape_both = f(fwd_objs,rev_objs)
     # add in delta_A to the reverse; should be ~equal to the forward at that 
     # point
-    landscape_rev = f(rev_objs)
+    landscape_rev = f(refolding=rev_objs)
     landscape_rev.energy += delta_A_calc
     kT = 4.1e-21
     # XXX fit a spline to the data; check the x and y range; should match 

@@ -299,7 +299,8 @@ def NumericallyGetDeltaA(Forward,Reverse,maxiter=200,**kwargs):
     Returns:
         Free energy different, in joules
     """
-    if len(Reverse) == 0:
+    # only have a deltaA if we have both forward and reverse
+    if (len(Reverse) == 0) or (len(Forward) == 0):
         return 0
     # POST: reverse is not zero; have at least one
     beta = Forward[0].Beta
@@ -414,9 +415,10 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
 def _assert_inputs_valid(unfolding,refolding):
     n_f = len(unfolding)
     n_r = len(refolding)
-    assert n_f > 0 , "Need at least one unfolding object"
+    assert n_r+n_f > 0 , "Need at least one object"
+    key_list = unfolding if n_f > 0 else refolding
     # POST: at least one to look at
-    key = unfolding[0]
+    key = key_list[0]
     input_check = lambda x: [x.Offset,x.Velocity,x.SpringConstant,x.Force.size,
                              x.kT]
     unfolding_inputs = input_check(key)
@@ -424,7 +426,11 @@ def _assert_inputs_valid(unfolding,refolding):
     z0,v = unfolding_inputs[0],unfolding_inputs[1]
     t = max(key.Time)-min(key.Time)
     zf = z0+v*t
-    refolding_inputs = [zf,-v] + unfolding_inputs[2:]
+    # if we only have reverse, we just pick the larger of z0,zf
+    # (since we know the reverse starts at the largest z, at a
+    # greater extension than the barrier)
+    z_large = max(z0,zf)
+    refolding_inputs = [z_large,-abs(v)] + unfolding_inputs[2:]
     _check_inputs(unfolding,unfolding_inputs,input_check)
     _check_inputs(refolding,refolding_inputs,input_check)
 
@@ -446,7 +452,7 @@ def _merge(x1,x2):
         return x2
         
 
-def free_energy_inverse_weierstrass(unfolding,refolding=[]):
+def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     """
     XXX DEBUGGING REPLACE
 
@@ -454,10 +460,10 @@ def free_energy_inverse_weierstrass(unfolding,refolding=[]):
         <un/re>folding: list of unfolding and refolding objects to use
     """
     _assert_inputs_valid(unfolding,refolding)
-    # POST: refolding and unfolding objects are OK.      
-    key = unfolding[0]
+    # POST: inputs are OK, and have at least one unfolding or refolding trace to use
     # get the free energy change between the states (or zero, if none)
     n_f,n_r = len(unfolding),len(refolding)
+    key = unfolding[0] if n_f > 0 else refolding[0]
     delta_A = NumericallyGetDeltaA(unfolding,refolding)
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
     unfold_weighted = get_work_weighted_object(unfolding,
