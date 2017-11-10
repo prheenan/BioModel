@@ -223,7 +223,7 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
 
     Args: see EnsembleAverage
     """
-    return (v*nr*Exp(-beta*(W + delta_A)))/(nr + nf*Exp(-beta*(Wn + delta_A)))
+    return (v*nr*Exp(-beta*(W + delta_A)))/(nf + nr*Exp(-beta*(Wn + delta_A)))
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
