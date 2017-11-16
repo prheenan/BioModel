@@ -555,10 +555,10 @@ def TestHummer2010():
     # mess with it
     state_fwd_o,state_rev_o = copy.deepcopy(state_fwd),copy.deepcopy(state_rev)
     f = InverseWeierstrass.free_energy_inverse_weierstrass
-    landscape = f(state_fwd)
+    #landscape = f(state_fwd)
     # check that the derivatives are about right
     landscape_both = f(state_fwd,state_rev)
-    landscape_rev = f(state_rev)
+    #landscape_rev = f(state_rev)
     test_landscape_x_values(fwd=landscape,rev=landscape_rev,both=landscape_both,
                             state_fwd=state_fwd,state_rev=state_rev)
     check_derivatives(landscape)

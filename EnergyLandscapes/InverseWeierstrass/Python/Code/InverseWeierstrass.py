@@ -223,7 +223,7 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
 
     Args: see EnsembleAverage
     """
-    return (v*nr*Exp(-beta*(W + delta_A)))/(nf + nr*Exp(-beta*(Wn + delta_A)))
+    return (v*nr*Exp(-beta*(W + delta_A)))/(nf + nr*Exp(-beta*(Wn +delta_A)))
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -386,14 +386,14 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
     # subtract the mean work 
-    offset = 0
+    Wn_raw = np.array([w[-1] for w in works],**array_kw)
+    offset = (delta_A/2) * np.sign(Wn_raw[-1])
     works -= offset
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
     key = objs[0]
     beta = key.Beta
     k = key.SpringConstant
-    Wn_raw = np.array([w[-1] for w in works],**array_kw)
     Wn = (np.ones(works.shape,**array_kw).T * Wn_raw).T
     weighted_kw = dict(delta_A=delta_A,beta=beta,W=works,Wn=Wn,**kw)
     partition = _work_weighted_value(values=1,**weighted_kw)
