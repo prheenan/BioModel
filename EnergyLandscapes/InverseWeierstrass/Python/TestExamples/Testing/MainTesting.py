@@ -81,6 +81,7 @@ def TestBidirectionalEnsemble():
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
     landscape_fwd = f(fwd_objs)
+    check_derivatives(landscape_fwd)
     landscape_both = f(fwd_objs,rev_objs)
     # add in delta_A to the reverse; should be ~equal to the forward at that 
     # point
