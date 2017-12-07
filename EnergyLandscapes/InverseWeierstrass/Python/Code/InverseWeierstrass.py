@@ -225,6 +225,7 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     """
     return (v*nr*Exp(-beta*(W + delta_A)))/(nf + nr*Exp(-beta*(Wn +delta_A)))
 
+
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
     Gives the distance to the root in equation 18 (see NumericallyGetDeltaA)

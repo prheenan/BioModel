@@ -86,7 +86,7 @@ def TestBidirectionalEnsemble():
     # add in delta_A to the reverse; should be ~equal to the forward at that 
     # point
     landscape_rev = f(refolding=rev_objs)
-    for l_tmp in [landscape_fwd,landscape_rev]:
+    for i,l_tmp in enumerate([landscape_fwd,landscape_rev,landscape_both]):
         check_derivatives(l_tmp)
     kT = 4.1e-21
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
@@ -474,6 +474,7 @@ def _check_filtering(landscape_both,max_loss_fraction=[2e-2,2e-2,0.3]):
 def spline_derivatives(landscape,n_bins=60):
     z = landscape.z
     A_z = landscape.A_z
+    sort_idx = np.argsort(z)
     knots = np.linspace(min(z),max(z),endpoint=True,num=n_bins)
     spline_A_z = LSQUnivariateSpline(x=z,y=A_z,k=3,t=knots[1:-1])
     A_dot_spline_z = spline_A_z.derivative(1)(z)
@@ -494,9 +495,9 @@ def check_derivatives(landscape):
     # the second derivative has higher error...
     relative_loss_1 = _relative_loss(A_dot_spline_z,A_z_weighted)
     relative_loss_2 = _relative_loss(A_ddot_spline_z,A_z_ddot)
-    assert relative_loss_1 < 0.1 , "First derivative loss is too high"
+    assert relative_loss_1 < 0.05 , "First derivative loss is too high"
     # second derivative losses are somewhat higher...
-    assert relative_loss_2 < 0.3 , "Second derivative loss is too high"
+    assert relative_loss_2 < 0.22 , "Second derivative loss is too high"
 
 def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
     for i_tmp,l in enumerate([fwd,rev,both]):
