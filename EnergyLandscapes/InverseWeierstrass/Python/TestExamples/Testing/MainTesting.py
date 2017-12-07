@@ -81,11 +81,12 @@ def TestBidirectionalEnsemble():
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
     landscape_fwd = f(fwd_objs)
-    check_derivatives(landscape_fwd)
     landscape_both = f(fwd_objs,rev_objs)
     # add in delta_A to the reverse; should be ~equal to the forward at that 
     # point
     landscape_rev = f(refolding=rev_objs)
+    for l_tmp in [landscape_fwd,landscape_rev]:
+        check_derivatives(l_tmp)
     kT = 4.1e-21
     # XXX fit a spline to the data; check the x and y range; should match 
     # (ish) the red line in Fig 3a of Hummer 2010
@@ -93,16 +94,6 @@ def TestBidirectionalEnsemble():
     # note: q_r is reversed, so that we are generally increasing in extension...
     q_r = np.mean([r.Extension for r in rev_objs],axis=0)[::-1]
     q_expected = (q_f + q_r)/2
-    plt.subplot(2,1,1)
-    plt.plot(q_expected,'k--')
-    plt.plot(landscape_fwd.q,'b')
-    plt.plot(landscape_rev.q,'r')
-    plt.plot(landscape_both.q,'g')
-    plt.subplot(2,1,2)
-    plt.plot(landscape_fwd.q,landscape_fwd.G_0,'b')
-    plt.plot(landscape_rev.q,landscape_rev.G_0,'r')
-    plt.plot(landscape_both.q,landscape_both.G_0,'g')
-    plt.show()
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
                                atol=20*kT,rtol=0)
 
@@ -486,33 +477,32 @@ def _check_filtering(landscape_both,max_loss_fraction=[2e-2,2e-2,0.3]):
     
 
 def spline_derivatives(landscape,n_bins=60):
-    q = landscape.q
-    A_q = landscape.A_z
-    knots = np.linspace(min(q),max(q),endpoint=True,num=n_bins)
-    spline_A_z = LSQUnivariateSpline(x=q,y=A_q,k=3,t=knots[1:-1])
-    A_dot_spline = spline_A_z.derivative(1)(q)
-    A_ddot_spline = spline_A_z.derivative(2)(q)
-    return spline_A_z,A_dot_spline,A_ddot_spline
+    z = landscape.z
+    A_z = landscape.A_z
+    knots = np.linspace(min(z),max(z),endpoint=True,num=n_bins)
+    spline_A_z = LSQUnivariateSpline(x=z,y=A_z,k=3,t=knots[1:-1])
+    A_dot_spline_z = spline_A_z.derivative(1)(z)
+    A_ddot_spline_z = spline_A_z.derivative(2)(z)
+    return spline_A_z,A_dot_spline_z,A_ddot_spline_z
+
+def _relative_loss(expected,measured):
+    abs_loss = sum(abs(expected-measured))
+    rel_loss = abs_loss/sum(expected)
+    return rel_loss
 
 def check_derivatives(landscape):
     A_z = landscape.A_z
     A_z_weighted = landscape.A_z_dot
     A_z_ddot = landscape.A_z_ddot
-    q = landscape.q
-    spline_A_z,A_dot_spline,A_ddot_spline = spline_derivatives(landscape)
-    # fit a spline...
-    plt.subplot(3,1,1)
-    plt.plot(q,A_z)
-    plt.plot(q,spline_A_z(q))
-    plt.subplot(3,1,2)
-    plt.plot(q,A_z_weighted)
-    plt.plot(q,A_dot_spline,color='g')
-    plt.subplot(3,1,3)
-    plt.plot(q,A_z_ddot)
-    plt.plot(q,A_ddot_spline,color='g')
-    plt.show()
-    
-    
+    z = landscape.z
+    spline_A_z,A_dot_spline_z,A_ddot_spline_z = spline_derivatives(landscape)
+    # the second derivative has higher error...
+    relative_loss_1 = _relative_loss(A_dot_spline_z,A_z_weighted)
+    relative_loss_2 = _relative_loss(A_ddot_spline_z,A_z_ddot)
+    assert relative_loss_1 < 0.1 , "First derivative loss is too high"
+    # second derivative losses are somewhat higher...
+    assert relative_loss_2 < 0.3 , "Second derivative loss is too high"
+
 def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
     for i_tmp,l in enumerate([fwd,rev,both]):
         z_fwd = [o.ZFunc(o) for o in state_fwd]
@@ -556,10 +546,10 @@ def TestHummer2010():
     # mess with it
     state_fwd_o,state_rev_o = copy.deepcopy(state_fwd),copy.deepcopy(state_rev)
     f = InverseWeierstrass.free_energy_inverse_weierstrass
-    #landscape = f(state_fwd)
+    landscape = f(state_fwd)
     # check that the derivatives are about right
     landscape_both = f(state_fwd,state_rev)
-    #landscape_rev = f(state_rev)
+    landscape_rev = f(state_rev)
     test_landscape_x_values(fwd=landscape,rev=landscape_rev,both=landscape_both,
                             state_fwd=state_fwd,state_rev=state_rev)
     check_derivatives(landscape)
