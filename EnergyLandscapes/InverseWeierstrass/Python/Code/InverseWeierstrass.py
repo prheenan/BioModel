@@ -387,7 +387,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # POST: j runs over z ('number of bins', except no binning)
     # subtract the mean work 
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
-    offset = (delta_A/2) * np.sign(Wn_raw[-1])
+    offset = 0
     works -= offset
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
