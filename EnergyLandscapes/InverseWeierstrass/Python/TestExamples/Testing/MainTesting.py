@@ -51,9 +51,10 @@ def TestWeighting():
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
                                Fwd(v=1,nf=2,nr=3,Wn=1,W=1,beta=beta,delta_A=-1,
                                    **common))
-    # XXX reverse is broken? typo between hummer and etc...
+    # Reverse weighting is *wrong* in Hummer, 2010.
+    # Minh and Adib, 2008, eq 5 and 7 are correct
     rev = Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,beta=beta,delta_A=1,**common)
-    np.testing.assert_allclose(2*np.exp(1)/(2+3*np.exp(2)),rev)
+    np.testing.assert_allclose(2*np.exp(1)/(3+2*np.exp(2)),rev)
     # POST: also works with DeltaA... pretty convincing imo
 
 def TestBidirectionalEnsemble():
@@ -589,7 +590,7 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
+    TestWeighting()
     TestForwardBackward()
     #TestHummer2010()
 
