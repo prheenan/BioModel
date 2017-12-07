@@ -42,12 +42,13 @@ def second_deriv_term(one_minus_A_z_ddot_over_k,beta):
     return 1/(2*beta) * np.log(one_minus_A_z_ddot_over_k)
 
 class Landscape(object):
-    def __init__(self,q,kT,k,
+    def __init__(self,q,kT,k,z,
                  free_energy_A,A_z_dot,one_minus_A_z_ddot_over_k):
         self.k = k
         self.q = q
         self.A_z = free_energy_A
         self.A_z_dot = A_z_dot
+        self._z = z
         self.one_minus_A_z_ddot_over_k = one_minus_A_z_ddot_over_k
         self.kT = kT
         self.energy = self.A_z + self.first_deriv_term + self.second_deriv_term
@@ -67,7 +68,7 @@ class Landscape(object):
         self.offset_extension(min(self.q))
     @property
     def z(self):
-        return self.q + self.A_z_dot/self.k
+        return self._z
     @property
     def first_deriv_term(self):
         return first_deriv_term(A_z_dot=self.A_z_dot,k=self.k)
@@ -376,6 +377,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         return to_ret
     # POST: have at least one thing to do...
     array_kw = dict(dtype=np.float64)
+
     works = np.array([u.Work for u in objs],**array_kw)
     force = np.array([u.Force for u in objs],**array_kw)
     force_sq = np.array([u.Force**2 for u in objs],**array_kw)
@@ -386,7 +388,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         format(works.shape,shape_expected)
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
-    # subtract the mean work 
+    # subtract the mean work
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
     offset = 0
     works -= offset
@@ -515,7 +517,7 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     sort_idx = np.argsort(q)
     f_sort = lambda x: x[sort_idx].copy()
     to_ret = \
-        Landscape(q=f_sort(q),kT=1/beta,k=k,
+        Landscape(q=f_sort(q),kT=1/beta,k=k,z=f_sort(z),
                   free_energy_A=f_sort(A_z),
                   A_z_dot=f_sort(A_z_dot),
                   one_minus_A_z_ddot_over_k=f_sort(one_minus_A_z_ddot_over_k))
