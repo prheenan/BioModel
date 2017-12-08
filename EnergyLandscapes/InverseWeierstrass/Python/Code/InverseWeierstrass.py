@@ -273,7 +273,6 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     denom = (nf + nr*Exp(-beta*(Wn +delta_A)))
     return numer/denom
 
-
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
     Gives the distance to the root in equation 18 (see NumericallyGetDeltaA)
@@ -495,7 +494,7 @@ def _merge(x1,x2):
     # need to have at least one input...
     assert len_1 + len_2 > 0
     if (len_1 * len_2 > 0):
-        return np.sum([x1,x2],axis=0)
+        return np.mean([x1,x2],axis=0)
     elif (len_1 > 0):
         return x1
     else:
@@ -535,7 +534,7 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
         merge(unfold_weighted.f_variance,refold_weighted.f_variance)
     assert weighted_force.size == key.Time.size , "Programming error"
     # all z values should be the same, so just use the key 
-    z = key.ZFunc(key)
+    z = np.sort(key.ZFunc(key))
     # due to numerical stability problems, may need to exclude some points
     landscape_ge_0 = (weighted_variance > 0)
     n_ge_0 = sum(landscape_ge_0)

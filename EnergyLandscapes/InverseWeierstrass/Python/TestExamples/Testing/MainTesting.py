@@ -34,8 +34,10 @@ def TestWeighting():
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))
     np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
     # test one and zero conditions for revese
-    rev_is_one = dict(nr=1,v=1,Wn=0,W=0,beta=beta,delta_A=0,nf=0,**common)
-    rev_is_zero = dict(nr=1,v=0,Wn=0,W=0,beta=beta,delta_A=0,nf=0,**common)
+    rev_is_one = dict(nr=1,v=np.array([1]),Wn=0,W=np.array([0]),beta=beta,delta_A=0,nf=0,
+                      **common)
+    rev_is_zero = dict(nr=1,v=np.array([0]),Wn=0,W=np.array([0]),beta=beta,
+                       delta_A=0,nf=0,**common)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
     np.testing.assert_allclose(2,Fwd(**fwd_is_one)+Rev(**rev_is_one))
@@ -45,15 +47,18 @@ def TestWeighting():
                                Fwd(v=1,nf=1,nr=1,Wn=0,W=1,beta=beta,delta_A=0,
                                    **common))
     np.testing.assert_allclose(np.exp(1)/2,
-                               Rev(v=1,nf=1,nr=1,Wn=0,W=-1,beta=beta,delta_A=0,
+                               Rev(v=np.array([1]),nf=1,nr=1,Wn=0,
+                                   W=np.array([-1]),beta=beta,delta_A=0,
                                    **common))
     # POST: no delta A works, check with DeltaA
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
-                               Fwd(v=1,nf=2,nr=3,Wn=1,W=1,beta=beta,delta_A=-1,
+                               Fwd(v=np.array([1]),nf=2,nr=3,Wn=1,
+                                   W=np.array([1]),beta=beta,delta_A=-1,
                                    **common))
     # Reverse weighting is *wrong* in Hummer, 2010.
     # Minh and Adib, 2008, eq 5 and 7 are correct
-    rev = Rev(v=1,nf=3,nr=2,Wn=-3,W=-2,beta=beta,delta_A=1,**common)
+    rev = Rev(v=np.array([1]),nf=3,nr=2,Wn=-3,W=np.array([-2]),
+              beta=beta,delta_A=1,**common)
     np.testing.assert_allclose(2*np.exp(1)/(3+2*np.exp(2)),rev)
     # POST: also works with DeltaA... pretty convincing imo
 
@@ -90,22 +95,11 @@ def TestBidirectionalEnsemble():
     kT = 4.1e-21
     Beta = 1/kT
     dA = delta_A_calc
-    fwd = [np.exp(-Beta * f.Work) / (1 + np.exp(-Beta * (Wf - dA)))
-           for Wf, f in zip(Wn_fwd, fwd_objs)]
-    rev = [np.exp(-beta*(r.Work[::-1] + dA))/(1 + 1*np.exp(-beta*(Wr +dA)))
-           for Wr, r in zip(Wn_rev, rev_objs)]
-    mean_fwd = np.mean(fwd, axis=0) / 2
-    mean_rev = np.mean(rev, axis=0) / 2
-    plt.close()
-    plt.plot(-np.log(mean_fwd), 'g', alpha=0.3)
-    plt.plot(-np.log(mean_rev))
-    plt.plot(-np.log(mean_rev + mean_fwd), 'r--')
-    plt.show()
+    landscape_rev = f(refolding=rev_objs)
     landscape_both = f(fwd_objs,rev_objs)
     # add in delta_A to the reverse; should be ~equal to the forward at that 
     # point
-    landscape_rev = f(refolding=rev_objs)
-    for i,l_tmp in enumerate([landscape_fwd,landscape_both]):
+    for i,l_tmp in enumerate([landscape_fwd,landscape_both,landscape_rev]):
         check_derivatives(l_tmp)
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
                                atol=20*kT,rtol=0)
@@ -515,9 +509,9 @@ def check_derivatives(landscape):
     # the second derivative has higher error...
     relative_loss_1 = _relative_loss(A_dot_spline_z,A_z_weighted)
     relative_loss_2 = _relative_loss(A_ddot_spline_z,A_z_ddot)
-    assert relative_loss_1 < 0.05 , "First derivative loss is too high"
+    assert relative_loss_1 < 0.045 , "First derivative loss is too high"
     # second derivative losses are somewhat higher...
-    assert relative_loss_2 < 0.32 , "Second derivative loss is too high"
+    assert relative_loss_2 < 0.28 , "Second derivative loss is too high"
 
 def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
     for i_tmp,l in enumerate([fwd,rev,both]):
@@ -611,7 +605,7 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
+    TestWeighting()
     TestForwardBackward()
     #TestHummer2010()
 
