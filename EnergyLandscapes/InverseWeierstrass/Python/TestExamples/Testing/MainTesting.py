@@ -84,6 +84,7 @@ def TestBidirectionalEnsemble():
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
     landscape_fwd = f(fwd_objs)
+    #landscape_rev = f(refolding=rev_objs)
     # # check that the work definitions are about right, based on equation 7
     # of minh and adib, 2008
     kT = 4.1e-21
@@ -91,7 +92,7 @@ def TestBidirectionalEnsemble():
     dA = delta_A_calc
     fwd = [np.exp(-Beta * f.Work) / (1 + np.exp(-Beta * (Wf - dA)))
            for Wf, f in zip(Wn_fwd, fwd_objs)]
-    rev = [np.exp(-Beta * (r.Work[::-1] + dA)) / (1 + np.exp(-Beta * (Wr + dA)))
+    rev = [np.exp(-beta*(r.Work[::-1] + dA))/(1 + 1*np.exp(-beta*(Wr +dA)))
            for Wr, r in zip(Wn_rev, rev_objs)]
     mean_fwd = np.mean(fwd, axis=0) / 2
     mean_rev = np.mean(rev, axis=0) / 2

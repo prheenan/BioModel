@@ -224,7 +224,54 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
 
     Args: see EnsembleAverage
     """
-    return (v*nr*Exp(-beta*(W + delta_A)))/(nf + nr*Exp(-beta*(Wn +delta_A)))
+    # the reverse integral is defined as (Hummer, 2010, PNAS, near eq 19)
+    #
+    # W_z_reverse = integral from z1 to z of F_z * dz
+    #
+    # diagram of how this works (number line, axis is extension):
+    #
+    # |         |           |                   |           |
+    # 0         z0          z                  z1-(z-z0)    z1
+    #
+    #           _For._work_> <________________Reverse Work___
+    #
+    # The work  argument(W) starts from z1 (the 'zero point' or 'zero time'
+    #  of the reverse) and works its way backwards. We want 'reverse work' in
+    # the graph above (note the arrows!),
+    # # but the input W is getting the part from z1 to (z1-(z-z0))
+    # Strictly, W is defined as:
+    #
+    # W(z1,z1-(z-z0)) = integral from z1 to z1 - (z-z0) of F_z * dz
+    #
+    # if z -> ((z1-z0) - z) (equivalent to flipping the array, see definition
+    # of gamma-hat in adib, 2008 near eq 2), then (denoting the flip by W')
+    #
+    # z1 - (z-z0) -> z1 - ((z1-z0) - (z-z0)) = z
+    #
+    # and
+    #
+    # W' = integral from z1 to z of F_z * dz
+    #
+    # So
+    #
+    # W_z_reverse = W' = (W flipped along the time axis)
+    #
+    # So  W' is W_bar in Hummer and Szabo, 2010, corrected for the indices typo
+    # (cf eq 19 of that paper , and eq 5 of Minh and Adib, 2008 -- the denom
+    # should be the same)
+    #
+    # < ... >_R =
+    #   < n_r * exp(-beta * W') / (n_f + n_r * exp(-beta * (Wn - DeltaA))) >
+    #
+    # Note that
+    # (1) if we have a value we want, we just reverse it and put it next to n_r.
+    # What we care about (Force, Force^2) has the same sign under time inversion
+    #
+    # (2) Wn is just the entire integral, so we dont have to flip it...
+    flip = lambda x: np.flip(x,-1)
+    numer = (flip(v)*nr*Exp(-beta*(flip(W) + delta_A)))
+    denom = (nf + nr*Exp(-beta*(Wn +delta_A)))
+    return numer/denom
 
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
@@ -399,7 +446,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     k = key.SpringConstant
     Wn = (np.ones(works.shape,**array_kw).T * Wn_raw).T
     weighted_kw = dict(delta_A=delta_A,beta=beta,W=works,Wn=Wn,**kw)
-    partition = _work_weighted_value(values=1,**weighted_kw)
+    partition = _work_weighted_value(values=np.array([1]),**weighted_kw)
     assert partition.size == n_size_expected , "Programming error"
     where_zero = np.where(partition <= 0)[0]
     assert (where_zero.size==0) , "Partition had {:d} elements that were zero".\
