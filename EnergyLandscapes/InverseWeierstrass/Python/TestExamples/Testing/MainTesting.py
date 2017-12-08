@@ -89,12 +89,17 @@ def TestBidirectionalEnsemble():
     kT = 4.1e-21
     Beta = 1/kT
     dA = delta_A_calc
-    fwd = [np.exp(-Beta * f.Work)/(1+np.exp(-Beta * (Wf - dA)))
-           for Wf,f in zip(Wn_fwd,fwd_objs)]
-    rev = [np.exp(-Beta * (r.Work[::-1]))/(1+np.exp(-Beta * (Wr - dA)))
-           for Wr,r in zip(Wn_rev,rev_objs)]
-    mean_fwd = np.mean(fwd,axis=0)/2
-    mean_rev = np.mean(rev,axis=0)/2
+    fwd = [np.exp(-Beta * f.Work) / (1 + np.exp(-Beta * (Wf - dA)))
+           for Wf, f in zip(Wn_fwd, fwd_objs)]
+    rev = [np.exp(-Beta * (r.Work[::-1] + dA)) / (1 + np.exp(-Beta * (Wr + dA)))
+           for Wr, r in zip(Wn_rev, rev_objs)]
+    mean_fwd = np.mean(fwd, axis=0) / 2
+    mean_rev = np.mean(rev, axis=0) / 2
+    plt.close()
+    plt.plot(-np.log(mean_fwd), 'g', alpha=0.3)
+    plt.plot(-np.log(mean_rev))
+    plt.plot(-np.log(mean_rev + mean_fwd), 'r--')
+    plt.show()
     landscape_both = f(fwd_objs,rev_objs)
     # add in delta_A to the reverse; should be ~equal to the forward at that 
     # point
