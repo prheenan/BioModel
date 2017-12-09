@@ -36,7 +36,7 @@ def get_simulated_ensemble(n,**kw):
         spring_constant = p['k']
         beta = p['beta']
         kT = 1/beta
-        good_idx = np.where( (z > 325e-9) & (z < 425e-9))
+        good_idx = np.where((z > 290e-9) & (z < 450e-9))
         initial_dict = dict(Time=t[good_idx]-t[good_idx][0],
                             Extension=q[good_idx],
                             Force=f[good_idx],Velocity=velocity,kT=kT,
