@@ -101,8 +101,11 @@ def TestBidirectionalEnsemble():
     # point
     for i,l_tmp in enumerate([landscape_fwd,landscape_both,landscape_rev]):
         check_derivatives(l_tmp)
+    plt.plot(landscape_fwd.q,landscape_fwd.G_0)
+    plt.plot(landscape_fwd.q,landscape_rev.G_0)
+    plt.show()
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
-                               atol=20*kT,rtol=0)
+                               atol=3*kT,rtol=1e-1)
 
     
 def TestForwardBackward():
@@ -600,9 +603,9 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
+    #TestWeighting()
     TestForwardBackward()
-    TestHummer2010()
+    #TestHummer2010()
 
 
 

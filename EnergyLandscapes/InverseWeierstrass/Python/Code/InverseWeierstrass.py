@@ -199,7 +199,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     # the argment should be consierably less than the max
-    tol = np.log(np.finfo(np.float64).max) - 100
+    tol = np.log(np.finfo(np.float64).max) - 75
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
@@ -494,7 +494,7 @@ def _merge(x1,x2):
     # need to have at least one input...
     assert len_1 + len_2 > 0
     if (len_1 * len_2 > 0):
-        return np.mean([x1,x2],axis=0)
+        return np.sum([x1,x2],axis=0)
     elif (len_1 > 0):
         return x1
     else:
