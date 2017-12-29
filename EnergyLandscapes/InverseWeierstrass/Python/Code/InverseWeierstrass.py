@@ -436,7 +436,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # POST: j runs over z ('number of bins', except no binning)
     # subtract the mean work
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
-    offset = 0
+    offset = np.mean(works)
     works -= offset
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
@@ -534,7 +534,8 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
         merge(unfold_weighted.f_variance,refold_weighted.f_variance)
     assert weighted_force.size == key.Time.size , "Programming error"
     # all z values should be the same, so just use the key 
-    z = np.sort(key.ZFunc(key))
+    z = key.ZFunc(key)
+    sort_z_idx = np.argsort(z)
     # due to numerical stability problems, may need to exclude some points
     landscape_ge_0 = (weighted_variance > 0)
     n_ge_0 = sum(landscape_ge_0)
@@ -548,7 +549,7 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     where_ok = np.where(landscape_ge_0)[0]
     assert where_ok.size > 0 , "Landscape was zero *everywhere*"
     # POST: landscape is fine everywhere
-    sanit = lambda x: x[where_ok]
+    sanit = lambda x: x[sort_z_idx][where_ok]
     weighted_force = sanit(weighted_force)
     weighted_partition = sanit(weighted_partition)
     weighted_variance = sanit(weighted_variance)
