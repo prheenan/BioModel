@@ -88,22 +88,18 @@ def TestBidirectionalEnsemble():
     # POST: correct DeltaA to within tolerance.
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
+    landscape_rev = f(refolding=rev_objs)
+    landscape_both = f(fwd_objs,rev_objs)
     landscape_fwd = f(fwd_objs)
-    #landscape_rev = f(refolding=rev_objs)
     # # check that the work definitions are about right, based on equation 7
     # of minh and adib, 2008
     kT = 4.1e-21
     Beta = 1/kT
     dA = delta_A_calc
-    landscape_rev = f(rev_objs)
-    landscape_both = f(fwd_objs,rev_objs)
-    # add in delta_A to the reverse; should be ~equal to the forward at that 
+    # add in delta_A to the reverse; should be ~equal to the forward at that
     # point
     for i,l_tmp in enumerate([landscape_fwd,landscape_both,landscape_rev]):
         check_derivatives(l_tmp)
-    plt.plot(landscape_fwd.q,landscape_fwd.G_0)
-    plt.plot(landscape_rev.q,landscape_rev.G_0)
-    plt.show()
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
                                atol=3*kT,rtol=1e-1)
 
@@ -128,9 +124,6 @@ def check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half):
     # for some reason, they offset the energies?... Figure 3A
     energy_offset_kT = 20
     num_bins = landscape.G_0.size
-    plt.plot(landscape.q,landscape.G_0)
-    plt.plot(landscape_both.q,landscape_both.G_0)
-    plt.show()
     landscape_both_kT = (landscape_both.G_0-min(landscape_both.G_0))/kT + \
                         energy_offset_kT
     q_both_rel = landscape_both.q - min(landscape_both.q)
@@ -512,20 +505,13 @@ def check_derivatives(landscape):
     A_z_ddot = landscape.A_z_ddot
     z = landscape.z
     spline_A_z,A_dot_spline_z,A_ddot_spline_z = spline_derivatives(landscape)
-    plt.subplot(2,1,1)
-    plt.plot(A_z)
-    plt.subplot(2,1,2)
-    plt.plot(A_z_weighted)
-    plt.plot(A_dot_spline_z)
-    plt.show()
-
     # the second derivative has higher error...
     relative_loss_1 = _relative_loss(A_dot_spline_z,A_z_weighted)
     relative_loss_2 = _relative_loss(A_ddot_spline_z,A_z_ddot)
     print(relative_loss_1,relative_loss_2)
-    #assert relative_loss_1 < 0.045 , "First derivative loss is too high"
+    assert relative_loss_1 < 0.045 , "First derivative loss is too high"
     # second derivative losses are somewhat higher...
-    #assert relative_loss_2 < 0.28 , "Second derivative loss is too high"
+    assert relative_loss_2 < 0.28 , "Second derivative loss is too high"
 
 def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
     for i_tmp,l in enumerate([fwd,rev,both]):
@@ -614,7 +600,7 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    TestWeighting()
+    #TestWeighting()
     TestForwardBackward()
     #TestHummer2010()
 

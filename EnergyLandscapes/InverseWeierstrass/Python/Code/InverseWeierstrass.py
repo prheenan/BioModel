@@ -199,7 +199,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     # the argment should be consierably less than the max
-    tol = np.log(np.finfo(np.float64).max) - 75
+    tol = np.log(np.finfo(np.float64).max) - 120
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
@@ -230,10 +230,10 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     #
     # diagram of how this works (number line, axis is extension):
     #
-    # |         |           |                   |           |
-    # 0         z0          z                  z1-(z-z0)    z1
+    # |               |               |               |
+    # 0=z0            z           z1-(z)              z1
     #
-    #           _For._work_> <________________Reverse Work___
+    #  ___For._work_> <____Reverse Work________________
     #
     # The work  argument(W) starts from z1 (the 'zero point' or 'zero time'
     #  of the reverse) and works its way backwards. We want 'reverse work' in
@@ -241,12 +241,12 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # # but the input W is getting the part from z1 to (z1-(z-z0))
     # Strictly, W is defined as:
     #
-    # W(z1,z1-(z-z0)) = integral from z1 to z1 - (z-z0) of F_z * dz
+    # W(z1,z1-z) = integral from z1 to z1 - z of F_z * dz
     #
-    # if z -> ((z1-z0) - z) (equivalent to flipping the array, see definition
+    # if z -> (z1 - z) (equivalent to flipping the array, see definition
     # of gamma-hat in adib, 2008 near eq 2), then (denoting the flip by W')
     #
-    # z1 - (z-z0) -> z1 - ((z1-z0) - (z-z0)) = z
+    # z1 - z -> z1 - (z1 - z) = z
     #
     # and
     #
@@ -436,7 +436,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # POST: j runs over z ('number of bins', except no binning)
     # subtract the mean work
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
-    offset = np.mean(works)
+    offset = 0
     works -= offset
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
@@ -549,11 +549,13 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     where_ok = np.where(landscape_ge_0)[0]
     assert where_ok.size > 0 , "Landscape was zero *everywhere*"
     # POST: landscape is fine everywhere
-    sanit = lambda x: x[sort_z_idx][where_ok]
+    sanit = lambda x: x[where_ok]
     weighted_force = sanit(weighted_force)
     weighted_partition = sanit(weighted_partition)
     weighted_variance = sanit(weighted_variance)
     z = sanit(z)
+    if (n_f == 0):
+        z = z[::-1]
     # POST: everything is 'sanitized'
     beta = key.Beta
     k = key.SpringConstant
