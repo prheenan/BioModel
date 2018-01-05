@@ -275,7 +275,7 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     W = np.abs(W)
     Wn = np.abs(Wn)
     numer = (flip(v) * nr * Exp(beta * (flip(W))))
-    denom = (nf + nr * Exp(beta * (Wn)))
+    denom = (nf + nr * Exp(beta * (Wn+delta_A)))
     return flip(numer / denom)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
