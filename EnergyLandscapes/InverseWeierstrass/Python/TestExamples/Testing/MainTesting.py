@@ -101,7 +101,7 @@ def TestBidirectionalEnsemble():
     dA = delta_A_calc
     # add in delta_A to the reverse; should be ~equal to the forward at that
     # point
-    for i,l_tmp in enumerate([landscape_fwd,landscape_both,landscape_rev]):
+    for i,l_tmp in enumerate([landscape_fwd,landscape_rev,landscape_both]):
         check_derivatives(l_tmp)
     np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
                                atol=3*kT,rtol=1e-1)

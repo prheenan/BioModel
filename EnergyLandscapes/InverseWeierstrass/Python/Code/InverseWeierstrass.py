@@ -270,8 +270,12 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # (2) Wn is just the entire integral, so we dont have to flip it...
     flip = lambda x: x
     # Minh-adib factors out the minus signs, so we just take the absolute value
-    numer = (flip(v) * nr * Exp(-beta * (flip(W) + delta_A)))
-    denom = (nf + nr * Exp(-beta * (Wn + delta_A)))
+    assert (Wn <= 0).all()
+    assert (W <= 0).all()
+    W = np.abs(W)
+    Wn = np.abs(Wn)
+    numer = (flip(v) * nr * Exp(beta * (flip(W))))
+    denom = (nf + nr * Exp(beta * (Wn)))
     return flip(numer / denom)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
@@ -424,7 +428,6 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         return to_ret
     # POST: have at least one thing to do...
     array_kw = dict(dtype=np.float64)
-
     works = np.array([u.Work for u in objs],**array_kw)
     force = np.array([u.Force for u in objs],**array_kw)
     force_sq = np.array([u.Force**2 for u in objs],**array_kw)
@@ -518,15 +521,11 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     refold_weighted = get_work_weighted_object(refolding,
                                                value_func=ReverseWeighted,
                                                **kw)
-    # Justification for *averaging* forward and reverse. 
-    # (1) Hummer, 2010, equation 1 gives A(z) = -beta * ln(<exp(-beta*W>))
-    # (2) ibid, equaiton 19 for unfolding and refolding gives the same in
-    # terms of just adding folding and refolding, not averaging
     merge = _merge
-    weighted_force     = \
-        merge(unfold_weighted.f,refold_weighted.f)
     weighted_partition = \
         merge(unfold_weighted.partition,refold_weighted.partition)
+    weighted_force     = \
+        merge(unfold_weighted.f,refold_weighted.f)
     weighted_variance  = \
         merge(unfold_weighted.f_variance,refold_weighted.f_variance)
     assert weighted_force.size == key.Time.size , "Programming error"
