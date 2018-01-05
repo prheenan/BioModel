@@ -268,7 +268,7 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # What we care about (Force, Force^2) has the same sign under time inversion
     #
     # (2) Wn is just the entire integral, so we dont have to flip it...
-    flip = lambda x: x
+    flip = lambda x: np.flip(x,-1)
     # Minh-adib factors out the minus signs, so we just take the absolute value
     assert (Wn <= 0).all()
     assert (W <= 0).all()
