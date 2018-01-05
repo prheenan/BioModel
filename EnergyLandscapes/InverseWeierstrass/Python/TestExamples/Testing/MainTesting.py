@@ -88,8 +88,8 @@ def TestBidirectionalEnsemble():
     # POST: correct DeltaA to within tolerance.
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
-    landscape_rev = f(refolding=rev_objs)
     landscape_both = f(fwd_objs,rev_objs)
+    landscape_rev = f(refolding=rev_objs)
     landscape_fwd = f(fwd_objs)
     # # check that the work definitions are about right, based on equation 7
     # of minh and adib, 2008

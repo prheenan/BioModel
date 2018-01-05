@@ -268,10 +268,13 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # What we care about (Force, Force^2) has the same sign under time inversion
     #
     # (2) Wn is just the entire integral, so we dont have to flip it...
-    flip = lambda x: x
-    numer = (flip(v)*nr*Exp(-beta*(flip(W) + delta_A)))
-    denom = (nf + nr*Exp(-beta*(Wn +delta_A)))
-    return flip(numer/denom)
+    flip = lambda x: np.flip(x,-1)
+    # Minh-adib factors out the minus signs, so we just take the absolute value
+    W = np.abs(W)
+    Wn = np.abs(W)
+    numer = (flip(v)*nr*Exp(beta*(flip(W))))
+    denom = (nf + nr*Exp(beta*(Wn +delta_A)))
+    return numer/denom
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -434,10 +437,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         format(works.shape,shape_expected)
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
-    # subtract the mean work
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
-    offset = 0
-    works -= offset
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
     delta_A -= offset
     key = objs[0]
@@ -561,8 +561,7 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     A_z_dot = weighted_force
     one_minus_A_z_ddot_over_k = beta * weighted_variance/k
     q = z - A_z_dot/k
-    sort_idx = np.argsort(q)
-    f_sort = lambda x: x[sort_idx].copy()
+    f_sort = lambda x: x.copy()
     to_ret = \
         Landscape(q=f_sort(q),kT=1/beta,k=k,z=f_sort(z),
                   free_energy_A=f_sort(A_z),
