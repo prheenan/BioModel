@@ -268,10 +268,10 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # What we care about (Force, Force^2) has the same sign under time inversion
     #
     # (2) Wn is just the entire integral, so we dont have to flip it...
-    flip = lambda x: np.flip(x,-1)
+    flip = lambda x: x
     numer = (flip(v)*nr*Exp(-beta*(flip(W) + delta_A)))
     denom = (nf + nr*Exp(-beta*(Wn +delta_A)))
-    return numer/denom
+    return flip(numer/denom)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -554,8 +554,6 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     weighted_partition = sanit(weighted_partition)
     weighted_variance = sanit(weighted_variance)
     z = sanit(z)
-    if (n_f == 0):
-        z = z[::-1]
     # POST: everything is 'sanitized'
     beta = key.Beta
     k = key.SpringConstant
