@@ -268,13 +268,11 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # What we care about (Force, Force^2) has the same sign under time inversion
     #
     # (2) Wn is just the entire integral, so we dont have to flip it...
-    flip = lambda x: np.flip(x,-1)
+    flip = lambda x: x
     # Minh-adib factors out the minus signs, so we just take the absolute value
-    W = np.abs(W)
-    Wn = np.abs(W)
-    numer = (flip(v)*nr*Exp(beta*(flip(W))))
-    denom = (nf + nr*Exp(beta*(Wn +delta_A)))
-    return numer/denom
+    numer = (flip(v) * nr * Exp(-beta * (flip(W) + delta_A)))
+    denom = (nf + nr * Exp(-beta * (Wn + delta_A)))
+    return flip(numer / denom)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
@@ -439,7 +437,6 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
     # POST: j runs over z ('number of bins', except no binning)
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
-    delta_A -= offset
     key = objs[0]
     beta = key.Beta
     k = key.SpringConstant
@@ -454,7 +451,7 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         _work_weighted_value(values=force,**weighted_kw)/partition
     weighted_force_sq = \
         _work_weighted_value(values=force_sq,**weighted_kw)/partition
-    to_ret = _WorkWeighted(objs,offset)
+    to_ret = _WorkWeighted(objs,0)
     to_ret.set_variables(partition=partition,
                          f_work_weighted=weighted_force,
                          f_squared_work_weighted=weighted_force_sq)
