@@ -268,15 +268,16 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # What we care about (Force, Force^2) has the same sign under time inversion
     #
     # (2) Wn is just the entire integral, so we dont have to flip it...
-    flip = lambda x: np.flip(x,-1)
+    flip = lambda x: x
     # Minh-adib factors out the minus signs, so we just take the absolute value
     assert (Wn <= 0).all()
     assert (W <= 0).all()
-    W = np.abs(W)
-    Wn = np.abs(Wn)
+    sanit = lambda y: np.abs(y)
+    W = sanit(W)
+    Wn = sanit(Wn)
     numer = (flip(v) * nr * Exp(beta * (flip(W))))
     denom = (nf + nr * Exp(beta * (Wn+delta_A)))
-    return flip(numer / denom)
+    return np.flip(numer / denom,-1)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
     """
