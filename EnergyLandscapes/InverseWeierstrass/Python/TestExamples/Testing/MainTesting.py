@@ -445,7 +445,7 @@ def _check_command_line(f,state_fwd,state_rev,single,landscape_both,
         check_iwt_obj(rev,rev_orig,**tolerance_kwargs)
     # make the sure 'rob-style' stuff works OK
     k = single.SpringConstant
-    del single.__dict__["SpringConstant"];
+    del single.__dict__["SpringConstant"]
     single.K = k
     unfold_rob,refold_rob = \
             WeierstrassUtil.get_unfold_and_refold_objects(single,
@@ -485,7 +485,7 @@ def _check_filtering(landscape_both,max_loss_fraction=[2e-2,2e-2,0.3]):
         assert loss <= max_loss 
     
 
-def spline_derivatives(landscape,n_bins=60):
+def spline_derivatives(landscape,n_bins=100):
     z = landscape.z
     A_z = landscape.A_z
     sort_idx = np.argsort(z)

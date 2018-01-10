@@ -25,6 +25,11 @@ class _WorkWeighted(object):
         self.partition = partition.astype(dtype)
         self.f = f_work_weighted.astype(dtype)
         self.f_squared = f_squared_work_weighted.astype(dtype)
+    def _renormalize(self,new_partition):
+        factor =  self.partition/new_partition
+        self.f *= factor
+        self.f_squared *= factor
+        self.partition = new_partition
     @property
     def f_variance(self):
         return self.f_squared - self.f**2
@@ -525,6 +530,10 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     merge = _merge
     weighted_partition = \
         merge(unfold_weighted.partition,refold_weighted.partition)
+    # renormalize to the partition function, in case we have refolding
+    unfold_weighted._renormalize(weighted_partition)
+    refold_weighted._renormalize(weighted_partition)
+    # get the (normalized) forces
     weighted_force     = \
         merge(unfold_weighted.f,refold_weighted.f)
     weighted_variance  = \
