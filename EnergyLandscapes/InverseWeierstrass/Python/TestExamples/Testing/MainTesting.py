@@ -34,9 +34,11 @@ def TestWeighting():
     np.testing.assert_allclose(1,Fwd(**fwd_is_one))
     np.testing.assert_allclose(0,Fwd(**fwd_is_zero))
     # test one and zero conditions for revese
-    rev_is_one = dict(nr=1,v=np.array([1]),Wn=0,W=np.array([0]),beta=beta,delta_A=0,nf=0,
-                      **common)
-    rev_is_zero = dict(nr=1,v=np.array([0]),Wn=0,W=np.array([0]),beta=beta,
+    zero_arr = np.array([0])
+    one_arr = np.array([1])
+    rev_is_one = dict(nr=1,v=one_arr,Wn=zero_arr,W=zero_arr,beta=beta,
+                      delta_A=0,nf=0,**common)
+    rev_is_zero = dict(nr=1,v=np.array([0]),Wn=zero_arr,W=zero_arr,beta=beta,
                        delta_A=0,nf=0,**common)
     np.testing.assert_allclose(1,Rev(**rev_is_one))
     np.testing.assert_allclose(0,Rev(**rev_is_zero))
@@ -47,17 +49,17 @@ def TestWeighting():
                                Fwd(v=1,nf=1,nr=1,Wn=0,W=1,beta=beta,delta_A=0,
                                    **common))
     np.testing.assert_allclose(np.exp(1)/2,
-                               Rev(v=np.array([1]),nf=1,nr=1,Wn=0,
-                                   W=np.array([-1]),beta=beta,delta_A=0,
+                               Rev(v=one_arr,nf=1,nr=1,Wn=zero_arr,
+                                   W=-1 * one_arr,beta=beta,delta_A=0,
                                    **common))
     # POST: no delta A works, check with DeltaA
     np.testing.assert_allclose(2*np.exp(-1)/(2+3*np.exp(-2)),
-                               Fwd(v=np.array([1]),nf=2,nr=3,Wn=1,
-                                   W=np.array([1]),beta=beta,delta_A=-1,
+                               Fwd(v=one_arr,nf=2,nr=3,Wn=one_arr,
+                                   W=one_arr,beta=beta,delta_A=-1,
                                    **common))
     # Reverse weighting is *wrong* in Hummer, 2010.
     # Minh and Adib, 2008, eq 5 and 7 are correct
-    rev = Rev(v=np.array([1]),nf=3,nr=2,Wn=-3,W=np.array([-2]),
+    rev = Rev(v=one_arr,nf=3,nr=2,Wn=np.array([-3]),W=np.array([-2]),
               beta=beta,delta_A=1,**common)
     np.testing.assert_allclose(2*np.exp(1)/(3+2*np.exp(2)),rev)
     # POST: also works with DeltaA... pretty convincing imo
@@ -101,10 +103,14 @@ def TestBidirectionalEnsemble():
     dA = delta_A_calc
     # add in delta_A to the reverse; should be ~equal to the forward at that
     # point
-    for i,l_tmp in enumerate([landscape_fwd,landscape_rev,landscape_both]):
+    total_landscape_mean = \
+        np.mean([landscape_fwd.G_0,landscape_rev.G_0,landscape_both.G_0],axis=0)
+    max_loss = 0.1 * sum(np.abs(total_landscape_mean))
+    for i,l_tmp in enumerate([landscape_both,landscape_fwd,landscape_rev]):
         check_derivatives(l_tmp)
-    np.testing.assert_allclose(landscape_fwd.G_0,landscape_rev.G_0,
-                               atol=3*kT,rtol=1e-1)
+        diff = l_tmp.G_0-total_landscape_mean
+        loss_rel = sum(np.abs(diff))
+        assert loss_rel < max_loss
 
     
 def TestForwardBackward():
@@ -603,7 +609,7 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
+    TestWeighting()
     TestForwardBackward()
     #TestHummer2010()
 
