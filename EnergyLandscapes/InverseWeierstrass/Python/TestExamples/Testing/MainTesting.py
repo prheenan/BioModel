@@ -93,9 +93,6 @@ def TestBidirectionalEnsemble():
     landscape_both = f(fwd_objs,rev_objs)
     landscape_rev = f(refolding=rev_objs)
     landscape_fwd = f(fwd_objs)
-    for l in [landscape_fwd,landscape_rev,landscape_both]:
-        plt.plot(l.q,l.G_0/4.1e-21)
-    plt.show()
     # # check that the work definitions are about right, based on equation 7
     # of minh and adib, 2008
     kT = 4.1e-21
