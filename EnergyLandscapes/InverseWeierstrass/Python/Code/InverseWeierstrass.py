@@ -272,11 +272,11 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     # Minh-adib factors out the minus signs, so we just take the absolute value
     assert (Wn <= 0).all()
     assert (W <= 0).all()
-    sanit = lambda y: np.abs(y)
+    sanit = lambda y: y
     W = sanit(W)
     Wn = sanit(Wn)
-    numer = (flip(v) * nr * Exp(beta * (flip(W))))
-    denom = (nf + nr * Exp(beta * (Wn+delta_A)))
+    numer = (flip(v) * nr * Exp(-beta * (flip(W)+delta_A)))
+    denom = (nf + nr * Exp(-beta * (Wn+delta_A)))
     return np.flip(numer / denom,-1)
 
 def DistanceToRoot(DeltaA,Beta,ForwardWork,ReverseWork):
@@ -530,9 +530,8 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     weighted_variance  = \
         merge(unfold_weighted.f_variance,refold_weighted.f_variance)
     assert weighted_force.size == key.Time.size , "Programming error"
-    # all z values should be the same, so just use the key 
-    z = key.ZFunc(key)
-    sort_z_idx = np.argsort(z)
+    # z is referenced to the forward direction.
+    z = np.sort(key.ZFunc(key))
     # due to numerical stability problems, may need to exclude some points
     landscape_ge_0 = (weighted_variance > 0)
     n_ge_0 = sum(landscape_ge_0)
