@@ -15,6 +15,7 @@ from GeneralUtil.python import CheckpointUtilities,GenUtilities,PlotUtilities
 from scipy.interpolate import interp1d,LSQUnivariateSpline
 from Util import Test
 from Util.Test import _f_assert,HummerData,load_simulated_data
+import scipy
 
 def TestWeighting():
     """
@@ -523,7 +524,6 @@ def check_derivatives(landscape):
     # the second derivative has higher error...
     relative_loss_1 = _relative_loss(A_dot_spline_z,A_z_weighted)
     relative_loss_2 = _relative_loss(A_ddot_spline_z,A_z_ddot)
-    print(relative_loss_1,relative_loss_2)
     assert relative_loss_1 < 0.045 , "First derivative loss is too high"
     # second derivative losses are somewhat higher...
     assert relative_loss_2 < 0.28 , "Second derivative loss is too high"
@@ -581,7 +581,30 @@ def TestHummer2010():
                    landscape_rev_only=landscape_rev,
                    kT=kT,f_one_half=14e-12)
     PlotUtilities.savefig(fig,"./out.png")
-    # POST: height should be quite close to Figure 3
+    # make sure the landscape matches what we expect from figure 3a
+    data = np.loadtxt("./Data/energy.csv", delimiter=",")
+    expected_q_nm, expected_landscape_kT = data[:, 0], data[:, 1]
+    landscape_rel = landscape_both.G_0 / 4.1e-21
+    landscape_rel -= min(landscape_rel)
+    measured_q_nm = landscape_both.q * 1e9
+    assert min(measured_q_nm) >= min(expected_q_nm)
+    assert max(measured_q_nm) <= max(expected_q_nm)
+    # get the interpolated, expected landscape
+    interp = scipy.interpolate.interp1d(x=expected_q_nm,
+                                        y=expected_landscape_kT,
+                                        kind='cubic')
+    interp_at_measured_q = interp(x=measured_q_nm)
+    # zero it out; don't care about energy offset
+    interp_at_measured_q -= min(interp_at_measured_q)
+    # make sure the landscapes are generally very close, over the landscape
+    acceptable_loss_fraction = 1.5e-2
+    max_loss = acceptable_loss_fraction * sum(interp_at_measured_q)
+    loss = sum(np.abs(interp_at_measured_q - landscape_rel))
+    assert loss < max_loss
+    # make sure the landscape is prety close everywhere, at all q
+    np.testing.assert_allclose(interp_at_measured_q, landscape_rel,
+                               atol=1, rtol=acceptable_loss_fraction)
+    # POST: height should be quite close to Figure 3b
     check_hummer_by_ensemble(kT,landscape,landscape_both,f_one_half=f_one_half)
     # POST: ensemble works well.
     # combine all the forward and reverse states
@@ -615,8 +638,8 @@ def run():
     """
     np.seterr(all='raise')
     np.random.seed(42)
-    #TestWeighting()
-    #TestForwardBackward()
+    TestWeighting()
+    TestForwardBackward()
     TestHummer2010()
 
 
