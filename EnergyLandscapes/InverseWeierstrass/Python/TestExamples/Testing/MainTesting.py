@@ -344,7 +344,7 @@ def _check_negative_controls(landscape_both,single,single_rev,**kwargs):
     # check that if we only flip one, things are also bad 
     cmd_line_incorrect = lambda: WeierstrassUtil.\
                          iwt_ramping_experiment(single_rev,
-                                                v=single.Velocity*1.5,
+                                                v=single.Velocity/1.5,
                                                 **kwargs)    
     _assert_negative(landscape_both,cmd_line_incorrect)
     del kwargs['kT']

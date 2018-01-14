@@ -230,7 +230,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     # the argment should be consierably less than the max
-    tol = np.log(np.finfo(np.float64).max) - 75
+    tol = np.log(np.finfo(np.float64).max) - 120
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
@@ -413,7 +413,7 @@ def _work_weighted_value(values,value_func,**kw):
     mean_arg = value_func(v=values,**kw)
     return np.mean(mean_arg,axis=0)
 
-def get_work_weighted_object(objs,delta_A=0,**kw):
+def get_work_weighted_object(objs,delta_A=0,offset=0,**kw):
     """
     Gets all the information necessary to reconstruct 
     
@@ -443,8 +443,11 @@ def get_work_weighted_object(objs,delta_A=0,**kw):
         format(works.shape,shape_expected)
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
-    Wn_raw = np.array([w[-1] for w in works],**array_kw)
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
+
+    works -= offset
+    delta_A -= offset
+    Wn_raw = np.array([w[-1] for w in works],**array_kw)
     key = objs[0]
     beta = key.Beta
     k = key.SpringConstant
@@ -504,6 +507,15 @@ def _merge(x1,x2):
         return x1
     else:
         return x2
+
+def get_offsets(delta_A):
+    """
+    :param delta_A: the energy difference between forward and reverse
+    :return: tuple of <fwd offset,reverse offset>
+    """
+    offset_fwd = -1 * (delta_A/2)
+    offset_rev = -1 * offset_fwd
+    return offset_fwd,offset_rev
         
 
 def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
@@ -520,10 +532,11 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     key = unfolding[0] if n_f > 0 else refolding[0]
     delta_A = NumericallyGetDeltaA(unfolding,refolding)
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
-    unfold_weighted = get_work_weighted_object(unfolding,
+    fwd_offset,rev_offset = get_offsets(delta_A)
+    unfold_weighted = get_work_weighted_object(unfolding,offset=fwd_offset,
                                                value_func=ForwardWeighted,
                                                **kw)
-    refold_weighted = get_work_weighted_object(refolding,
+    refold_weighted = get_work_weighted_object(refolding,offset=rev_offset,
                                                value_func=ReverseWeighted,
                                                **kw)
     merge = _merge
