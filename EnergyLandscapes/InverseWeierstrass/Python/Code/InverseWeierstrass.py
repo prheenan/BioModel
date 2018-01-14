@@ -27,6 +27,16 @@ class _WorkWeighted(object):
         self.f = f_work_weighted.astype(dtype)
         self.f_squared = f_squared_work_weighted.astype(dtype)
     def _renormalize(self,new_partition):
+        """
+        re-normalizing <<f>> and <<f^2>> with a new partition function.
+        Useful for separately calculating forward and reverse weighted
+        trajectories (e.g. Hummer 2010, e.g. 19), then combining forward
+        and reverse (as in ibid, first few sentences of 21443)
+
+
+        :param new_partition: the new partition function, <exp(-B * W(z)>
+        :return: Nothing, updates the function's state.
+        """
         factor =  self.partition/new_partition
         self.f *= factor
         self.f_squared *= factor
@@ -52,6 +62,15 @@ def second_deriv_term(one_minus_A_z_ddot_over_k,beta):
 class Landscape(object):
     def __init__(self,q,kT,k,z,
                  free_energy_A,A_z_dot,one_minus_A_z_ddot_over_k):
+        """
+        :param q: the extension, length N. everything is sorted by this
+        :param kT: boltzmann energy, units of J
+        :param k: stiffness, units of N/m
+        :param z: z, length N.
+        :param free_energy_A: from Jarzynski (e.g. hummer, 2010, eq 1), length N
+        :param A_z_dot: See hummer 2010, eqs 11-12. length N
+        :param one_minus_A_z_ddot_over_k: ibid, length N
+        """
         self.k = k
         self.q = q
         self.A_z = free_energy_A
@@ -87,6 +106,10 @@ class Landscape(object):
         return second_deriv_term(**kw)
     @property
     def A_z_ddot(self):
+        """
+        :return: Second derivative of the system free energy, as defined in
+        Hummer 2010, equation 12
+        """
         A_z_ddot_over_k = 1 - self.one_minus_A_z_ddot_over_k
         A_z_ddot = A_z_ddot_over_k * self.k
         return A_z_ddot
@@ -207,7 +230,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     # the argment should be consierably less than the max
-    tol = np.log(np.finfo(np.float64).max) - 120
+    tol = np.log(np.finfo(np.float64).max) - 75
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
@@ -238,44 +261,23 @@ def ReverseWeighted(nf,nr,v,W,Wn,delta_A,beta):
     #
     # diagram of how this works (number line, axis is extension):
     #
-    # |               |               |               |
-    # 0=z0            z           z1-(z)              z1
+    # |               |                  |               |
+    # 0=z0            z                 z1-(z)              z1
     #
-    #  ___For._work_> <____Reverse Work________________
+    #  ___For._work_>                  <____Reverse Work__
     #
-    # The work  argument(W) starts from z1 (the 'zero point' or 'zero time'
-    #  of the reverse) and works its way backwards. We want 'reverse work' in
-    # the graph above (note the arrows!),
-    # # but the input W is getting the part from z1 to (z1-(z-z0))
-    # Strictly, W is defined as:
+    # I follow the notation of Hummer, 2010, near equation 19. There are
+    # a couple of typos:
     #
-    # W(z1,z1-z) = integral from z1 to z1 - z of F_z * dz
+    # (1) The notation is close to minh, 2008, which states that
+    # the reverse weighted integral (W_0^t[gamma-hat]) should run from z1-z to
+    #  z1 (note that Minh's notation uses tau=z1, t=t) along the forward
+    # trajectory, as shown above. In other words, the bounds for W_bar above
+    # eq 19 in Hummer 2010 should be from z1 to z1-z, instead of z1 to z
     #
-    # if z -> (z1 - z) (equivalent to flipping the array, see definition
-    # of gamma-hat in adib, 2008 near eq 2), then (denoting the flip by W')
-    #
-    # z1 - z -> z1 - (z1 - z) = z
-    #
-    # and
-    #
-    # W' = integral from z1 to z of F_z * dz
-    #
-    # So
-    #
-    # W_z_reverse = W' = (W flipped along the time axis)
-    #
-    # So  W' is W_bar in Hummer and Szabo, 2010, corrected for the indices typo
-    # (cf eq 19 of that paper , and eq 5 of Minh and Adib, 2008 -- the denom
-    # should be the same)
-    #
-    # < ... >_R =
-    #   < n_r * exp(-beta * W') / (n_f + n_r * exp(-beta * (Wn - DeltaA))) >
-    #
-    # Note that
-    # (1) if we have a value we want, we just reverse it and put it next to n_r.
-    # What we care about (Force, Force^2) has the same sign under time inversion
-    #
-    # (2) Wn is just the entire integral, so we dont have to flip it...
+    # (2) The reverse should be 'flipped' in averages, since (minh, 2008, after
+    #  eq 7) W_0^t[gamma-hat]=W_z1^(z1-z), which is the integral along the
+    # reverse path from 0 to t) is equal to - W_(z1-z)^z1 along the forward path
     sanit = lambda x: x
     numer = (sanit(v) * nr * Exp(-beta * (sanit(W)+delta_A)))
     denom = (nf + nr * Exp(-beta * (Wn+delta_A)))
