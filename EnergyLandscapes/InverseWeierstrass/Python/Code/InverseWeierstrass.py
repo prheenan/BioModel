@@ -533,8 +533,9 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     # get the (normalized) forces
     weighted_force     = \
         merge(unfold_weighted.f,refold_weighted.f)
-    weighted_variance  = \
-        merge(unfold_weighted.f_variance,refold_weighted.f_variance)
+    weighted_f_sq  = \
+        merge(unfold_weighted.f_squared,refold_weighted.f_squared)
+    weighted_variance = weighted_f_sq - (weighted_force**2)
     assert weighted_force.size == key.Time.size , "Programming error"
     # z is referenced to the forward direction.
     z = np.sort(key.ZFunc(key))

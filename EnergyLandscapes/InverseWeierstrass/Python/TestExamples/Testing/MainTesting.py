@@ -524,9 +524,9 @@ def check_derivatives(landscape):
     # the second derivative has higher error...
     relative_loss_1 = _relative_loss(A_dot_spline_z,A_z_weighted)
     relative_loss_2 = _relative_loss(A_ddot_spline_z,A_z_ddot)
-    assert relative_loss_1 < 0.045 , "First derivative loss is too high"
+    assert relative_loss_1 < 0.044 , "First derivative loss is too high"
     # second derivative losses are somewhat higher...
-    assert relative_loss_2 < 0.28 , "Second derivative loss is too high"
+    assert relative_loss_2 < 0.24 , "Second derivative loss is too high"
 
 def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
     for i_tmp,l in enumerate([fwd,rev,both]):
@@ -597,7 +597,7 @@ def TestHummer2010():
     # zero it out; don't care about energy offset
     interp_at_measured_q -= min(interp_at_measured_q)
     # make sure the landscapes are generally very close, over the landscape
-    acceptable_loss_fraction = 1.5e-2
+    acceptable_loss_fraction = 1.25e-2
     max_loss = acceptable_loss_fraction * sum(interp_at_measured_q)
     loss = sum(np.abs(interp_at_measured_q - landscape_rel))
     assert loss < max_loss
