@@ -110,7 +110,7 @@ def TestBidirectionalEnsemble():
         loss_rel = sum(np.abs(diff))
         assert loss_rel < max_loss
     # make sure the derivatives are OK. XXX why not both?
-    for i, l_tmp in enumerate([landscape_fwd, landscape_rev]):
+    for i, l_tmp in enumerate([landscape_both,landscape_fwd, landscape_rev]):
         check_derivatives(l_tmp)
 
 

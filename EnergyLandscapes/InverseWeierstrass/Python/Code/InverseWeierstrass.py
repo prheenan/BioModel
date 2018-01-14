@@ -20,6 +20,7 @@ class _WorkWeighted(object):
         self.partition = 0
         self.f = 0
         self.f_squared = 0
+        self._old_partition = None
     def set_variables(self,partition,f_work_weighted,f_squared_work_weighted):
         dtype = np.float64 
         self.partition = partition.astype(dtype)
@@ -29,6 +30,8 @@ class _WorkWeighted(object):
         factor =  self.partition/new_partition
         self.f *= factor
         self.f_squared *= factor
+        # save the old partition function
+        self._old_partition = self.partition
         self.partition = new_partition
     @property
     def f_variance(self):
