@@ -508,13 +508,26 @@ def _merge(x1,x2):
     else:
         return x2
 
-def get_offsets(delta_A):
+def get_offsets(o_fwd,o_rev,delta_A):
     """
+    :param o_fwd: list of (possibly empty) forward objects
+    :param o_rev: as o_fwd, but for reverse objects
     :param delta_A: the energy difference between forward and reverse
     :return: tuple of <fwd offset,reverse offset>
     """
-    offset_fwd = -1 * (delta_A/2)
-    offset_rev = -1 * offset_fwd
+    n_f,n_r = len(o_fwd),len(o_rev)
+    if (n_f == 0 or n_r == 0):
+        offset_fwd = -1 * (delta_A/2)
+        offset_rev = -1 * offset_fwd
+    else:
+        # both exist
+        w_f = np.array([u.Work for u in o_fwd])
+        w_r = np.array([u.Work for u in o_rev])
+        # get the per-z offsets
+        fwd_mean = (np.mean(w_f, axis=0))
+        rev_mean = (np.mean(w_r, axis=0))
+        offset_fwd = ((fwd_mean + (rev_mean[::-1] + delta_A)) / 2)
+        offset_rev = offset_fwd[::-1] - offset_fwd[-1]
     return offset_fwd,offset_rev
         
 
@@ -532,7 +545,7 @@ def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     key = unfolding[0] if n_f > 0 else refolding[0]
     delta_A = NumericallyGetDeltaA(unfolding,refolding)
     kw = dict(delta_A=delta_A,nr=n_r,nf=n_f)
-    fwd_offset,rev_offset = get_offsets(delta_A)
+    fwd_offset,rev_offset = get_offsets(unfolding,refolding,delta_A)
     unfold_weighted = get_work_weighted_object(unfolding,offset=fwd_offset,
                                                value_func=ForwardWeighted,
                                                **kw)
