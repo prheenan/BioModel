@@ -447,7 +447,6 @@ def get_work_weighted_object(objs,delta_A=0,offset=0,**kw):
     works -= offset
     delta_A -= offset
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
-    print(offset/4.1e-21,np.max(works)/4.1e-21,np.min(works)/4.1e-21)
     key = objs[0]
     beta = key.Beta
     k = key.SpringConstant
@@ -510,6 +509,8 @@ def _merge(x1,x2):
 
 def get_offsets(o_fwd,o_rev,delta_A):
     """
+    XXX currently debugging; returning all zeros.
+
     :param o_fwd: list of (possibly empty) forward objects
     :param o_rev: as o_fwd, but for reverse objects
     :param delta_A: the energy difference between forward and reverse
@@ -535,7 +536,8 @@ def get_offsets(o_fwd,o_rev,delta_A):
 
 def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):
     """
-    XXX DEBUGGING REPLACE
+    return free energy associated with the forward pulling direction,
+    as defined in Minh, 2008, and hummer, PNAS, 2010
 
     Args:
         <un/re>folding: list of unfolding and refolding objects to use
