@@ -87,7 +87,7 @@ def TestBidirectionalEnsemble():
     mean_rev = np.mean(rhs)
     diff = abs(mean_fwd-mean_rev)
     diff_rel = diff/np.mean([mean_fwd,mean_rev])
-    np.testing.assert_allclose(diff_rel,0,atol=0.402,rtol=0)
+    np.testing.assert_allclose(diff_rel,0,atol=0.200,rtol=0)
     # POST: correct DeltaA to within tolerance.
     # # check that the code works for forward and reverse directions
     f = InverseWeierstrass.free_energy_inverse_weierstrass
@@ -499,6 +499,11 @@ def _check_filtering(landscape_both,max_loss_fraction=[2e-2,2e-2,0.3]):
     
 
 def spline_derivatives(landscape,n_bins=100):
+    """
+    :param landscape: original landscape
+    :param n_bins: number of bins for fitting
+    :return: tuple of (spline fit to A_z, split fit to A_dot, fit to A_ddot
+    """
     z = landscape.z
     A_z = landscape.A_z
     sort_idx = np.argsort(z)
@@ -511,11 +516,21 @@ def spline_derivatives(landscape,n_bins=100):
     return spline_A_z,A_dot_spline_z,A_ddot_spline_z
 
 def _relative_loss(expected,measured):
+    """
+    :param expected: value
+    :param measured: value
+    :return: relative loss between expected and measured
+    """
     abs_loss = sum(abs(expected-measured))
     rel_loss = abs_loss/sum(abs(expected))
     return rel_loss
 
 def check_derivatives(landscape):
+    """
+
+    :param landscape: landscape to check
+    :return: nothing, throws an error if the derivative is messed up
+    """
     A_z = landscape.A_z
     A_z_weighted = landscape.A_z_dot
     A_z_ddot = landscape.A_z_ddot
@@ -527,24 +542,6 @@ def check_derivatives(landscape):
     assert relative_loss_1 < 0.044 , "First derivative loss is too high"
     # second derivative losses are somewhat higher...
     assert relative_loss_2 < 0.24 , "Second derivative loss is too high"
-
-def test_landscape_x_values(fwd,rev,both,state_fwd,state_rev):
-    for i_tmp,l in enumerate([fwd,rev,both]):
-        z_fwd = [o.ZFunc(o) for o in state_fwd]
-        q_fwd = [o.Separation for o in state_fwd]
-        for stat_fec,stat_landscape in zip([z_fwd,q_fwd],[l.z,l.q]):
-            mean_stat_fec = np.mean(stat_fec,axis=0)
-            std_stat_fec = np.std(stat_fec,axis=0)
-            plt.errorbar(x=range(mean_stat_fec.size),
-                         y=mean_stat_fec,yerr=std_stat_fec,color='r')
-            # make sure the mean is close
-            np.testing.assert_allclose(stat_landscape,
-                                       mean_stat_fec,atol=2e-9,rtol=0.1)
-        # make sur the landscape statistics is withing error of the mean
-        mean_q,std_q = np.mean(q_fwd,axis=0),np.std(q_fwd,axis=0)
-        assert (l.q >= mean_q - std_q).all()
-        assert (l.q <= mean_q + std_q).all()
-
 
 def TestHummer2010():
     """
