@@ -230,7 +230,7 @@ def SetAllWorkOfObjects(PullingObjects):
 
 def Exp(x):
     # the argment should be consierably less than the max
-    tol = np.log(np.finfo(np.float64).max) - 120
+    tol = np.log(np.finfo(np.float64).max) - 150
     to_ret = np.zeros(x.shape,dtype=np.float64)
     safe_idx = np.where((x < tol) & (x > -tol))
     inf_idx = np.where(x >= tol)
@@ -444,10 +444,10 @@ def get_work_weighted_object(objs,delta_A=0,offset=0,**kw):
     # POST: i runs over K ('number of objects')
     # POST: j runs over z ('number of bins', except no binning)
     delta_A = (np.ones(works.shape,**array_kw).T * delta_A).T
-
     works -= offset
     delta_A -= offset
     Wn_raw = np.array([w[-1] for w in works],**array_kw)
+    print(offset/4.1e-21,np.max(works)/4.1e-21,np.min(works)/4.1e-21)
     key = objs[0]
     beta = key.Beta
     k = key.SpringConstant
@@ -516,19 +516,21 @@ def get_offsets(o_fwd,o_rev,delta_A):
     :return: tuple of <fwd offset,reverse offset>
     """
     n_f,n_r = len(o_fwd),len(o_rev)
-    if (n_f == 0 or n_r == 0):
-        offset_fwd = -1 * (delta_A/2)
-        offset_rev = -1 * offset_fwd
+    if (n_r == 0):
+        # not use reverse; get from fwd
+        fwd_mean_work = np.mean([o.Work for o in o_fwd])
+        offset_fwd = fwd_mean_work
+        offset_rev = -offset_fwd
+    elif (n_f == 0):
+        # not using fwd; get from reverse
+        rev_mean_work = np.mean([o.Work for o in o_rev])
+        offset_rev = rev_mean_work
+        offset_fwd = - offset_rev
     else:
-        # both exist
-        w_f = np.array([u.Work for u in o_fwd])
-        w_r = np.array([u.Work for u in o_rev])
-        # get the per-z offsets
-        fwd_mean = (np.mean(w_f, axis=0))
-        rev_mean = (np.mean(w_r, axis=0))
-        offset_fwd = ((fwd_mean + (rev_mean[::-1] + delta_A)) / 2)
-        offset_rev = offset_fwd[::-1] - offset_fwd[-1]
-    return offset_fwd,offset_rev
+        # using both; get from delta_A
+        offset_fwd = 0
+        offset_rev = 0
+    return 0,0
         
 
 def free_energy_inverse_weierstrass(unfolding=[],refolding=[]):

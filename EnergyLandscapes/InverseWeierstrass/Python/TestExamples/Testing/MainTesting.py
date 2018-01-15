@@ -105,7 +105,7 @@ def TestBidirectionalEnsemble():
         np.mean([landscape_fwd.G_0,landscape_rev.G_0,landscape_both.G_0],axis=0)
     max_loss = 0.1 * sum(np.abs(total_landscape_mean))
     # make sure they are all close
-    for i,l_tmp in enumerate([landscape_both,landscape_fwd,landscape_rev]):
+    for i,l_tmp in enumerate([landscape_fwd,landscape_rev,landscape_both]):
         diff = l_tmp.G_0-total_landscape_mean
         loss_rel = sum(np.abs(diff))
         assert loss_rel < max_loss
